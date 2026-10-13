@@ -187,8 +187,9 @@ function updatePeds(dt, player) {
   for (const cw of crosswalks) {
     const e = cw.edge;
     cw.timer -= dt;
-    if (cw.timer <= 0 && cw.peds.length < 2) {
-      cw.timer = 6 + Math.random() * 10;
+    // הולכי רגל מגיעים בקבוצות ולא ברצף, כדי שהתנועה לא תיתקע לנצח במעבר רחב
+    if (cw.timer <= 0 && !cw.peds.some(pd => pd.state === 'cross')) {
+      cw.timer = 12 + Math.random() * 16;
       const side = Math.random() < 0.5 ? 1 : -1;
       cw.peds.push({
         side, s: side > 0 ? e.sMax + 1.3 : e.sMin - 1.3, jit: (Math.random() - 0.5) * 2.2,

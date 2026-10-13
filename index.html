@@ -12,7 +12,9 @@
 <body>
 <!--APP-->
 <div id="app">
+  <canvas id="view3d" aria-label="מבט מהרכב"></canvas>
   <canvas id="game" tabindex="0" aria-label="מגרש הנהיגה"></canvas>
+  <div id="mirror" class="mirror" hidden aria-label="מראה אחורית"></div>
 
   <header class="topbar">
     <div class="brand">
@@ -25,14 +27,23 @@
     <div id="scoreBox" class="score" title="ציון המבחן">
       <span class="label">ציון</span><span id="score">100</span>
     </div>
-    <nav class="tools" aria-label="הגדרות">
+    <nav class="tools" aria-label="תפריט">
+      <button id="btnCam" type="button">מבט: מכיסא הנהג</button>
+      <button id="btnBook" type="button">ספר חוקים</button>
+      <button id="btnQuiz" type="button">מבחן תיאוריה</button>
       <button id="btnMaps" type="button">מפות</button>
       <button id="btnPlugins" type="button">תוספים</button>
-      <button id="btnSteer" type="button">היגוי: אוטומטי</button>
-      <button id="btnInstr" type="button" aria-pressed="true">הוראות בוחן: פועל</button>
-      <button id="btnCam" type="button">מצלמה: מאחורי הרכב</button>
       <button id="btnLog" type="button">יומן עבירות (0)</button>
-      <button id="btnSound" type="button">צליל: פועל</button>
+      <details id="settings" class="settings">
+        <summary>הגדרות</summary>
+        <div class="menu">
+          <button id="btnSteer" type="button">היגוי: אוטומטי</button>
+          <button id="btnInstr" type="button" aria-pressed="true">הוראות בוחן: פועל</button>
+          <button id="btnVoice" type="button">קול בוחן: פועל</button>
+          <button id="btnSound" type="button">צלילים: פועל</button>
+          <button id="btnReset" type="button">חזרה לנקודת ההתחלה</button>
+        </div>
+      </details>
       <button id="btnHelp" type="button">עזרה</button>
       <button id="btnFinish" type="button" class="primary">סיום מבחן</button>
     </nav>
@@ -74,18 +85,21 @@
     </div>
   </div>
 
-  <div class="touch" aria-hidden="true">
-    <div class="pad steer">
-      <button data-hold="left" type="button">◀</button>
-      <button data-hold="right" type="button">▶</button>
-    </div>
-    <div class="pad sig">
-      <button id="tBlinkL" type="button">⇦ איתות</button>
-      <button id="tBlinkR" type="button">איתות ⇨</button>
+  <div class="controls" aria-label="לוח שליטה">
+    <div class="pad drive">
+      <button data-steer="-1" type="button" title="נתיב / פנייה שמאלה (←)">◀<small>נתיב</small></button>
+      <button data-steer="1" type="button" title="נתיב / פנייה ימינה (→)">▶<small>נתיב</small></button>
+      <button id="cBlinkL" type="button" class="sig" title="איתות שמאלה (Q)">⇦<small>איתות</small></button>
+      <button id="cBlinkOff" type="button" title="כיבוי איתות (X)">✕<small>כבה</small></button>
+      <button id="cBlinkR" type="button" class="sig" title="איתות ימינה (E)">⇨<small>איתות</small></button>
+      <button id="cParkL" type="button" title="חניה בצד שמאל (O)">P◀<small>חנה</small></button>
+      <button id="cParkR" type="button" title="חניה בצד ימין (P)">▶P<small>חנה</small></button>
+      <button id="cGear" type="button" title="הילוך D / R (R)">D/R<small>הילוך</small></button>
+      <button id="cHorn" type="button" title="צופר (רווח)">📯<small>צופר</small></button>
     </div>
     <div class="pad pedals">
-      <button data-hold="down" type="button" class="brake">בלם</button>
-      <button data-hold="up" type="button" class="gas">גז</button>
+      <button data-hold="down" type="button" class="brake" title="בלם (↓)">בלם</button>
+      <button data-hold="up" type="button" class="gas" title="גז (↑)">גז</button>
     </div>
   </div>
 
@@ -94,21 +108,20 @@
       <p class="eyebrow">תרגול לקראת טסט</p>
       <h2>סע לפי החוק, הבוחן רושם הכל</h2>
       <p class="lead">עיר קטנה עם רמזורים, כיכר, תמרורי "עצור", רחובות חד-סטריים, מעברי חציה ותנועה אמיתית. הבוחן ייתן לך הוראות, ותקבל ניקוד על כל עבירה.</p>
-      <p class="lead assist">הרכב מחזיק את הנתיב לבד. אתה שולט בגז ובבלם, והאיתות קובע לאן נוסעים: איתות בכביש עם כמה נתיבים מעביר נתיב, איתות לפני צומת בוחר פנייה (בלי איתות = ישר), ובכיכר הרכב מקיף עד שאתה מאותת ימינה ויוצא ביציאה הבאה.</p>
+      <p class="lead assist">הרכב מחזיק את הנתיב לבד, ואתה נוהג: גז ובלם, חיצים להחלפת נתיב ולבחירת פנייה, ואיתות בנפרד. הבוחן נותן הוראות בקול ובודק שאיתתת בזמן, שבחרת את הנתיב הנכון ושעצרת כשצריך. אפשר גם ללחוץ על הכפתורים בצד המסך בעכבר.</p>
       <div class="cols">
         <div>
           <h3>שליטה</h3>
           <dl class="keys">
-            <dt><kbd>↑</kbd> / <kbd>W</kbd></dt><dd>גז</dd>
-            <dt><kbd>↓</kbd> / <kbd>S</kbd></dt><dd>בלם</dd>
-            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>איתות שמאלה / ימינה (גם <kbd>Q</kbd> <kbd>E</kbd>)</dd>
+            <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>גז ובלם</dd>
+            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>החלפת נתיב. בנתיב הקיצוני: פנייה בצומת הבא. בכיכר: → יוצא ביציאה הבאה</dd>
+            <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>איתות שמאלה / ימינה (לחיצה נוספת מכבה), <kbd>X</kbd> מכבה</dd>
+            <dt><kbd>P</kbd> <kbd>O</kbd></dt><dd>חניה בצד ימין / שמאל. גז מתוך חניה = יציאה</dd>
+            <dt><kbd>R</kbd></dt><dd>הילוך אחורי / קדימה (בעצירה)</dd>
+            <dt><kbd>C</kbd></dt><dd>מבט: נהג, מאחורי הרכב, מלמעלה, מפה</dd>
+            <dt><kbd>רווח</kbd></dt><dd>צופר</dd>
             <dt><kbd>G</kbd></dt><dd>היגוי אוטומטי / ידני</dd>
-            <dt><kbd>C</kbd></dt><dd>החלפת מצלמה</dd>
-            <dt><kbd>R</kbd></dt><dd>חזרה לנקודת ההתחלה</dd>
-            <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>זום</dd>
-            <dt><kbd>P</kbd></dt><dd>השהיה</dd>
-            <dt>מפות</dt><dd>בחירת מפה או בניית מפה חדשה</dd>
-            <dt>תוספים</dt><dd>חוקים חדשים לבוחן</dd>
+            <dt><kbd>Esc</kbd></dt><dd>השהיה</dd>
           </dl>
         </div>
         <div>
@@ -187,6 +200,53 @@
     </div>
   </section>
 
+  <section id="book" class="modal" hidden>
+    <div class="card wide">
+      <p class="eyebrow">ספר החוקים של המורה</p>
+      <h2>חוקי התנועה שהבוחן בודק</h2>
+      <p class="fine">כל חוק מקושר לשאלות מהמאגר הרשמי של משרד התחבורה. לחץ על "שאלה" כדי לראות את השאלה והתשובה הרשמית. החיפוש מחפש גם בכל 1,273 השאלות.</p>
+      <div class="booktools">
+        <input id="bookSearch" type="search" placeholder="חפש: כיכר, חניה, עקיפה, 12 מטר..." aria-label="חיפוש בספר החוקים">
+        <span id="bookCount" class="fine"></span>
+      </div>
+      <div id="bookCats" class="chips"></div>
+      <div id="bookList" class="booklist"></div>
+      <div class="row"><button id="btnCloseBook" type="button">סגור</button></div>
+    </div>
+  </section>
+
+  <section id="quiz" class="modal" hidden>
+    <div class="card">
+      <p class="eyebrow">מבחן תיאוריה</p>
+      <div id="quizStart">
+        <h2>שאלות מהמאגר הרשמי</h2>
+        <p class="lead">1,273 שאלות לרישיון B (רכב פרטי) ממאגר השאלות של משרד התחבורה. מבחן כמו האמיתי: 30 שאלות, ועוברים עם 26 תשובות נכונות.</p>
+        <p id="quizBest" class="fine"></p>
+        <div class="row">
+          <button id="btnQuizExam" type="button" class="primary">מבחן מלא (30 שאלות)</button>
+          <button id="btnQuizAll" type="button">תרגול: 20 שאלות מכל הנושאים</button>
+        </div>
+        <h3 class="sec">תרגול לפי נושא</h3>
+        <div id="quizCats" class="row"></div>
+      </div>
+      <div id="quizRun" hidden>
+        <p id="quizProgress" class="fine"></p>
+        <h2 id="quizQ" class="qtitle"></h2>
+        <div id="quizImg"></div>
+        <div id="quizAnswers" class="answers"></div>
+        <p id="quizFeedback" class="feedback"></p>
+        <div class="row"><button id="quizNext" type="button" class="primary" hidden>לשאלה הבאה</button></div>
+        <p class="fine">אפשר לענות במקשים 1–4 ולהמשיך ב-Enter.</p>
+      </div>
+      <div id="quizEnd" hidden>
+        <div class="sumhead"><div id="quizScore" class="bigscore"></div><p id="quizVerdict" class="verdict"></p></div>
+        <div id="quizWrong" class="booklist"></div>
+        <div class="row"><button id="btnQuizAgain" type="button" class="primary">מבחן חדש</button></div>
+      </div>
+      <div class="row"><button id="btnCloseQuiz" type="button">סגור</button></div>
+    </div>
+  </section>
+
   <section id="summary" class="modal" hidden>
     <div class="card">
       <p class="eyebrow">סיכום המבחן</p>
@@ -206,6 +266,8 @@
   </section>
 </div>
 <!--/APP-->
+<script src="js/theory-data.js"></script>
+<script src="js/rulebook.js"></script>
 <script src="js/world.js"></script>
 <script src="js/maps.js"></script>
 <script src="js/prompt.js"></script>
@@ -215,6 +277,9 @@
 <script src="js/rules.js"></script>
 <script src="js/plugins.js"></script>
 <script src="js/render.js"></script>
+<script src="js/vendor/three.min.js"></script>
+<script src="js/render3d.js"></script>
 <script src="js/main.js"></script>
+<script src="js/learn.js"></script>
 </body>
 </html>

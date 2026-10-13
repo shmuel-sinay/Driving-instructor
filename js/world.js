@@ -150,12 +150,13 @@ function parkStripOf(e, dir, side) {
   const useF = side === 'right' ? dir > 0 : dir < 0;   // הרצועה בצד s>0 או s<0
   if (useF ? !e.pf : !e.pb) return null;
   const s = useF ? e.laneR + PW / 2 : -(e.laneL + PW / 2);
-  return { key: useF ? 'f' : 'b', s };
+  return { key: useF ? 'f' : 'b', s, dir: useF || e.oneway ? 1 : -1 };
 }
-// האם מותר לחנות בנקודה t ברצועה (ואם לא, למה)
-function parkingRule(e, t) {
+// האם מותר לחנות בנקודה t ברצועה (ואם לא, למה). dir = כיוון התנועה ליד הרצועה.
+// לפי החוק: אסור בתחום 12 מ' מצומת, ועל מעבר חציה ובתחום 12 מ' לפניו (אחריו מותר)
+function parkingRule(e, t, dir = 1) {
   if (t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION) return 'junction';
-  for (const cw of e.crosswalks) if (Math.abs(t - cw.t) < NO_PARK_CROSSWALK) return 'crosswalk';
+  for (const cw of e.crosswalks) { const ahead = (cw.t - t) * dir; if (ahead > -2.5 && ahead < NO_PARK_CROSSWALK) return 'crosswalk'; }
   for (const b of e.bumps) if (Math.abs(t - b) < 3) return 'bump';
   return null;
 }
@@ -167,7 +168,7 @@ function placeParkedCars(e) {
     const s = key === 'f' ? e.laneR + PW / 2 : -(e.laneL + PW / 2);
     const along = key === 'f' || e.oneway ? 1 : -1;   // כיוון החונים = כיוון התנועה שלידם
     for (let t = e.t0 + NO_PARK_JUNCTION + 4; t < e.t1 - NO_PARK_JUNCTION - 3; t += 6.5) {
-      if (parkingRule(e, t) || Math.random() > 0.5) continue;
+      if (parkingRule(e, t, along) || Math.random() > 0.5) continue;
       const p = edgePoint(e, t, s);
       e.parked.push({ edge: e, key, t, s, x: p.x, y: p.y, h: Math.atan2(e.d.y * along, e.d.x * along), len: 4.3, wid: 1.8, v: 0, isParked: true, color: colors[Math.floor(Math.random() * colors.length)] });
     }

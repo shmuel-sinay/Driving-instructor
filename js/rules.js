@@ -24,7 +24,7 @@ const Rules = {
     const pts = severe ? 15 : 5;
     this.score = Math.max(0, this.score - pts);
     if (severe) this.failed = true;
-    const item = { text, severe, pts, time };
+    const item = { key, text, severe, pts, time };
     this.log.unshift(item);
     if (this.onEvent) this.onEvent('bad', item);
   },
@@ -304,9 +304,10 @@ const Rules = {
   onParkStart(e, dir, side, t, time) {
     const sgn = side === 'right' ? 1 : -1;
     if (!this.wasOn(sgn, time - 6, time + 0.2)) this.report('parksig', `חניה ללא איתות ${side === 'right' ? 'ימינה' : 'שמאלה'}`, false, time, 4);
-    const rule = parkingRule(e, t);
+    const strip = parkStripOf(e, dir, side);
+    const rule = parkingRule(e, t, strip ? strip.dir : dir);
     if (rule === 'junction') this.report('parkspot', 'חניה פחות מ-12 מטר מצומת (אבן שפה אדום-לבן)', false, time, 4);
-    else if (rule === 'crosswalk') this.report('parkspot', 'חניה סמוך למעבר חציה (אבן שפה אדום-לבן)', false, time, 4);
+    else if (rule === 'crosswalk') this.report('parkspot', 'חניה על מעבר חציה או בתחום 12 מטר לפניו', false, time, 4);
     else if (rule === 'bump') this.report('parkspot', 'חניה על פס האטה', false, time, 4);
   },
   onParked(e, dir, side, t, time) {
@@ -320,7 +321,7 @@ const Rules = {
   },
   onUnpark(e, dir, side, time) {
     const away = side === 'right' ? -1 : 1;
-    if (!this.wasOn(away, time - 6, time + 0.2)) this.report('unparksig', `יציאה מחניה ללא איתות ${away < 0 ? 'שמאלה' : 'ימינה'}`, false, time, 4);
+    if (player.blinker !== away && !this.wasOn(away, time - 6, time + 0.2)) this.report('unparksig', `יציאה מחניה ללא איתות ${away < 0 ? 'שמאלה' : 'ימינה'}`, false, time, 4);
     // רכב שמתקרב מאחור בנתיב שאליו יוצאים
     const hx = Math.cos(player.h), hy = Math.sin(player.h);
     const near = (typeof npcs !== 'undefined' ? npcs : []).some(n => {

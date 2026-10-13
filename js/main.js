@@ -14,11 +14,26 @@ function resize() {
   canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
   const mw = mini.clientWidth, mh = mini.clientHeight;
   mini.width = mw * DPR; mini.height = mh * DPR;
+  if (typeof View3D !== 'undefined') View3D.resize(W, H);
+  // מיקום הרכב במבט מלמעלה: מעל לוח המחוונים
+  const dash = document.querySelector('.dash');
+  carScreenY = dash ? Math.min(H * 0.7, dash.getBoundingClientRect().top - 70) : H * 0.7;
+  const tb = document.querySelector('.topbar');
+  if (tb) document.documentElement.style.setProperty('--top', tb.getBoundingClientRect().height + 'px');
 }
+let carScreenY = 0;
 window.addEventListener('resize', resize);
 resize();
 
 let npcs = [];
+let parkedList = [];
+// מיקום המראה האחורית על המסך (לפי האלמנט #mirror)
+function mirrorRect() {
+  const el = $('mirror'), app = $('app');
+  if (!el || el.hidden) return null;
+  const r = el.getBoundingClientRect(), a = app.getBoundingClientRect();
+  return { x: Math.round(r.left - a.left), y: Math.round(r.top - a.top), w: Math.round(r.width), h: Math.round(r.height) };
+}
 let time = 0;
 let paused = true;
 let soundOn = true;
@@ -40,6 +55,8 @@ window.addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('textarea, input')) return;
   if (!$('maps').hidden) { if (e.code === 'Escape') closeMaps(); return; }
   if (!$('plugins').hidden) { if (e.code === 'Escape') closePlugins(); return; }
+  if (!$('book').hidden) { if (e.code === 'Escape') closeBook(); return; }
+  if (!$('quiz').hidden) { if (e.code === 'Escape') closeQuiz(); return; }
   const k = keyMap[e.code];
   // בהיגוי אוטומטי החיצים מחליפים נתיב / בוחרים פנייה
   if (assist.on && (k === 'left' || k === 'right')) {
@@ -112,6 +129,7 @@ function setCamera(mode) {
   const is3d = mode === 'driver' || mode === 'follow';
   document.body.classList.toggle('view3d', is3d);
   $('mirror').hidden = mode !== 'driver';
+  document.body.classList.toggle('drivercam', mode === 'driver');
   try { localStorage.setItem('driving-practice.cam', mode); } catch (e) { /* לא חובה */ }
 }
 function toggleCamera() {
@@ -187,6 +205,7 @@ function loadMap(map) {
   Rules.reset(); Rules.lastLim = START.lim;
   resetPlayer();
   npcs = spawnNPCs(map.traffic == null ? 12 : map.traffic, player);
+  parkedList = parkedCars();
   cam.x = player.x; cam.y = player.y; cam.rot = cam.mode === 'north' ? 0 : -Math.PI / 2 - player.h;
   lastLimit = null; time = 0;
   $('toasts').innerHTML = '';
@@ -309,6 +328,12 @@ Rules.onEvent = (kind, item) => {
   if (kind === 'bad') {
     el.innerHTML = `<span class="tag">${item.severe ? 'עבירה חמורה' : 'עבירה'} · −${item.pts}</span><span class="msg"></span>`;
     el.querySelector('.msg').textContent = item.text;
+    const rule = ruleForKey(item.key);
+    if (rule) {
+      const why = document.createElement('p'); why.className = 'why';
+      why.textContent = 'המורה: ' + rule.text;
+      el.appendChild(why);
+    }
     beep(item.severe ? 220 : 330, 0.25, 0.06, 'sawtooth');
   } else {
     el.innerHTML = '<span class="msg"></span>';
@@ -333,6 +358,13 @@ function renderLog() {
     const m = Math.floor(it.time / 60), s = Math.floor(it.time % 60);
     li.innerHTML = `<span class="when">${m}:${String(s).padStart(2, '0')}</span><span class="what"></span><span class="pts">−${it.pts}</span>`;
     li.querySelector('.what').textContent = it.text;
+    const rule = ruleForKey(it.key);
+    if (rule) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'whybtn'; b.textContent = 'למה?';
+      b.title = rule.title;
+      b.addEventListener('click', () => openBook(rule.id));
+      li.querySelector('.what').appendChild(b);
+    }
     ul.appendChild(li);
   }
   $('btnLog').textContent = `יומן עבירות (${Rules.log.length})`;
@@ -447,14 +479,18 @@ function frame(now) {
     for (let i = 0; i < steps; i++) {
       time += h;
       updatePlayer(h);
-      const vehicles = [player, ...npcs];
+      const vehicles = [player, ...npcs, ...parkedList];
       for (const n of npcs) n.update(h, time, vehicles);
       updatePeds(h, player);
       Rules.update(h, time, player, vehicles);
     }
   }
-  updateCamera(dt, W, H);
-  renderWorld(ctx, W, H, time, npcs);
+  if (cam.mode === 'driver' || cam.mode === 'follow') {
+    View3D.render(dt, time, npcs, cam.mode, cam.mode === 'driver' ? mirrorRect() : null);
+  } else {
+    updateCamera(dt, W, H);
+    renderWorld(ctx, W, H, time, npcs);
+  }
   mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   renderMinimap(mctx, mini.clientWidth, mini.clientHeight, npcs);
   updateHUD(dt);
@@ -529,4 +565,5 @@ $('pluginFile').addEventListener('change', e => {
 
 initPlugins();
 loadMap(BUILTIN_MAPS[0]);
+(() => { let m = null; try { m = localStorage.getItem('driving-practice.cam'); } catch (e) { /* לא חובה */ } setCamera(CAM_LABEL[m] ? m : 'driver'); })();
 requestAnimationFrame(frame);

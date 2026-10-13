@@ -4,6 +4,50 @@
 
 const BUILTIN_MAPS = [
   {
+    name: 'מסלול טסט',
+    description: 'כיכר דו-נתיבית, שתי כיכרות צמודות, רחובות עם חניה, פסי האטה, איסור פנייה, רמזורים ו"עצור"',
+    traffic: 14,
+    start: { road: 'A-B', direction: 'forward', distance: 40 },
+    nodes: [
+      { id: 'A', x: 0, y: 0, type: 'junction' },
+      { id: 'B', x: 260, y: 0, type: 'light', lightOffset: 0 },
+      { id: 'C', x: 520, y: 0, type: 'roundabout', lanes: 2 },
+      { id: 'D', x: 780, y: 0, type: 'junction' },
+      { id: 'E', x: 0, y: 260, type: 'junction' },
+      { id: 'F', x: 260, y: 260, type: 'roundabout' },
+      { id: 'G', x: 400, y: 260, type: 'roundabout' },
+      { id: 'H', x: 520, y: 260, type: 'light', lightOffset: 14 },
+      { id: 'I', x: 780, y: 260, type: 'junction' },
+      { id: 'J', x: 0, y: 480, type: 'junction' },
+      { id: 'K', x: 260, y: 480, type: 'junction' },
+      { id: 'N', x: 400, y: 480, type: 'junction' },
+      { id: 'L', x: 520, y: 480, type: 'junction' },
+      { id: 'M', x: 780, y: 480, type: 'junction' },
+    ],
+    roads: [
+      { from: 'A', to: 'B', name: 'שדרות הרצל', lanesForward: 2, lanesBackward: 2, speed: 50, parking: 'both', crosswalks: [130] },
+      { from: 'B', to: 'C', name: 'שדרות הרצל', lanesForward: 2, lanesBackward: 2, speed: 60 },
+      { from: 'C', to: 'D', name: 'דרך העצמאות', lanesForward: 2, lanesBackward: 2, speed: 70 },
+      { from: 'A', to: 'E', name: 'רחוב הדקלים', lanesForward: 1, lanesBackward: 1, speed: 40, parking: 'right', speedBumps: [120] },
+      { from: 'E', to: 'J', name: 'רחוב הדקלים', lanesForward: 1, lanesBackward: 1, speed: 50 },
+      { from: 'B', to: 'F', name: 'שדרות ירושלים', lanesForward: 2, lanesBackward: 2, speed: 50 },
+      { from: 'C', to: 'H', name: 'דרך השלום', lanesForward: 2, lanesBackward: 2, speed: 50 },
+      { from: 'D', to: 'I', name: 'דרך הים', lanesForward: 1, lanesBackward: 1, speed: 80, overtaking: true },
+      { from: 'E', to: 'F', name: 'רחוב הרימון', lanesForward: 1, lanesBackward: 1, speed: 50, signAtFrom: 'stop' },
+      { from: 'F', to: 'G', name: 'רחוב הכיכרות', lanesForward: 1, lanesBackward: 1, speed: 40 },
+      { from: 'G', to: 'H', name: 'רחוב הנביאים', lanesForward: 1, lanesBackward: 1, speed: 50 },
+      { from: 'H', to: 'I', name: 'שדרות בן גוריון', lanesForward: 2, lanesBackward: 2, speed: 60, banAtTo: ['left'] },
+      { from: 'F', to: 'K', name: 'רחוב בית הספר', lanesForward: 1, lanesBackward: 1, speed: 30, school: true, crosswalks: [80, 165], speedBumps: [120] },
+      { from: 'N', to: 'G', name: 'רחוב השוק (חד-סטרי)', lanesForward: 1, lanesBackward: 0, speed: 30, parking: 'both' },
+      { from: 'J', to: 'K', name: 'רחוב אלנבי', lanesForward: 1, lanesBackward: 1, speed: 50 },
+      { from: 'K', to: 'N', name: 'רחוב אלנבי', lanesForward: 1, lanesBackward: 1, speed: 50, signAtFrom: 'yield' },
+      { from: 'N', to: 'L', name: 'רחוב אלנבי', lanesForward: 1, lanesBackward: 1, speed: 50 },
+      { from: 'H', to: 'L', name: 'רחוב הגפן', lanesForward: 1, lanesBackward: 1, speed: 40, parking: 'right', crosswalks: [110], signAtTo: 'stop' },
+      { from: 'L', to: 'M', name: 'דרך מנחם בגין', lanesForward: 2, lanesBackward: 2, speed: 70 },
+      { from: 'I', to: 'M', name: 'רחוב הירקון', lanesForward: 1, lanesBackward: 1, speed: 50 },
+    ],
+  },
+  {
     name: 'העיר הקטנה',
     description: 'רמזורים, כיכר, "עצור", חד-סטרי, מעברי חציה ואזור בית ספר',
     traffic: 12,
@@ -120,6 +164,10 @@ function validateMap(raw) {
     if (!NODE_TYPES.includes(type)) { errors.push(`${where}: סוג "${type}" לא מוכר. מותר: ${NODE_TYPES.join(', ')}.`); return; }
     const node = { id, x: Math.round(n.x * 10) / 10, y: Math.round(n.y * 10) / 10, type };
     if (type === 'light') node.lightOffset = num(n.lightOffset) ? n.lightOffset : 0;
+    if (type === 'roundabout' && n.lanes != null) {
+      if (n.lanes !== 1 && n.lanes !== 2) { errors.push(`${where}: "lanes" של כיכר חייב להיות 1 או 2.`); return; }
+      if (n.lanes === 2) node.lanes = 2;
+    }
     byId[id] = node; map.nodes.push(node);
   });
   for (let i = 0; i < map.nodes.length; i++) for (let j = i + 1; j < map.nodes.length; j++) {
@@ -151,10 +199,20 @@ function validateMap(raw) {
     let cross = Array.isArray(r.crosswalks) ? r.crosswalks : [];
     if (cross.some(c => !num(c))) { errors.push(`${where}: "crosswalks" חייב להיות רשימת מספרים (מרחק במטרים מהצומת from).`); return; }
     for (const c of cross) if (c < 30 || c > len - 30) { errors.push(`${where}: מעבר חציה ב-${c} מ' קרוב מדי לקצה. מותר בין 30 ל-${Math.floor(len - 30)}.`); return; }
+    let parking = r.parking == null ? 'none' : String(r.parking);
+    if (!['none', 'right', 'left', 'both'].includes(parking)) { errors.push(`${where}: "parking" חייב להיות none, right, left או both.`); return; }
+    let bumps = Array.isArray(r.speedBumps) ? r.speedBumps : [];
+    if (bumps.some(b => !num(b))) { errors.push(`${where}: "speedBumps" חייב להיות רשימת מספרים (מרחק במטרים מהצומת from).`); return; }
+    for (const b of bumps) if (b < 25 || b > len - 25) { errors.push(`${where}: פס האטה ב-${b} מ' קרוב מדי לקצה. מותר בין 25 ל-${Math.floor(len - 25)}.`); return; }
+    const TURNS = ['left', 'right', 'straight', 'uturn'];
+    let banTo = Array.isArray(r.banAtTo) ? r.banAtTo.map(String) : [], banFrom = Array.isArray(r.banAtFrom) ? r.banAtFrom.map(String) : [];
+    for (const b of banTo.concat(banFrom)) if (!TURNS.includes(b)) { errors.push(`${where}: איסור פנייה "${b}" לא מוכר. מותר: ${TURNS.join(', ')}.`); return; }
     // חד-סטרי בכיוון ההפוך: הופכים את הדרך
     if (lf === 0) {
       [from, to] = [to, from]; [lf, lb] = [lb, lf]; [sFrom, sTo] = [sTo, sFrom];
-      cross = cross.map(c => len - c);
+      cross = cross.map(c => len - c); bumps = bumps.map(b => len - b);
+      parking = { right: 'left', left: 'right' }[parking] || parking;
+      [banTo, banFrom] = [banFrom, banTo];
     }
     const speed = r.speed == null ? 50 : r.speed;
     if (!num(speed) || speed < 20 || speed > 120 || speed % 10 !== 0) { errors.push(`${where}: מהירות ${speed} לא תקינה. מותר 20 עד 120 בקפיצות של 10.`); return; }
@@ -166,6 +224,10 @@ function validateMap(raw) {
     if (sTo !== 'none') road.signAtTo = sTo;
     if (cross.length) road.crosswalks = cross.slice().sort((a, b) => a - b);
     if (r.school) road.school = true;
+    if (parking !== 'none') road.parking = parking;
+    if (bumps.length) road.speedBumps = bumps.slice().sort((a, b) => a - b);
+    if (banTo.length) road.banAtTo = [...new Set(banTo)];
+    if (banFrom.length) road.banAtFrom = [...new Set(banFrom)];
     if (r.overtaking) {
       if (lf === 1 && lb === 1) road.overtaking = true;
       else warnings.push(`${where}: "overtaking" מתאים רק לדרך עם נתיב אחד לכל כיוון, ולכן לא הופעל.`);
@@ -193,6 +255,7 @@ function validateMap(raw) {
     const outs = rs.filter(r => (r.from === n.id ? r.lanesForward : r.lanesBackward) > 0).length;
     if (ins && !outs) errors.push(`לצומת "${n.id}" אפשר להיכנס אבל אי אפשר לצאת ממנו. בדוק את כיווני החד-סטרי.`);
     if (outs && !ins) warnings.push(`לצומת "${n.id}" אי אפשר להגיע (כל הדרכים בו יוצאות ממנו).`);
+    if (n.type === 'roundabout' && n.lanes === 2 && rs.some(r => (r.to === n.id ? r.lanesForward : r.lanesBackward) === 1)) warnings.push(`בכיכר הדו-נתיבית "${n.id}" יש כניסה עם נתיב אחד. כדי לתרגל בחירת נתיב, כדאי 2 נתיבים בכל כניסה.`);
     if (n.type === 'roundabout' && rs.length < 3) warnings.push(`בכיכר "${n.id}" יש רק ${rs.length} דרכים. כיכר מתאימה ל-3 או 4 דרכים.`);
     if (n.type === 'light' && rs.length < 3) warnings.push(`ברמזור "${n.id}" יש רק ${rs.length} דרכים.`);
     const signs = rs.filter(r => (r.from === n.id && r.signAtFrom) || (r.to === n.id && r.signAtTo));

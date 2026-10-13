@@ -95,24 +95,26 @@ function apPark(side) {
   const n = apLaneCount(e, dir);
   if ((side === 'right' && st.lane !== n - 1) || (side === 'left' && st.lane !== 0)) { apHint(`כדי לחנות, עבור קודם לנתיב ה${side === 'right' ? 'ימני' : 'שמאלי'}`); return; }
   if (Math.abs(p.v) * 3.6 > 30) { apHint('האט מתחת ל-30 קמ"ש כדי לחנות'); return; }
-  // המקום הפנוי הבא: 6 מטר פנויים, לפחות 8 מטר לפנים
+  // המקום הפנוי הבא: צריך מקום לרכב ועוד מרווח כניסה מאחור (חניה בנסיעה קדימה)
   const taken = e.parked.filter(c => c.key === strip.key).map(c => c.t);
+  const IN = 9;   // אורך קטע הכניסה האלכסונית
   let spot = null;
-  for (let k = 8; k < 80; k += 0.5) {
+  for (let k = IN + 2; k < 90; k += 0.5) {
     const c = st.t + k * dir;
-    if (c < e.t0 + 3 || c > e.t1 - 3) break;
-    if (taken.every(tc => Math.abs(tc - c) > 5.6)) { spot = c; break; }
+    if ((c - e.t0) < 3 || (e.t1 - c) < 3) break;
+    if (taken.every(tc => { const ahead = (tc - c) * dir; return ahead > 5.2 || ahead < -(IN + 2.6); })) { spot = c; break; }
   }
   if (spot == null) { apHint('אין מקום חניה פנוי בקרבת מקום'); return; }
-  const p0 = { x: p.x, y: p.y }, p3 = edgePoint(e, spot, strip.s);
-  const L = Math.abs(spot - st.t), dv = dirVec(e, dir);
-  const p1 = { x: p0.x + dv.x * L * 0.45, y: p0.y + dv.y * L * 0.45 }, p2 = { x: p3.x - dv.x * L * 0.45, y: p3.y - dv.y * L * 0.45 };
-  const pts = [];
+  const dv = dirVec(e, dir);
+  const pA = { x: p.x, y: p.y };
+  const p0 = edgePoint(e, spot - IN * dir, st.lat), p3 = edgePoint(e, spot, strip.s - 0.1 * Math.sign(strip.s));
+  const p1 = { x: p0.x + dv.x * IN * 0.5, y: p0.y + dv.y * IN * 0.5 }, p2 = { x: p3.x - dv.x * IN * 0.5, y: p3.y - dv.y * IN * 0.5 };
+  const pts = [pA];
   for (let i = 0; i <= 20; i++) {
     const u = i / 20, a = (1 - u) ** 3, b = 3 * (1 - u) ** 2 * u, c = 3 * (1 - u) * u * u, d = u ** 3;
     pts.push({ x: a * p0.x + b * p1.x + c * p2.x + d * p3.x, y: a * p0.y + b * p1.y + c * p2.y + d * p3.y });
   }
-  assist.st = { kind: 'park-in', path: makePath(pts), s: 0, e, dir, side, spot, lat: strip.s, key: strip.key, lane: st.lane };
+  assist.st = { kind: 'park-in', path: makePath(pts), s: 0, e, dir, side, spot, lat: strip.s - 0.1 * Math.sign(strip.s), key: strip.key, lane: st.lane };
   Rules.onParkStart(e, dir, side, spot, time);
 }
 
@@ -217,26 +219,7 @@ function apStep(dist) {
       }
       continue;
     }
-    // רוורס: רק לאורך הכביש (לא בתוך צומת או כיכר)
-  if (p.v < 0) {
-    if (st.kind === 'edge') {
-      const tStart = st.dir > 0 ? st.e.t0 : st.e.t1;
-      st.t += p.v * dt * st.dir;
-      if ((st.t - tStart) * st.dir < 0) { st.t = tStart; p.v = 0; apHint('אי אפשר להמשיך לאחור לתוך הצומת'); }
-    } else { p.v = 0; apHint(st.kind === 'parked' ? 'כדי לצאת מהחניה: עבור ל-D, אותת ולחץ גז' : 'אפשר לנסוע לאחור רק בכביש, לא בצומת'); }
-    apPlace();
-    return;
-  }
-  // לפני צומת בלי דרך ישר ובלי כיוון שנבחר: עוצרים בקו
-  if (st.kind === 'edge') {
-    const remain = ((st.dir > 0 ? st.e.t1 : st.e.t0) - st.t) * st.dir;
-    if (remain < 60 && !apPlanAt(st.e, st.dir)) {
-      assist.waiting = true;
-      const vmax = Math.sqrt(2 * 5 * Math.max(0, remain - 0.3));
-      if (p.v > vmax) p.v = vmax;
-    } else assist.waiting = false;
-  }
-  if (st.kind === 'park-in') {
+    if (st.kind === 'park-in') {
       st.s += dist;
       if (st.s >= st.path.len) {
         assist.st = { kind: 'parked', e: st.e, dir: st.dir, side: st.side, t: st.spot, lat: st.lat, key: st.key };
@@ -293,6 +276,25 @@ function apUpdate(dt) {
     if (input.up && player.gear === 'D') { assist.st = apUnparkPath(st); Rules.onUnpark(st.e, st.dir, st.side, time); }
     apPlace();
     return;
+  }
+  // רוורס: רק לאורך הכביש (לא בתוך צומת או כיכר)
+  if (p.v < 0) {
+    if (st.kind === 'edge') {
+      const tStart = st.dir > 0 ? st.e.t0 : st.e.t1;
+      st.t += p.v * dt * st.dir;
+      if ((st.t - tStart) * st.dir < 0) { st.t = tStart; p.v = 0; apHint('אי אפשר להמשיך לאחור לתוך הצומת'); }
+    } else { p.v = 0; apHint('אפשר לנסוע לאחור רק בכביש, לא בצומת'); }
+    apPlace();
+    return;
+  }
+  // לפני צומת בלי דרך ישר ובלי כיוון שנבחר: עוצרים בקו
+  if (st.kind === 'edge') {
+    const remain = ((st.dir > 0 ? st.e.t1 : st.e.t0) - st.t) * st.dir;
+    if (remain < 60 && !apPlanAt(st.e, st.dir)) {
+      assist.waiting = true;
+      const vmax = Math.sqrt(2 * 5 * Math.max(0, remain - 0.3));
+      if (p.v > vmax) p.v = vmax;
+    } else assist.waiting = false;
   }
   if (st.kind === 'park-in') {
     // בלימה אוטומטית עדינה כדי לעצור בדיוק במקום החניה

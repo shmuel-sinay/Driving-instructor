@@ -246,9 +246,8 @@ function drawCurbsAndParking(ctx) {
   for (const e of edges) {
     for (const key of ['f', 'b']) {
       const hasStrip = key === 'f' ? e.pf : e.pb;
+      const tdir = key === 'f' || e.oneway ? 1 : -1;
       const sc = key === 'f' ? e.sMax + 0.15 : e.sMin - 0.15;
-      // מקטעים לפי החוק
-      const cuts = [e.t0, e.t1];
       const step = 1;
       let segStart = e.t0, prev = null;
       const flush = (t, rule) => {
@@ -263,7 +262,7 @@ function drawCurbsAndParking(ctx) {
         segStart = t;
       };
       for (let t = e.t0; t <= e.t1 + 0.01; t += step) {
-        const rule = !!parkingRule(e, t) && (hasStrip || t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION || e.crosswalks.some(c => Math.abs(t - c.t) < NO_PARK_CROSSWALK));
+        const rule = !!parkingRule(e, t, tdir) && (hasStrip || t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION || e.crosswalks.some(c => { const a = (c.t - t) * tdir; return a > -2.5 && a < NO_PARK_CROSSWALK; }));
         if (prev !== null && rule !== prev) flush(t, rule);
         prev = rule;
       }
@@ -273,7 +272,7 @@ function drawCurbsAndParking(ctx) {
         const sIn = key === 'f' ? e.laneR : -e.laneL, sOut = key === 'f' ? e.sMax : e.sMin;
         ctx.strokeStyle = 'rgba(242,240,234,0.55)'; ctx.lineWidth = 0.1;
         for (let t = e.t0 + NO_PARK_JUNCTION; t < e.t1 - NO_PARK_JUNCTION; t += 6.5) {
-          if (parkingRule(e, t)) continue;
+          if (parkingRule(e, t, tdir)) continue;
           const a = edgePoint(e, t, sIn), b = edgePoint(e, t, sOut);
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
         }
@@ -519,7 +518,7 @@ function drawPeds(ctx) {
 function renderWorld(ctx, W, H, time, npcs) {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.fillStyle = COL.grass; ctx.fillRect(0, 0, W, H);
-  const cy = cam.mode === 'chase' ? H * 0.72 : H / 2;
+  const cy = cam.mode === 'chase' ? (carScreenY || H * 0.7) : H / 2;
   ctx.translate(W / 2, cy); ctx.rotate(cam.rot); ctx.scale(cam.zoom, cam.zoom); ctx.translate(-cam.x, -cam.y);
   drawScenery(ctx);
   drawRoads(ctx);

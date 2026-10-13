@@ -20,7 +20,12 @@
 html, body { height: 100%; margin: 0; }
 body { background: #6f9a4a; color: var(--paper); font-family: var(--f-body); overflow: hidden; -webkit-user-select: none; user-select: none; }
 #app { position: relative; width: 100%; height: 100%; overflow: hidden; }
-#game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
+#game, #view3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
+#view3d { display: none; }
+body.view3d #view3d { display: block; }
+body.view3d #game { visibility: hidden; }
+:root { --top: 70px; --mirror-w: min(440px, 34vw); }
+.mirror { position: absolute; left: 50%; transform: translateX(-50%); top: calc(var(--top) + 4px); width: var(--mirror-w); aspect-ratio: 3.2; border: 4px solid #15181b; border-radius: 16px; box-shadow: 0 6px 18px rgba(0,0,0,.35); pointer-events: none; }
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible, canvas:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
 
@@ -49,13 +54,13 @@ button.primary { background: var(--amber); color: #1a1205; border-color: transpa
 
 /* ===== הוראת בוחן והודעות ===== */
 .instr {
-  position: absolute; top: calc(74px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
+  position: absolute; top: calc(var(--top) + 8px); left: 50%; transform: translateX(-50%);
   display: flex; align-items: center; gap: 10px; max-width: calc(100% - 32px);
   background: var(--glass); border: 1px solid var(--sky); border-radius: 12px; padding: 9px 16px;
   font-size: 18px; font-weight: 700; box-shadow: 0 0 0 4px rgba(80, 200, 255, 0.12);
 }
 .instr .who { font-size: 12px; font-weight: 600; color: var(--sky); letter-spacing: 0.06em; border-inline-end: 1px solid var(--line); padding-inline-end: 10px; }
-.toasts { position: absolute; top: calc(128px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; align-items: center; width: min(460px, calc(100% - 32px)); pointer-events: none; }
+.toasts { position: absolute; top: calc(var(--top) + 64px); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; align-items: center; width: min(460px, calc(100% - 32px)); pointer-events: none; }
 .toast { display: flex; gap: 10px; align-items: center; width: 100%; background: var(--glass-2); border-radius: 10px; padding: 9px 14px; border-inline-start: 5px solid var(--amber); font-size: 16px; animation: pop .25s ease-out; transition: opacity .4s, transform .4s; }
 .toast.severe { border-inline-start-color: var(--red); }
 .toast.good { border-inline-start-color: var(--green); }
@@ -76,7 +81,7 @@ button.primary { background: var(--amber); color: #1a1205; border-color: transpa
 li.severe .pts { color: var(--red); }
 
 /* ===== מפה קטנה ===== */
-.minimap { position: absolute; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: 190px; height: 130px; background: var(--glass); border: 1px solid var(--line); border-radius: 12px; }
+.minimap { position: absolute; left: 16px; top: calc(var(--top) + 8px); width: 190px; height: 130px; background: var(--glass); border: 1px solid var(--line); border-radius: 12px; }
 
 /* ===== לוח מחוונים ===== */
 .dash { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
@@ -99,28 +104,89 @@ li.severe .pts { color: var(--red); }
 .blink.on svg { fill: var(--green); filter: drop-shadow(0 0 6px var(--green)); }
 
 /* ===== שליטת מגע ===== */
-.touch { display: none; }
-@media (pointer: coarse) {
-  .touch { display: block; }
-  .touch .pad { position: absolute; display: flex; gap: 10px; }
-  .touch button { pointer-events: auto; background: var(--glass); border: 1px solid var(--line); border-radius: 14px; touch-action: none; font-size: 22px; }
-  .touch button.pressed { background: var(--glass-2); border-color: var(--sky); }
-  .steer { left: 16px; bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
-  .steer button { width: 74px; height: 74px; }
-  .pedals { right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); flex-direction: row-reverse; align-items: flex-end; }
-  .pedals .gas { width: 70px; height: 120px; font-size: 17px; }
-  .pedals .brake { width: 90px; height: 80px; font-size: 17px; border-color: rgba(255, 69, 58, .5); }
-  .sig { right: 16px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
-  .sig button { font-size: 14px; padding: 10px 12px; }
-  .dash { bottom: auto; top: calc(118px + env(safe-area-inset-top, 0px)); transform: translateX(-50%) scale(.82); transform-origin: top center; }
-  .instr { top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); font-size: 15px; max-width: calc(100% - 230px); }
-  .minimap { width: 140px; height: 96px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 16px; display: none; }
-  .toasts { top: calc(220px + env(safe-area-inset-top, 0px)); }
 }
 
 .plan { background: var(--glass); border: 1px solid var(--sky); color: var(--paper); border-radius: 999px; padding: 5px 14px; font-size: 15px; font-weight: 700; white-space: nowrap; }
 .plan.warn { border-color: var(--amber); color: var(--amber); }
 .lead.assist { border-inline-start: 3px solid var(--sky); padding-inline-start: 12px; font-size: 16px; }
+
+/* במבט נהג: ההוראה וההודעות מתחת למראה */
+body.view3d.drivercam .instr { top: calc(var(--top) + 16px + var(--mirror-w) / 3.2); }
+body.view3d.drivercam .toasts { top: calc(var(--top) + 72px + var(--mirror-w) / 3.2); }
+
+/* ===== תפריט הגדרות ===== */
+.settings { position: relative; }
+.settings summary { list-style: none; cursor: pointer; white-space: nowrap; background: var(--glass); border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px; font-size: 14px; }
+.settings summary::-webkit-details-marker { display: none; }
+.settings[open] summary { background: var(--glass-2); border-color: var(--sky); }
+.settings .menu { position: absolute; top: calc(100% + 6px); inset-inline-start: 0; z-index: 5; display: grid; gap: 4px; min-width: 210px; padding: 8px; background: #14191d; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.4); }
+.settings .menu button { text-align: start; background: transparent; border: 0; border-radius: 6px; padding: 8px 10px; font-size: 14px; }
+.settings .menu button:hover { background: var(--glass-2); }
+.tools { overflow: visible; }
+
+/* ===== לוח שליטה (עכבר ומגע) ===== */
+.controls .pad { position: absolute; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 6px; }
+.controls button { display: grid; place-items: center; gap: 0; background: var(--glass); border: 1px solid var(--line); border-radius: 12px; font-size: 18px; line-height: 1.1; touch-action: none; -webkit-user-select: none; user-select: none; }
+.controls button small { font-size: 11px; color: var(--muted); }
+.controls button:hover { border-color: rgba(255,255,255,.3); }
+.controls button.pressed, .controls button:active { background: var(--glass-2); border-color: var(--sky); }
+.controls .drive { right: 16px; grid-template-columns: repeat(3, 58px); grid-auto-rows: 52px; }
+.controls .drive .sig { color: #9be38f; }
+.controls .pedals { left: 16px; grid-template-columns: 74px 64px; align-items: end; }
+.controls .pedals .brake { height: 78px; font-size: 17px; border-color: rgba(255, 69, 58, .5); }
+.controls .pedals .gas { height: 118px; font-size: 17px; border-color: rgba(52, 199, 89, .5); }
+@media (max-width: 1000px) { .dash { bottom: calc(196px + env(safe-area-inset-bottom, 0px)); } }
+@media (max-width: 560px) {
+  .controls .drive { grid-template-columns: repeat(3, 50px); grid-auto-rows: 46px; right: 10px; }
+  .controls .pedals { left: 10px; grid-template-columns: 64px 56px; }
+  .dash { transform: translateX(-50%) scale(.82); transform-origin: bottom center; }
+}
+
+/* ===== הסבר המורה בהודעות ===== */
+.toast { flex-wrap: wrap; }
+.toast .why { flex-basis: 100%; margin: 4px 0 0; font-size: 13px; line-height: 1.4; color: #cfd6dc; }
+.whybtn { margin-inline-start: 8px; padding: 1px 8px; font-size: 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--sky); }
+
+/* ===== ספר חוקים ===== */
+.card.wide { width: min(980px, 100%); }
+.booktools { display: flex; gap: 12px; align-items: center; margin: 12px 0 8px; flex-wrap: wrap; }
+.booktools input { flex: 1 1 260px; min-width: 0; background: #0e1215; color: var(--paper); border: 1px solid #3a434b; border-radius: 10px; padding: 9px 12px; font: inherit; font-size: 15px; -webkit-user-select: text; user-select: text; }
+.booktools input:focus { outline: 2px solid var(--sky); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.chip { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: #1a2025; font-size: 13px; }
+.chip.on { background: var(--amber); color: #1a1205; border-color: transparent; font-weight: 700; }
+.booklist { display: grid; gap: 10px; max-height: 55vh; overflow-y: auto; padding-inline-end: 4px; }
+.rule { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #1a2025; }
+.rule.focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(255,163,26,.2); }
+.rule header { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.rule h3 { margin: 0; font-size: 16px; letter-spacing: 0; color: var(--paper); }
+.rule .tag { font-size: 11px; color: var(--green); }
+.rule .tag.warn { color: var(--amber); }
+.rule p { margin: 6px 0 0; font-size: 15px; line-height: 1.5; color: #d4d6d2; max-width: 75ch; }
+.srcs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.src { font-size: 12px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: var(--sky); }
+.qcard { padding: 10px 12px; border-radius: 10px; background: #0f1418; border: 1px solid var(--line); }
+.qcard .qq { margin: 0; font-size: 14px; color: var(--paper); line-height: 1.45; }
+.qcard .qa { margin: 4px 0 0; font-size: 14px; color: var(--green); line-height: 1.45; }
+.qimg { display: block; max-width: min(260px, 100%); max-height: 180px; margin: 4px 0 8px; border-radius: 6px; background: #fff; }
+.noimg { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+.bankhead { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+.empty { color: var(--muted); }
+.more { justify-self: center; padding: 8px 18px; border-radius: 10px; border: 1px solid var(--line); background: #1a2025; font-size: 14px; }
+
+/* ===== מבחן תיאוריה ===== */
+.qtitle { font-size: clamp(19px, 2.6vw, 24px); line-height: 1.35; }
+#quizImg .qimg { max-width: min(340px, 100%); max-height: 240px; }
+.answers { display: grid; gap: 8px; margin-top: 10px; }
+.ans { display: flex; gap: 12px; align-items: center; text-align: start; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--line); background: #1a2025; font-size: 16px; line-height: 1.4; }
+.ans .num { display: grid; place-items: center; flex: 0 0 26px; height: 26px; border-radius: 50%; background: #2a3238; font-family: var(--f-num); font-size: 13px; }
+.ans:hover:not(:disabled) { border-color: var(--sky); }
+.ans.right { border-color: var(--green); background: rgba(52,199,89,.14); }
+.ans.wrong { border-color: var(--red); background: rgba(255,69,58,.14); }
+.ans:disabled { cursor: default; }
+.feedback { min-height: 1.4em; font-weight: 700; margin: 10px 0 0; }
+.feedback.good { color: var(--green); } .feedback.bad { color: var(--red); }
+#quizCats button, #quizStart .row button { padding: 9px 14px; }
 
 /* ===== מסך מפות ===== */
 .maplist { display: grid; gap: 8px; margin: 14px 0 8px; }
@@ -186,7 +252,6 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
   .brand h1 { font-size: 15px; }
   .street { display: none; }
   .tools { order: 3; width: 100%; margin: 0; }
-  .instr { top: calc(112px + env(safe-area-inset-top, 0px)); }
-  .toasts { top: calc(166px + env(safe-area-inset-top, 0px)); }
+  .minimap { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; transition: none; } }
