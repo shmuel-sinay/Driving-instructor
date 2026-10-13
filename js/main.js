@@ -28,12 +28,20 @@ const keyMap = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', Arr
 window.addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('textarea, input')) return;
   if (!$('maps').hidden) { if (e.code === 'Escape') closeMaps(); return; }
-  if (keyMap[e.code]) { input[keyMap[e.code]] = true; e.preventDefault(); }
+  if (!$('plugins').hidden) { if (e.code === 'Escape') closePlugins(); return; }
+  const k = keyMap[e.code];
+  if (assist.on && (k === 'left' || k === 'right')) {
+    e.preventDefault();
+    if (!e.repeat) { setBlinker(k === 'left' ? -1 : 1); tick(true); }
+    return;
+  }
+  if (k) { input[k] = true; e.preventDefault(); }
   if (e.repeat) return;
   switch (e.code) {
     case 'KeyQ': case 'Comma': setBlinker(-1); tick(true); break;
     case 'KeyE': case 'Period': setBlinker(1); tick(true); break;
     case 'KeyC': toggleCamera(); break;
+    case 'KeyG': toggleSteer(); break;
     case 'KeyR': resetPlayer(); Rules.loc = null; Rules.entry = null; break;
     case 'KeyI': toggleInstructor(); break;
     case 'KeyL': toggleLog(); break;
@@ -50,7 +58,11 @@ canvas.addEventListener('wheel', e => { e.preventDefault(); cam.userZoom = Math.
 // ===== שליטה במגע =====
 document.querySelectorAll('[data-hold]').forEach(btn => {
   const k = btn.dataset.hold;
-  const on = e => { e.preventDefault(); input[k] = true; btn.classList.add('pressed'); };
+  const on = e => {
+    e.preventDefault();
+    if (assist.on && (k === 'left' || k === 'right')) { setBlinker(k === 'left' ? -1 : 1); tick(true); return; }
+    input[k] = true; btn.classList.add('pressed');
+  };
   const off = e => { e.preventDefault(); input[k] = false; btn.classList.remove('pressed'); };
   btn.addEventListener('pointerdown', on); btn.addEventListener('pointerup', off);
   btn.addEventListener('pointerleave', off); btn.addEventListener('pointercancel', off);
@@ -65,6 +77,15 @@ function toggleCamera() {
   cam.mode = cam.mode === 'chase' ? 'north' : 'chase';
   $('btnCam').textContent = cam.mode === 'chase' ? 'מצלמה: מאחורי הרכב' : 'מצלמה: צפון למעלה';
 }
+function toggleSteer() {
+  if (!assist.on) {
+    if (!apSnap()) { Rules.onEvent('good', { text: 'אפשר לעבור להיגוי אוטומטי רק כשהרכב על כביש, לא בתוך צומת' }); return; }
+    assist.on = true;
+  } else { assist.on = false; assist.st = null; }
+  for (const k in input) input[k] = false;
+  $('btnSteer').textContent = assist.on ? 'היגוי: אוטומטי' : 'היגוי: ידני';
+  document.body.classList.toggle('manual', !assist.on);
+}
 function toggleInstructor() {
   Rules.instructorOn = !Rules.instructorOn;
   $('btnInstr').textContent = Rules.instructorOn ? 'הוראות בוחן: פועל' : 'הוראות בוחן: כבוי';
@@ -74,6 +95,7 @@ function toggleLog() { $('log').hidden = !$('log').hidden; }
 function showHelp() { paused = true; $('help').hidden = false; }
 function startDriving() { $('help').hidden = true; paused = false; ensureAudio(); canvas.focus(); }
 $('btnCam').addEventListener('click', toggleCamera);
+$('btnSteer').addEventListener('click', toggleSteer);
 $('btnInstr').addEventListener('click', toggleInstructor);
 $('btnLog').addEventListener('click', toggleLog);
 $('btnHelp').addEventListener('click', showHelp);
@@ -174,9 +196,10 @@ function copyText(text, btn) {
     btn.textContent = ok ? 'הועתק ✓' : 'סמן והעתק ידנית מהתיבה למטה';
     setTimeout(() => { btn.textContent = old; }, 2200);
   };
-  const fallback = () => { const box = $('copyOut'); box.hidden = false; box.value = text; box.focus(); box.select(); done(false); };
+  const boxId = !$('plugins').hidden ? 'copyOut2' : 'copyOut';
+  const fallback = () => { const box = $(boxId); box.hidden = false; box.value = text; box.focus(); box.select(); done(false); };
   try {
-    navigator.clipboard.writeText(text).then(() => { $('copyOut').hidden = true; done(true); }, fallback);
+    navigator.clipboard.writeText(text).then(() => { $(boxId).hidden = true; done(true); }, fallback);
   } catch (e) { fallback(); }
 }
 
@@ -336,6 +359,9 @@ function updateHUD(dt) {
     $('nextBox').dataset.state = up.state || '';
     $('street').textContent = up.street;
   }
+  const plan = apPlanText();
+  $('plan').hidden = !plan;
+  if (plan) { $('plan').textContent = plan; $('plan').classList.toggle('warn', plan === assist.hint); }
   const ins = $('instr');
   if (Rules.instr) { ins.hidden = false; $('instrText').textContent = Rules.instr.text; }
   else ins.hidden = true;
@@ -364,5 +390,73 @@ function frame(now) {
   updateHUD(dt);
   requestAnimationFrame(frame);
 }
+// ===== מסך תוספים =====
+function openPlugins() { paused = true; $('evalNote').hidden = Plugins.evalOK; renderPluginList(); $('plugins').hidden = false; }
+function closePlugins() { $('plugins').hidden = true; if ($('help').hidden && $('summary').hidden && $('maps').hidden) paused = false; }
+
+function fixRequest(pl) {
+  return 'התוסף שכתבת נכשל בשגיאה הבאה:\n' + pl.error + '\n\nתקן את השגיאה והחזר את התוסף המלא, באותו פורמט (בלוק javascript אחד עם // @name ו-// @description). זה הקוד הנוכחי:\n```javascript\n' + pl.code + '\n```';
+}
+
+function renderPluginList() {
+  const box = $('pluginList'); box.innerHTML = '';
+  for (const pl of Plugins.list) {
+    const el = document.createElement('div');
+    el.className = 'mapcard' + (pl.enabled ? '' : ' off');
+    const rules = pl.rules.map(r => r.name || r.id).join(' · ');
+    el.innerHTML = '<div class="mapinfo"><strong></strong><span class="desc"></span><span class="meta"></span><span class="err"></span></div><div class="mapbtns"></div>';
+    el.querySelector('strong').textContent = pl.name;
+    el.querySelector('.desc').textContent = pl.description;
+    el.querySelector('.meta').textContent = (pl.rules.length ? `${pl.rules.length} חוקים: ${rules}` : '') + (pl.builtin ? ' · מובנה' : ' · שמור אצלך');
+    el.querySelector('.err').textContent = pl.error ? 'שגיאה: ' + pl.error : '';
+    const btns = el.querySelector('.mapbtns');
+    const mk = (label, fn, cls) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (cls) b.className = cls; b.addEventListener('click', () => fn(b)); btns.appendChild(b); return b; };
+    mk(pl.enabled ? 'פעיל' : 'כבוי', () => { pl.enabled = !pl.enabled; storePlugins(); renderPluginList(); }, pl.enabled ? 'primary' : '');
+    if (pl.error && Plugins.evalOK) mk('העתק בקשת תיקון ל-Gemini', b => copyText(fixRequest(pl), b));
+    mk('העתק קוד', b => copyText(pl.code, b));
+    if (!pl.builtin) mk('מחק', b => {
+      if (b.dataset.armed) { Plugins.list.splice(Plugins.list.indexOf(pl), 1); storePlugins(); renderPluginList(); }
+      else { b.dataset.armed = '1'; b.textContent = 'בטוח? לחץ שוב'; }
+    });
+    box.appendChild(el);
+  }
+}
+
+function addPluginText(text) {
+  const code = extractCode(text);
+  const box = $('pluginMsg'); box.innerHTML = '';
+  const msg = (t, cls) => { const p = document.createElement('p'); p.className = 'msgtitle ' + cls; p.textContent = t; box.appendChild(p); };
+  if (!code) { msg('התיבה ריקה. הדבק את התשובה של Gemini.', 'bad'); return; }
+  const pl = compilePlugin(code);
+  if (pl.error) {
+    msg('התוסף לא נוסף: ' + pl.error, 'bad');
+    if (Plugins.evalOK) {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = 'העתק בקשת תיקון ל-Gemini';
+      b.addEventListener('click', () => copyText(fixRequest(pl), b)); box.appendChild(b);
+    }
+    return;
+  }
+  const old = Plugins.list.findIndex(x => !x.builtin && x.name === pl.name);
+  if (old >= 0) { pl.key = Plugins.list[old].key; Plugins.list[old] = pl; } else Plugins.list.push(pl);
+  const saved = storePlugins();
+  renderPluginList();
+  msg(`התוסף "${pl.name}" נוסף עם ${pl.rules.length} חוקים${saved ? ' ונשמר' : ''}${old >= 0 ? ' (החליף גרסה קודמת)' : ''}. הבוחן יבדוק אותם מעכשיו.`, 'good');
+  $('pluginInput').value = '';
+}
+
+$('btnPlugins').addEventListener('click', openPlugins);
+$('btnClosePlugins').addEventListener('click', closePlugins);
+$('btnAddPlugin').addEventListener('click', () => addPluginText($('pluginInput').value));
+$('btnCopyPluginPrompt').addEventListener('click', e => copyText(PLUGIN_PROMPT, e.currentTarget));
+$('pluginFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => addPluginText(rd.result);
+  rd.readAsText(f);
+  e.target.value = '';
+});
+
+initPlugins();
 loadMap(BUILTIN_MAPS[0]);
 requestAnimationFrame(frame);

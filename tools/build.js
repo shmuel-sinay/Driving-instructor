@@ -24,8 +24,11 @@ fs.writeFileSync(path.join(root, 'dist/artifact.html'), art);
 
 // מסמך ההנחיות ל-Gemini
 global.window = {};
-const prompt = new Function(read('js/prompt.js') + '\nreturn GEMINI_PROMPT;')();
+const [prompt, pluginPrompt] = new Function(read('js/prompt.js') + '\nreturn [GEMINI_PROMPT, PLUGIN_PROMPT];')();
 fs.writeFileSync(path.join(root, 'docs/gemini-prompt.md'),
   '# הנחיות ל-Gemini ליצירת מפות\n\nהעתק את כל הטקסט שמתחת לקו לצ\'אט חדש ב-Gemini, וכתוב בסוף מה אתה רוצה.\n' +
   'אפשר להעתיק את אותו טקסט גם מתוך התוכנה: כפתור "מפות" ← "העתק הנחיות ל-Gemini".\n\n---\n\n' + prompt + '\n');
+fs.writeFileSync(path.join(root, 'docs/gemini-plugin-prompt.md'),
+  '# הנחיות ל-Gemini לכתיבת תוספי חוקים\n\nהעתק את כל הטקסט שמתחת לקו לצ\'אט חדש ב-Gemini, וכתוב בסוף אילו חוקים להוסיף.\n' +
+  'אפשר להעתיק את אותו טקסט גם מתוך התוכנה: כפתור "תוספים" ← "העתק הנחיות לתוספים".\n\n---\n\n' + pluginPrompt + '\n');
 console.log('built dist/driving-practice.html', out.length, 'bytes');

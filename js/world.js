@@ -77,7 +77,10 @@ function buildWorld(map) {
   if (!laneCount(se, dir)) dir = -dir;
   const dist = Math.min(Math.max(st.distance || 30, 5), se.t1 - se.t0 - 5);
   const p = edgePoint(se, dir > 0 ? se.t0 + dist : se.t1 - dist, laneS(se, dir, laneCount(se, dir) - 1));
-  Object.assign(START, { x: p.x, y: p.y, h: Math.atan2(se.d.y * dir, se.d.x * dir), lim: se.lim });
+  Object.assign(START, {
+    x: p.x, y: p.y, h: Math.atan2(se.d.y * dir, se.d.x * dir), lim: se.lim,
+    edge: se, dir, lane: laneCount(se, dir) - 1, t: dir > 0 ? se.t0 + dist : se.t1 - dist,
+  });
   currentMap = map;
 }
 

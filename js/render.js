@@ -399,6 +399,7 @@ function renderWorld(ctx, W, H, time, npcs) {
   ctx.fillStyle = '#1f6feb'; ctx.fillRect(-1.4, -0.12, 2.4, 0.24); ctx.restore();
   drawTrees(ctx);
   drawSigns(ctx, time);
+  Plugins.draw(ctx);
 }
 
 // ===== מפה קטנה =====

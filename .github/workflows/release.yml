@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build single-file game
+        run: node tools/build.js
+      - name: Package
+        run: |
+          mkdir -p out
+          cp dist/driving-practice.html out/driving-practice.html
+          zip -r out/driving-practice-source.zip index.html css js docs README.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: מגרש תרגול נהיגה ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            out/driving-practice.html
+            out/driving-practice-source.zip

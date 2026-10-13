@@ -118,6 +118,10 @@ li.severe .pts { color: var(--red); }
   .toasts { top: calc(220px + env(safe-area-inset-top, 0px)); }
 }
 
+.plan { background: var(--glass); border: 1px solid var(--sky); color: var(--paper); border-radius: 999px; padding: 5px 14px; font-size: 15px; font-weight: 700; white-space: nowrap; }
+.plan.warn { border-color: var(--amber); color: var(--amber); }
+.lead.assist { border-inline-start: 3px solid var(--sky); padding-inline-start: 12px; font-size: 16px; }
+
 /* ===== מסך מפות ===== */
 .maplist { display: grid; gap: 8px; margin: 14px 0 8px; }
 .mapcard { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: #1a2025; }
@@ -143,6 +147,12 @@ h3.sec { margin-top: 22px; }
 .msgtitle.bad { color: var(--red); } .msgtitle.warn { color: var(--amber); } .msgtitle.good { color: var(--green); }
 .msglist { margin: 0; padding-inline-start: 20px; display: grid; gap: 4px; font-size: 14px; line-height: 1.45; color: #d4d6d2; }
 .msgs > button { justify-self: start; margin-top: 6px; }
+
+/* ===== מסך תוספים ===== */
+.note { margin: 10px 0 0; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--amber); color: #f1dfbf; font-size: 15px; line-height: 1.45; }
+.mapcard .err { font-size: 13px; color: var(--red); line-height: 1.4; }
+.mapcard.off { opacity: .6; }
+.mapbtns { flex-wrap: wrap; }
 
 /* ===== חלונות ===== */
 .modal { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(8, 12, 10, 0.55); backdrop-filter: blur(3px); overflow-y: auto; }

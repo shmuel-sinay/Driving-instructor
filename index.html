@@ -27,6 +27,8 @@
     </div>
     <nav class="tools" aria-label="הגדרות">
       <button id="btnMaps" type="button">מפות</button>
+      <button id="btnPlugins" type="button">תוספים</button>
+      <button id="btnSteer" type="button">היגוי: אוטומטי</button>
       <button id="btnInstr" type="button" aria-pressed="true">הוראות בוחן: פועל</button>
       <button id="btnCam" type="button">מצלמה: מאחורי הרכב</button>
       <button id="btnLog" type="button">יומן עבירות (0)</button>
@@ -50,6 +52,7 @@
   <canvas id="minimap" class="minimap" aria-label="מפה"></canvas>
 
   <div class="dash">
+    <div id="plan" class="plan" hidden></div>
     <div id="nextBox" class="next">
       <span class="k">לפניך</span>
       <span id="nextText">—</span>
@@ -91,19 +94,21 @@
       <p class="eyebrow">תרגול לקראת טסט</p>
       <h2>סע לפי החוק, הבוחן רושם הכל</h2>
       <p class="lead">עיר קטנה עם רמזורים, כיכר, תמרורי "עצור", רחובות חד-סטריים, מעברי חציה ותנועה אמיתית. הבוחן ייתן לך הוראות, ותקבל ניקוד על כל עבירה.</p>
+      <p class="lead assist">הרכב מחזיק את הנתיב לבד. אתה שולט בגז ובבלם, והאיתות קובע לאן נוסעים: איתות בכביש עם כמה נתיבים מעביר נתיב, איתות לפני צומת בוחר פנייה (בלי איתות = ישר), ובכיכר הרכב מקיף עד שאתה מאותת ימינה ויוצא ביציאה הבאה.</p>
       <div class="cols">
         <div>
           <h3>שליטה</h3>
           <dl class="keys">
             <dt><kbd>↑</kbd> / <kbd>W</kbd></dt><dd>גז</dd>
-            <dt><kbd>↓</kbd> / <kbd>S</kbd></dt><dd>בלם (החזק בעצירה להילוך אחורי)</dd>
-            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>הגה</dd>
-            <dt><kbd>Q</kbd> / <kbd>E</kbd></dt><dd>איתות שמאלה / ימינה</dd>
+            <dt><kbd>↓</kbd> / <kbd>S</kbd></dt><dd>בלם</dd>
+            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>איתות שמאלה / ימינה (גם <kbd>Q</kbd> <kbd>E</kbd>)</dd>
+            <dt><kbd>G</kbd></dt><dd>היגוי אוטומטי / ידני</dd>
             <dt><kbd>C</kbd></dt><dd>החלפת מצלמה</dd>
             <dt><kbd>R</kbd></dt><dd>חזרה לנקודת ההתחלה</dd>
             <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>זום</dd>
             <dt><kbd>P</kbd></dt><dd>השהיה</dd>
             <dt>מפות</dt><dd>בחירת מפה או בניית מפה חדשה</dd>
+            <dt>תוספים</dt><dd>חוקים חדשים לבוחן</dd>
           </dl>
         </div>
         <div>
@@ -154,6 +159,34 @@
     </div>
   </section>
 
+  <section id="plugins" class="modal" hidden>
+    <div class="card">
+      <p class="eyebrow">תוספים</p>
+      <h2>חוקים חדשים לבוחן, בעזרת Gemini</h2>
+      <p id="evalNote" class="note" hidden>בגרסה שפתוחה באתר אי אפשר להריץ תוספים. הורד את הקובץ driving-practice.html, פתח אותו בדפדפן מהמחשב, ושם התוספים יעבדו.</p>
+      <div id="pluginList" class="maplist"></div>
+
+      <h3 class="sec">תוסף חדש מ-Gemini</h3>
+      <ol class="steps">
+        <li>לחץ <b>העתק הנחיות לתוספים</b> והדבק אותן בצ'אט חדש ב-Gemini.</li>
+        <li>בסוף ההודעה, תחת "הבקשה שלי", כתוב או הדבק את רשימת החוקים שאתה רוצה שהבוחן יבדוק.</li>
+        <li>העתק את כל התשובה של Gemini, הדבק אותה בתיבה ולחץ <b>בדוק והוסף</b>. אם יש שגיאה, תקבל בקשת תיקון מוכנה להדבקה חזרה ל-Gemini.</li>
+      </ol>
+      <div class="row">
+        <button id="btnCopyPluginPrompt" type="button">העתק הנחיות לתוספים</button>
+      </div>
+      <textarea id="copyOut2" class="copyout" readonly hidden aria-label="טקסט להעתקה"></textarea>
+      <label class="fieldlabel" for="pluginInput">התשובה של Gemini</label>
+      <textarea id="pluginInput" class="mapinput" spellcheck="false" placeholder="הדבק כאן את התשובה. למשל: ```javascript // @name ... DP.addRule({ ... }); ```"></textarea>
+      <div class="row">
+        <button id="btnAddPlugin" class="primary" type="button">בדוק והוסף</button>
+        <label class="filebtn">טען מקובץ<input id="pluginFile" type="file" accept=".js,.txt,text/plain,text/javascript"></label>
+        <button id="btnClosePlugins" type="button">סגור</button>
+      </div>
+      <div id="pluginMsg" class="msgs" aria-live="polite"></div>
+    </div>
+  </section>
+
   <section id="summary" class="modal" hidden>
     <div class="card">
       <p class="eyebrow">סיכום המבחן</p>
@@ -178,7 +211,9 @@
 <script src="js/prompt.js"></script>
 <script src="js/traffic.js"></script>
 <script src="js/player.js"></script>
+<script src="js/autopilot.js"></script>
 <script src="js/rules.js"></script>
+<script src="js/plugins.js"></script>
 <script src="js/render.js"></script>
 <script src="js/main.js"></script>
 </body>

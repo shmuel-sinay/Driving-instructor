@@ -13,6 +13,7 @@ const input = { up: false, down: false, left: false, right: false };
 
 function resetPlayer() {
   Object.assign(player, { x: START.x, y: START.y, h: START.h, v: 0, steer: 0, gear: 'D', blinker: 0, revHold: 0 });
+  if (assist.on) apReset();
 }
 
 function setBlinker(side) {
@@ -21,7 +22,8 @@ function setBlinker(side) {
   player.blinkArmed = false;
 }
 
-function updatePlayer(dt) {
+// גז ובלם (משותף לנהיגה ידנית ולנהיגה מסייעת)
+function updatePedals(dt, allowReverse) {
   const p = player;
   let a = 0;
   const fwd = p.gear === 'D';
@@ -35,7 +37,7 @@ function updatePlayer(dt) {
     else {
       p.v = 0;
       p.revHold += dt;
-      if (p.revHold > 0.45) { p.gear = fwd ? 'R' : 'D'; p.revHold = 0; }
+      if (allowReverse && p.revHold > 0.45) { p.gear = fwd ? 'R' : 'D'; p.revHold = 0; }
     }
   } else p.revHold = 0;
   if (gas && !brake) {
@@ -47,6 +49,13 @@ function updatePlayer(dt) {
   p.v = (brake || !gas) && Math.sign(nv) !== Math.sign(p.v) && p.v !== 0 ? 0 : nv;
   if (p.gear === 'D' && p.v < 0) p.v = 0;
   if (p.gear === 'R' && p.v > 0) p.v = 0;
+}
+
+function updatePlayer(dt) {
+  if (assist.on) { updatePedals(dt, false); apUpdate(dt); return; }
+  updatePedals(dt, true);
+  const p = player;
+  const sp = Math.abs(p.v);
 
   // היגוי
   const maxSteer = 0.62 / (1 + sp * 0.085);

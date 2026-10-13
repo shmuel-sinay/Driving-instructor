@@ -14,6 +14,7 @@ const Rules = {
       blinkHist: [], lastHistT: -1e9, stopped: {}, overTimer: 0, wrongTimer: 0, offTimer: 0, islandTimer: 0,
       pendingLane: null, instr: null, lastT: null, lastEdge: null,
     });
+    if (typeof Plugins !== 'undefined') Plugins.reset();
   },
 
   report(key, text, severe, time, cd = 6) {
@@ -74,6 +75,7 @@ const Rules = {
       }
     }
     this.updateInstructor(time, p);
+    Plugins.tick(time, dt, p, vehicles);
   },
 
   edgeChecks(loc, dt, time, p, kmh) {
@@ -160,6 +162,7 @@ const Rules = {
 
   enterNode(node, edge, time, p, vehicles) {
     this.entry = { node, edge, time, valid: false };
+    Plugins.enterJunction(node, edge, time, p);
     if (this.instr && this.instr.node !== node) this.instr = null;
     if (!edge) return;
     const dirIn = node === edge.b ? edge.d : { x: -edge.d.x, y: -edge.d.y };
@@ -180,6 +183,7 @@ const Rules = {
   },
 
   exitNode(node, edge, time, p) {
+    Plugins.exitJunction(node, edge, time, p);
     const en = this.entry;
     this.entry = null;
     const dirOut = node === edge.a ? edge.d : { x: -edge.d.x, y: -edge.d.y };

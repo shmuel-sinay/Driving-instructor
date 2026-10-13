@@ -128,6 +128,10 @@ li.severe .pts { color: var(--red); }
   .toasts { top: calc(220px + env(safe-area-inset-top, 0px)); }
 }
 
+.plan { background: var(--glass); border: 1px solid var(--sky); color: var(--paper); border-radius: 999px; padding: 5px 14px; font-size: 15px; font-weight: 700; white-space: nowrap; }
+.plan.warn { border-color: var(--amber); color: var(--amber); }
+.lead.assist { border-inline-start: 3px solid var(--sky); padding-inline-start: 12px; font-size: 16px; }
+
 /* ===== מסך מפות ===== */
 .maplist { display: grid; gap: 8px; margin: 14px 0 8px; }
 .mapcard { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: #1a2025; }
@@ -153,6 +157,12 @@ h3.sec { margin-top: 22px; }
 .msgtitle.bad { color: var(--red); } .msgtitle.warn { color: var(--amber); } .msgtitle.good { color: var(--green); }
 .msglist { margin: 0; padding-inline-start: 20px; display: grid; gap: 4px; font-size: 14px; line-height: 1.45; color: #d4d6d2; }
 .msgs > button { justify-self: start; margin-top: 6px; }
+
+/* ===== מסך תוספים ===== */
+.note { margin: 10px 0 0; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--amber); color: #f1dfbf; font-size: 15px; line-height: 1.45; }
+.mapcard .err { font-size: 13px; color: var(--red); line-height: 1.4; }
+.mapcard.off { opacity: .6; }
+.mapbtns { flex-wrap: wrap; }
 
 /* ===== חלונות ===== */
 .modal { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(8, 12, 10, 0.55); backdrop-filter: blur(3px); overflow-y: auto; }
@@ -211,6 +221,8 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
     </div>
     <nav class="tools" aria-label="הגדרות">
       <button id="btnMaps" type="button">מפות</button>
+      <button id="btnPlugins" type="button">תוספים</button>
+      <button id="btnSteer" type="button">היגוי: אוטומטי</button>
       <button id="btnInstr" type="button" aria-pressed="true">הוראות בוחן: פועל</button>
       <button id="btnCam" type="button">מצלמה: מאחורי הרכב</button>
       <button id="btnLog" type="button">יומן עבירות (0)</button>
@@ -234,6 +246,7 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
   <canvas id="minimap" class="minimap" aria-label="מפה"></canvas>
 
   <div class="dash">
+    <div id="plan" class="plan" hidden></div>
     <div id="nextBox" class="next">
       <span class="k">לפניך</span>
       <span id="nextText">—</span>
@@ -275,19 +288,21 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
       <p class="eyebrow">תרגול לקראת טסט</p>
       <h2>סע לפי החוק, הבוחן רושם הכל</h2>
       <p class="lead">עיר קטנה עם רמזורים, כיכר, תמרורי "עצור", רחובות חד-סטריים, מעברי חציה ותנועה אמיתית. הבוחן ייתן לך הוראות, ותקבל ניקוד על כל עבירה.</p>
+      <p class="lead assist">הרכב מחזיק את הנתיב לבד. אתה שולט בגז ובבלם, והאיתות קובע לאן נוסעים: איתות בכביש עם כמה נתיבים מעביר נתיב, איתות לפני צומת בוחר פנייה (בלי איתות = ישר), ובכיכר הרכב מקיף עד שאתה מאותת ימינה ויוצא ביציאה הבאה.</p>
       <div class="cols">
         <div>
           <h3>שליטה</h3>
           <dl class="keys">
             <dt><kbd>↑</kbd> / <kbd>W</kbd></dt><dd>גז</dd>
-            <dt><kbd>↓</kbd> / <kbd>S</kbd></dt><dd>בלם (החזק בעצירה להילוך אחורי)</dd>
-            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>הגה</dd>
-            <dt><kbd>Q</kbd> / <kbd>E</kbd></dt><dd>איתות שמאלה / ימינה</dd>
+            <dt><kbd>↓</kbd> / <kbd>S</kbd></dt><dd>בלם</dd>
+            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>איתות שמאלה / ימינה (גם <kbd>Q</kbd> <kbd>E</kbd>)</dd>
+            <dt><kbd>G</kbd></dt><dd>היגוי אוטומטי / ידני</dd>
             <dt><kbd>C</kbd></dt><dd>החלפת מצלמה</dd>
             <dt><kbd>R</kbd></dt><dd>חזרה לנקודת ההתחלה</dd>
             <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>זום</dd>
             <dt><kbd>P</kbd></dt><dd>השהיה</dd>
             <dt>מפות</dt><dd>בחירת מפה או בניית מפה חדשה</dd>
+            <dt>תוספים</dt><dd>חוקים חדשים לבוחן</dd>
           </dl>
         </div>
         <div>
@@ -335,6 +350,34 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
         <button id="btnCloseMaps" type="button">סגור</button>
       </div>
       <div id="mapMsg" class="msgs" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="plugins" class="modal" hidden>
+    <div class="card">
+      <p class="eyebrow">תוספים</p>
+      <h2>חוקים חדשים לבוחן, בעזרת Gemini</h2>
+      <p id="evalNote" class="note" hidden>בגרסה שפתוחה באתר אי אפשר להריץ תוספים. הורד את הקובץ driving-practice.html, פתח אותו בדפדפן מהמחשב, ושם התוספים יעבדו.</p>
+      <div id="pluginList" class="maplist"></div>
+
+      <h3 class="sec">תוסף חדש מ-Gemini</h3>
+      <ol class="steps">
+        <li>לחץ <b>העתק הנחיות לתוספים</b> והדבק אותן בצ'אט חדש ב-Gemini.</li>
+        <li>בסוף ההודעה, תחת "הבקשה שלי", כתוב או הדבק את רשימת החוקים שאתה רוצה שהבוחן יבדוק.</li>
+        <li>העתק את כל התשובה של Gemini, הדבק אותה בתיבה ולחץ <b>בדוק והוסף</b>. אם יש שגיאה, תקבל בקשת תיקון מוכנה להדבקה חזרה ל-Gemini.</li>
+      </ol>
+      <div class="row">
+        <button id="btnCopyPluginPrompt" type="button">העתק הנחיות לתוספים</button>
+      </div>
+      <textarea id="copyOut2" class="copyout" readonly hidden aria-label="טקסט להעתקה"></textarea>
+      <label class="fieldlabel" for="pluginInput">התשובה של Gemini</label>
+      <textarea id="pluginInput" class="mapinput" spellcheck="false" placeholder="הדבק כאן את התשובה. למשל: ```javascript // @name ... DP.addRule({ ... }); ```"></textarea>
+      <div class="row">
+        <button id="btnAddPlugin" class="primary" type="button">בדוק והוסף</button>
+        <label class="filebtn">טען מקובץ<input id="pluginFile" type="file" accept=".js,.txt,text/plain,text/javascript"></label>
+        <button id="btnClosePlugins" type="button">סגור</button>
+      </div>
+      <div id="pluginMsg" class="msgs" aria-live="polite"></div>
     </div>
   </section>
 
@@ -438,7 +481,10 @@ function buildWorld(map) {
   if (!laneCount(se, dir)) dir = -dir;
   const dist = Math.min(Math.max(st.distance || 30, 5), se.t1 - se.t0 - 5);
   const p = edgePoint(se, dir > 0 ? se.t0 + dist : se.t1 - dist, laneS(se, dir, laneCount(se, dir) - 1));
-  Object.assign(START, { x: p.x, y: p.y, h: Math.atan2(se.d.y * dir, se.d.x * dir), lim: se.lim });
+  Object.assign(START, {
+    x: p.x, y: p.y, h: Math.atan2(se.d.y * dir, se.d.x * dir), lim: se.lim,
+    edge: se, dir, lane: laneCount(se, dir) - 1, t: dir > 0 ? se.t0 + dist : se.t1 - dist,
+  });
   currentMap = map;
 }
 
@@ -985,6 +1031,144 @@ const GEMINI_PROMPT = `אתה עוזר לי לבנות מפות לסימולטו
 # הבקשה שלי
 [כתוב כאן מה אתה רוצה. למשל: "צור מפה של עיר בינונית עם 3 כיכרות, שדרה ראשית עם 3 נתיבים לכל כיוון ורמזורים, ויציאה לכביש בין-עירוני של 90 קמ"ש"]`;
 
+// ===== הנחיות ל-Gemini לכתיבת תוספי חוקים =====
+const PLUGIN_PROMPT = `אתה כותב "תוספים" (plugins) לסימולטור "מגרש תרגול נהיגה": משחק נהיגה במבט מלמעלה לתרגול חוקי התנועה בישראל (נהיגה בצד ימין). בסימולטור יש "בוחן" שבודק את הנהיגה ורושם עבירות. תוסף מוסיף לבוחן חוקים חדשים.
+המשימה שלך: לכתוב תוסף בקוד JavaScript, בדיוק לפי הממשק שמתואר כאן, שמממש את החוקים שאבקש בסוף ההודעה.
+
+# כללי הפלט
+1. החזר בלוק קוד אחד בלבד: \`\`\`javascript ... \`\`\`
+2. שתי השורות הראשונות בקוד חייבות להיות:
+   // @name שם קצר לתוסף בעברית
+   // @description משפט אחד: מה התוסף בודק
+3. הקוד רץ בתוך פונקציה שמקבלת את האובייקט DP. אין import/export, אין require, אין גישה ל-document, ל-window, לרשת או ל-localStorage. JavaScript רגיל (ES2017).
+4. כל ההודעות לנהג בעברית, קצרות וברורות (עד כ-80 תווים), ומסבירות מה היה לא בסדר.
+5. אחרי הבלוק כתוב בעברית רשימה קצרה: איזה חוקים הוספת ואיזו חומרה לכל אחד, ומה לא היה אפשר לבדוק עם החיישנים הקיימים (אם יש כזה).
+
+# הממשק
+DP.addRule({
+  id: 'unique-id',           // מזהה ייחודי באנגלית, בלי רווחים
+  name: 'שם החוק',            // בעברית
+  severity: 'minor',         // 'minor' = עבירה רגילה (מורידה 5 נקודות) | 'severe' = עבירה חמורה (מורידה 15 ונחשבת כישלון)
+  cooldown: 6,               // שניות שבהן החוק לא ידווח שוב אחרי דיווח (ברירת מחדל 6)
+  check(s, mem) { ... },              // רץ בכל פריים (כ-120 פעמים בשנייה)
+  onEnterJunction(s, ev, mem) { ... }, // רץ ברגע שהרכב נכנס לצומת או לכיכר
+  onExitJunction(s, ev, mem) { ... },  // רץ ברגע שהרכב יוצא מהצומת או מהכיכר אל דרך
+});
+- חובה לפחות אחת משלוש הפונקציות.
+- כדי לדווח על עבירה, הפונקציה מחזירה מחרוזת עם ההודעה. אפשר גם להחזיר { text: '...', severe: true } כדי לקבוע חומרה למקרה מסוים. כדי לא לדווח, לא מחזירים כלום.
+- mem הוא אובייקט ריק ששייך לחוק, ונשמר בין פריימים. משתמשים בו לטיימרים ולזיכרון (למשל mem.t = (mem.t || 0) + s.dt).
+- אפשר לקרוא ל-DP.addRule כמה פעמים בתוסף אחד.
+
+פונקציות עזר:
+- DP.say('טקסט'): הודעה חיובית ירוקה לנהג (למשל מחמאה). לא מורידה נקודות.
+- DP.lightState(junctionId, roadId): מצב הרמזור לנכנסים מהדרך הזאת: 'red' | 'redYellow' | 'green' | 'yellow' | null.
+- DP.angleDiff(a, b): הפרש בין שתי זוויות ברדיאנים, בטווח -π עד π.
+- DP.map: עותק של המפה הנוכחית (צמתים ודרכים, בפורמט המפות).
+- DP.onDraw(function (ctx, s) { ... }): ציור נוסף על המפה בכל פריים, בקואורדינטות של העולם (מטרים). ctx הוא CanvasRenderingContext2D. לשימוש רק אם ביקשתי משהו ויזואלי.
+
+# מערכת הצירים
+- יחידות במטרים. x גדל ימינה (מזרח), y גדל למטה (דרום).
+- זוויות ברדיאנים: 0 = מזרח, π/2 = דרום, -π/2 = צפון.
+- כל המרחקים היחסיים (ahead, side) נמדדים ממרכז הרכב שלי: ahead חיובי = לפניי, side חיובי = מימיני.
+- אורך רכב 4.4 מ', רוחב נתיב 3.5 מ'. נתיבים ממוספרים משמאל: 0 = הנתיב השמאלי ביותר בכיוון הנסיעה שלי.
+- בכיכר נוסעים נגד כיוון השעון. רדיוס חיצוני 19 מ', אי התנועה ברדיוס 8.5 מ'. הטבעת מחולקת לנתיב "inner" (פנימי, רדיוס מתחת ל-13.75 מ') ו-"outer" (חיצוני).
+
+# החיישנים: האובייקט s (מתעדכן בכל פריים)
+s.time         זמן בשניות מתחילת הנסיעה
+s.dt           זמן הפריים בשניות (בערך 0.008)
+s.car          הרכב שלי:
+  x, y, heading (רדיאנים), speed (מ'/ש', שלילי ברוורס), speedKmh (תמיד חיובי),
+  gear ('drive' | 'reverse'), blinker ('left' | 'right' | null), steering (רדיאנים, חיובי = ימינה),
+  braking (true כשהבלם לחוץ), gas (true כשהגז לחוץ), length, width
+s.blinkerUsed(side, secondsBack)   true אם האיתות 'left' או 'right' היה דולק מתישהו ב-secondsBack השניות האחרונות
+s.where        'road' | 'junction' | 'off'
+s.road         (רק כש-where === 'road', אחרת null):
+  id, name, speedLimit (קמ"ש), oneWay, school, overtakingAllowed,
+  lanes (מספר הנתיבים בכיוון שלי), lanesOpposite, lane (0 = שמאלי), laneFromRight (0 = ימני),
+  isRightmostLane, isLeftmostLane, offsetFromCenter (מטרים מקו ההפרדה, חיובי = בצד הנכון),
+  width, onWrongSide, alignedWithRoad (הרכב מקביל לדרך),
+  distanceToJunction (מטרים עד קו העצירה של הצומת הבא), distanceFromJunction (מטרים מהצומת הקודם), length
+s.nextJunction (רק כשאני על דרך): הצומת שאליו אני נוסע:
+  id, type ('junction' | 'light' | 'roundabout' | 'allstop'),
+  control (מה שחל עליי בכניסה: 'none' = אני בדרך הראשית | 'stop' | 'yield' | 'light' | 'roundabout'),
+  light (מצב הרמזור שלי, או null), roadCount, distance, distanceToStopLine,
+  exits: [{ roadId, roadName, turn ('left' | 'right' | 'straight' | 'uturn'), lanes, exitNumber (רק בכיכר) }]
+s.junction     (רק כש-where === 'junction'):
+  id, type, roadCount, timeInside (שניות), enteredFromRoadId, stops (כמה פעמים עצרתי בפנים), stoppedSeconds,
+  ובכיכר בלבד: ringLane ('inner' | 'outer' | 'island'), distanceFromCenter, exitsPassed (כמה יציאות כבר עברתי),
+  ringLaneChanges: [{ time, from, to, blinker }]
+s.crosswalkAhead  מעבר החציה הקרוב לפניי באותה דרך, או null:
+  distance (מטרים עד תחילת המעבר, שלילי = אני עליו), pedestriansCrossing, pedestriansWaiting, pedestrianOnRoad
+s.pedestrians  כל הולכי הרגל: [{ roadId, state ('waiting' = עומד על המדרכה ליד המעבר ומתכוון לחצות | 'crossing' | 'leaving'),
+  onRoad, ahead, side, distance, x, y }]
+s.vehicles     כל הרכבים האחרים: [{ ahead, side, distance, speedKmh, accel (מ'/ש² - שלילי = בולם),
+  braking, blinker, heading, sameDirection, oppositeDirection, x, y,
+  where ('road' | 'junction' | 'off'),
+  כשעל דרך: roadId, lane, lanes, distanceToJunction, nextJunctionId,
+  כשבצומת: junctionId, ובכיכר גם ringLane }]
+s.instruction  ההוראה הנוכחית של הבוחן, או null: { junctionId, toRoadId, turn, text }
+s.score, s.mapName
+
+# האירועים: האובייקט ev
+onEnterJunction(s, ev): ev = {
+  junctionId, type, control, light (מצב הרמזור ברגע הכניסה), roadCount, exits (כמו ב-nextJunction),
+  fromRoadId, speedKmh, lane (הנתיב שממנו נכנסתי, 0 = שמאלי), lanes,
+  stoppedBeforeLine (true אם עצרתי עצירה מוחלטת לפני הקו, רלוונטי ל"עצור")
+}
+onExitJunction(s, ev): ev = {
+  junctionId, type, fromRoadId, toRoadId, turn ('left' | 'right' | 'straight' | 'uturn'),
+  exitNumber (בכיכר: מספר היציאה, 1 = הראשונה מימין), entryLane, entryLanes, exitLanes,
+  timeInside, minSpeedKmh, maxSpeedKmh, stops, stoppedSeconds,
+  ringLaneAtEntry, ringLaneAtExit, ringLaneChanges (בכיכר), wrongExitDirection, instructionFollowed (true/false/null)
+}
+הערה: הנתיב שאליו נכנסתי בדרך החדשה עוד לא ידוע ברגע היציאה. כדי לבדוק אותו, שמור ב-mem ובדוק ב-check כשהרכב כבר נוסע בדרך החדשה (s.road.id === mem.toRoadId).
+
+# חוקים שהבוחן כבר בודק (אל תכפיל אותם)
+נסיעה באור אדום או אדום-צהוב; אי-עצירה בתמרור "עצור" (בקו); אי-מתן זכות קדימה בכניסה מ"עצור", "תן זכות קדימה" או לכיכר, כשיש רכב שמתקרב או שבתוך הצומת;
+פנייה ימינה או שמאלה בלי איתות מוקדם; איתות מטעה בנסיעה ישר; לא איתתת ימינה לפני היציאה מהכיכר (בדיקה פשוטה: האיתות היה דולק מתישהו בכיכר);
+פנייה שלא מהנתיב הנכון ופנייה לנתיב הלא נכון; החלפת נתיב בלי איתות; החלפת נתיב על קו רצוף לפני צומת;
+מהירות מעל המותר (מעל 20 קמ"ש = חמורה); נסיעה בצד השמאלי או חציית קו רצוף; נסיעה נגד כיוון בחד-סטרי או בכיכר; כניסה ב"אין כניסה";
+אי-מתן זכות קדימה להולך רגל שכבר חוצה במעבר; עלייה על המדרכה או על אי התנועה; תאונה ופגיעה בהולך רגל; אי-ביצוע הוראת הבוחן.
+אם ביקשתי להחמיר חוק קיים (למשל לבדוק את תזמון האיתות בכיכר בצורה מדויקת יותר), כתוב חוק חדש עם id אחר שבודק רק את המקרה המדויק.
+
+# טיפים
+- check רץ הרבה פעמים בשנייה: השתמש בטיימרים ב-mem (mem.t += s.dt) כדי לדרוש שמצב יימשך זמן מה לפני דיווח, ואפס אותם כשהמצב נגמר.
+- בדוק תמיד שהאובייקט קיים לפני שימוש: if (!s.road) return;
+- כדי לזהות "רכב שבתוך הכיכר נאלץ לבלום בגללי": ב-onEnterJunction או מיד אחריו, חפש ב-s.vehicles רכב עם junctionId זהה, distance קטן, ו-accel שלילי חזק (למשל מתחת ל-3-).
+- עדיף חוק שמדווח מעט ובצדק, על פני חוק שמדווח הרבה בטעות. אל תדווח כשהמהירות כמעט 0, אלא אם החוק עוסק בעצירה.
+
+# דוגמה מלאה ותקינה
+\`\`\`javascript
+// @name איתות שנשאר דולק
+// @description אם האיתות דולק יותר מ-6 שניות בנסיעה ישרה, בלי צומת קרוב
+DP.addRule({
+  id: 'forgot-blinker',
+  name: 'איתות שנשאר דולק',
+  severity: 'minor',
+  cooldown: 15,
+  check(s, mem) {
+    const r = s.road;
+    const straight = r && r.alignedWithRoad && r.distanceToJunction > 100 && s.car.speedKmh > 15;
+    if (s.car.blinker && straight) mem.t = (mem.t || 0) + s.dt; else mem.t = 0;
+    if (mem.t > 6) { mem.t = 0; return 'איתות דולק בלי סיבה: שכחת לכבות אותו'; }
+  },
+});
+
+DP.addRule({
+  id: 'fast-turn',
+  name: 'פנייה מהירה מדי',
+  severity: 'minor',
+  onExitJunction(s, ev) {
+    if ((ev.turn === 'left' || ev.turn === 'right') && ev.type !== 'roundabout' && ev.maxSpeedKmh > 30) {
+      return 'פנייה מהירה מדי (' + Math.round(ev.maxSpeedKmh) + ' קמ"ש). יש להאט לפני הפנייה';
+    }
+  },
+});
+\`\`\`
+
+# הבקשה שלי
+[כתוב כאן אילו חוקים להוסיף. אפשר להדביק רשימה שלמה של עבירות, והתוסף יכלול חוק לכל אחת]`;
+
 // ---- js/traffic.js ----
 'use strict';
 // ===== תנועה: רכבים אחרים והולכי רגל =====
@@ -1218,6 +1402,7 @@ const input = { up: false, down: false, left: false, right: false };
 
 function resetPlayer() {
   Object.assign(player, { x: START.x, y: START.y, h: START.h, v: 0, steer: 0, gear: 'D', blinker: 0, revHold: 0 });
+  if (assist.on) apReset();
 }
 
 function setBlinker(side) {
@@ -1226,7 +1411,8 @@ function setBlinker(side) {
   player.blinkArmed = false;
 }
 
-function updatePlayer(dt) {
+// גז ובלם (משותף לנהיגה ידנית ולנהיגה מסייעת)
+function updatePedals(dt, allowReverse) {
   const p = player;
   let a = 0;
   const fwd = p.gear === 'D';
@@ -1240,7 +1426,7 @@ function updatePlayer(dt) {
     else {
       p.v = 0;
       p.revHold += dt;
-      if (p.revHold > 0.45) { p.gear = fwd ? 'R' : 'D'; p.revHold = 0; }
+      if (allowReverse && p.revHold > 0.45) { p.gear = fwd ? 'R' : 'D'; p.revHold = 0; }
     }
   } else p.revHold = 0;
   if (gas && !brake) {
@@ -1252,6 +1438,13 @@ function updatePlayer(dt) {
   p.v = (brake || !gas) && Math.sign(nv) !== Math.sign(p.v) && p.v !== 0 ? 0 : nv;
   if (p.gear === 'D' && p.v < 0) p.v = 0;
   if (p.gear === 'R' && p.v > 0) p.v = 0;
+}
+
+function updatePlayer(dt) {
+  if (assist.on) { updatePedals(dt, false); apUpdate(dt); return; }
+  updatePedals(dt, true);
+  const p = player;
+  const sp = Math.abs(p.v);
 
   // היגוי
   const maxSteer = 0.62 / (1 + sp * 0.085);
@@ -1273,6 +1466,206 @@ function updatePlayer(dt) {
   }
 }
 
+// ---- js/autopilot.js ----
+'use strict';
+// ===== נהיגה מסייעת =====
+// הרכב נוסע לבד במרכז הנתיב. הנהג שולט בגז ובבלם, והאיתות קובע לאן הרכב ייסע:
+// - בכביש עם כמה נתיבים: איתות של שנייה מעביר נתיב לכיוון האיתות.
+// - בצומת: איתות שמאלה = פנייה שמאלה, ימינה = פנייה ימינה, בלי איתות = ישר.
+// - בכיכר: הרכב מקיף עד שמאותתים ימינה, ואז יוצא ביציאה הבאה.
+
+const assist = { on: true, st: null, hint: null, blinkHeld: 0, lastBlink: 0, blinkUsed: false };
+
+function apLaneCount(e, dir) { return Math.max(1, laneCount(e, dir)); }
+// היסט הנתיב; גם בנסיעה נגד הכיוון בחד-סטרי (כדי שהבוחן יוכל לרשום את העבירה)
+function apLaneS(e, dir, i) {
+  if (laneCount(e, dir)) return laneS(e, dir, i);
+  return laneS(e, -dir, Math.max(0, laneCount(e, -dir) - 1 - i));
+}
+
+function apStartEdge(e, dir, lane, t, lat) {
+  lane = Math.max(0, Math.min(apLaneCount(e, dir) - 1, lane));
+  assist.st = { kind: 'edge', e, dir, lane, t, lat: lat == null ? apLaneS(e, dir, lane) : lat, changing: false };
+}
+function apReset() {
+  if (!START.edge) return;
+  apStartEdge(START.edge, START.dir, START.lane, START.t);
+  assist.hint = null;
+  apPlace(START.h, true);
+}
+// מעבר מנהיגה ידנית: מצמידים את הרכב לנתיב הקרוב
+function apSnap() {
+  const loc = locate(player);
+  if (!loc || loc.kind !== 'edge') return false;
+  const e = loc.edge, hd = Math.cos(player.h) * e.d.x + Math.sin(player.h) * e.d.y, dir = hd >= 0 ? 1 : -1;
+  const n = laneCount(e, dir);
+  const lane = n ? laneFromST(e, dir, Math.max(0, loc.s * dir)).idx : 0;
+  apStartEdge(e, dir, lane, loc.t, loc.s);
+  player.gear = 'D';
+  return true;
+}
+
+function apPos() {
+  const st = assist.st;
+  if (st.kind === 'edge') return edgePoint(st.e, st.t, st.lat);
+  if (st.kind === 'ring') return { x: st.node.x + Math.cos(st.th) * st.r, y: st.node.y + Math.sin(st.th) * st.r };
+  return pathAt(st.path, st.s);
+}
+function apPlace(h0, snap) {
+  const p = player, q = apPos();
+  const dx = q.x - p.x, dy = q.y - p.y, moved = Math.hypot(dx, dy);
+  p.x = q.x; p.y = q.y;
+  if (snap) { p.h = h0; p.steer = 0; return; }
+  if (moved > 1e-4) {
+    const target = Math.atan2(dy, dx);
+    const dh = angNorm(target - p.h);
+    p.h = angNorm(p.h + dh * Math.min(1, 0.45 + moved * 0.4));
+    p.steer = Math.max(-0.6, Math.min(0.6, Math.atan(p.wb * dh / Math.max(moved, 0.05))));
+  } else p.steer *= 0.9;
+}
+
+// בחירת היציאה מהצומת לפי האיתות. null = אין כיוון ברור, צריך לעצור ולבחור
+function apChooseExit(e, dir) {
+  const node = toNodeOf(e, dir);
+  if (node.type === 'roundabout') return { ring: true, node };
+  const din = dirVec(e, dir);
+  const opts = node.edges.filter(x => x !== e).map(x => {
+    const d = exitDirFrom(node, x);
+    return { x, d, node, turn: turnType(din, dirVec(x, d)) };
+  });
+  if (!opts.length) return { x: e, d: -dir, node, turn: 'uturn' };   // רחוב ללא מוצא
+  if (opts.length === 1) return opts[0];                            // פינה: ממשיכים עם הדרך
+  const want = player.blinker === -1 ? 'left' : player.blinker === 1 ? 'right' : 'straight';
+  return opts.find(o => o.turn === want) || (want !== 'straight' && opts.find(o => o.turn === 'straight')) || null;
+}
+
+function uTurnPath(p0, din, p1) {
+  const cx = (p0.x + p1.x) / 2, cy = (p0.y + p1.y) / 2, r = Math.hypot(p1.x - p0.x, p1.y - p0.y) / 2;
+  const ux = (p0.x - cx) / (r || 1), uy = (p0.y - cy) / (r || 1);
+  const reach = Math.max(r, 4);
+  const pts = [];
+  for (let i = 0; i <= 16; i++) {
+    const a = Math.PI * i / 16;
+    pts.push({ x: cx + ux * r * Math.cos(a) + din.x * reach * Math.sin(a), y: cy + uy * r * Math.cos(a) + din.y * reach * Math.sin(a) });
+  }
+  return makePath(pts);
+}
+
+function apEnterNode(plan, leftover) {
+  const p = player, st = assist.st;
+  const din = dirVec(st.e, st.dir);
+  if (plan.ring) {
+    const n = plan.node;
+    assist.st = { kind: 'ring', node: n, th: Math.atan2(p.y - n.y, p.x - n.x), r: Math.hypot(p.x - n.x, p.y - n.y), entryEdge: st.e, traveled: 0 };
+    apStep(leftover);
+    return;
+  }
+  const n2 = apLaneCount(plan.x, plan.d);
+  const lane2 = plan.turn === 'right' ? n2 - 1 : (plan.turn === 'left' || plan.turn === 'uturn') ? 0 : Math.min(st.lane, n2 - 1);
+  const p1 = edgePoint(plan.x, plan.d > 0 ? plan.x.t0 : plan.x.t1, apLaneS(plan.x, plan.d, lane2));
+  const p0 = { x: p.x, y: p.y };
+  const path = plan.turn === 'uturn' ? uTurnPath(p0, din, p1) : nodePath({ type: 'plain' }, p0, din, p1, dirVec(plan.x, plan.d));
+  assist.st = { kind: 'node', path, s: 0, next: { x: plan.x, d: plan.d, lane: lane2 } };
+  apStep(leftover);
+}
+
+// התקדמות לאורך המסלול במרחק dist
+function apStep(dist) {
+  const p = player;
+  for (let guard = 0; guard < 4 && dist >= 0; guard++) {
+    const st = assist.st;
+    if (st.kind === 'edge') {
+      const e = st.e, dir = st.dir, n = apLaneCount(e, dir);
+      const tEnd = dir > 0 ? e.t1 : e.t0;
+      const remain = (tEnd - st.t) * dir;
+      // החלפת נתיב לפי איתות
+      // כל הפעלה של האיתות = החלפת נתיב אחת. קרוב לצומת האיתות נשאר דולק ומשמש גם לפנייה
+      if (p.blinker && assist.blinkHeld > 1.0 && !assist.blinkUsed && !st.changing && remain > 12) {
+        const target = st.lane + p.blinker;
+        if (target >= 0 && target < n) { st.lane = target; st.changing = true; st.cancelAfter = remain > 130; assist.blinkUsed = true; }
+      }
+      const targetS = apLaneS(e, dir, st.lane);
+      const rate = Math.min(1.5, 0.2 * Math.abs(p.v) + 0.15);
+      const dl = targetS - st.lat;
+      st.lat += Math.sign(dl) * Math.min(Math.abs(dl), rate * Math.abs(dist) / Math.max(Math.abs(p.v), 0.5));
+      if (st.changing && Math.abs(targetS - st.lat) < 0.05) { st.changing = false; if (st.cancelAfter && p.blinker) p.blinker = 0; }
+      if (dist < remain) { st.t += dist * dir; return; }
+      const plan = apChooseExit(e, dir);
+      st.t = tEnd;
+      if (!plan) { p.v = 0; return; }
+      apEnterNode(plan, dist - remain);
+      return;
+    }
+    if (st.kind === 'node') {
+      st.s += dist;
+      if (st.s < st.path.len) return;
+      dist = st.s - st.path.len;
+      const nx = st.next;
+      apStartEdge(nx.x, nx.d, nx.lane, nx.d > 0 ? nx.x.t0 : nx.x.t1);
+      if (nx.cancelBlink) p.blinker = 0;
+      continue;
+    }
+    if (st.kind === 'ring') {
+      const node = st.node;
+      const dth = dist / Math.max(st.r, 1);
+      st.th -= dth; st.traveled += dth;
+      st.r += (RB_RING - st.r) * Math.min(1, dist / 5);
+      if (p.blinker === 1 && st.traveled > 0.5) {
+        for (const x of node.edges) {
+          if (x === st.entryEdge && st.traveled < Math.PI) continue;
+          const d = exitDirFrom(node, x);
+          const lane2 = apLaneCount(x, d) - 1;
+          const p1 = edgePoint(x, d > 0 ? x.t0 : x.t1, apLaneS(x, d, lane2));
+          const thx = Math.atan2(p1.y - node.y, p1.x - node.x) + 0.32;
+          const dlt = angNorm(st.th - thx);
+          if (dlt <= 0 && dlt > -0.25) {
+            const q = apPos();
+            const tan = { x: Math.sin(st.th), y: -Math.cos(st.th) };
+            const path = nodePath({ type: 'plain' }, q, tan, p1, dirVec(x, d));
+            assist.st = { kind: 'node', path, s: 0, next: { x, d, lane: lane2, cancelBlink: true } };
+            return;
+          }
+        }
+      }
+      return;
+    }
+    return;
+  }
+}
+
+function apUpdate(dt) {
+  const p = player;
+  if (!assist.st) { if (!apSnap()) apReset(); }
+  if (p.blinker && p.blinker === assist.lastBlink) assist.blinkHeld += dt; else { assist.blinkHeld = 0; assist.blinkUsed = false; }
+  assist.lastBlink = p.blinker;
+  const st = assist.st;
+  assist.hint = null;
+  // לפני צומת בלי כיוון ברור (למשל צומת T בלי איתות): עוצרים בקו ומבקשים לבחור
+  if (st.kind === 'edge') {
+    const remain = ((st.dir > 0 ? st.e.t1 : st.e.t0) - st.t) * st.dir;
+    if (remain < 60 && !apChooseExit(st.e, st.dir)) {
+      assist.hint = 'אין דרך ישר: אותת ימינה או שמאלה כדי לבחור כיוון';
+      const vmax = Math.sqrt(2 * 5 * Math.max(0, remain - 0.3));
+      if (p.v > vmax) p.v = vmax;
+    }
+  }
+  apStep(Math.max(0, p.v) * dt);
+  apPlace();
+}
+
+// טקסט לתצוגה: מה הרכב יעשה בצומת הבא
+function apPlanText() {
+  const st = assist.st;
+  if (!assist.on || !st) return null;
+  if (assist.hint) return assist.hint;
+  if (st.kind === 'ring') return player.blinker === 1 ? 'יוצא ביציאה הבאה' : 'מקיף את הכיכר: אותת ימינה כדי לצאת';
+  if (st.kind !== 'edge') return null;
+  const plan = apChooseExit(st.e, st.dir);
+  if (!plan) return null;
+  if (plan.ring) return 'בכיכר: אותת ימינה לפני היציאה שלך';
+  return { left: 'הרכב יפנה שמאלה', right: 'הרכב יפנה ימינה', straight: 'הרכב ימשיך ישר', uturn: 'סוף הדרך: פרסה' }[plan.turn];
+}
+
 // ---- js/rules.js ----
 'use strict';
 // ===== בוחן: בדיקת חוקי תנועה והוראות נסיעה =====
@@ -1290,6 +1683,7 @@ const Rules = {
       blinkHist: [], lastHistT: -1e9, stopped: {}, overTimer: 0, wrongTimer: 0, offTimer: 0, islandTimer: 0,
       pendingLane: null, instr: null, lastT: null, lastEdge: null,
     });
+    if (typeof Plugins !== 'undefined') Plugins.reset();
   },
 
   report(key, text, severe, time, cd = 6) {
@@ -1350,6 +1744,7 @@ const Rules = {
       }
     }
     this.updateInstructor(time, p);
+    Plugins.tick(time, dt, p, vehicles);
   },
 
   edgeChecks(loc, dt, time, p, kmh) {
@@ -1436,6 +1831,7 @@ const Rules = {
 
   enterNode(node, edge, time, p, vehicles) {
     this.entry = { node, edge, time, valid: false };
+    Plugins.enterJunction(node, edge, time, p);
     if (this.instr && this.instr.node !== node) this.instr = null;
     if (!edge) return;
     const dirIn = node === edge.b ? edge.d : { x: -edge.d.x, y: -edge.d.y };
@@ -1456,6 +1852,7 @@ const Rules = {
   },
 
   exitNode(node, edge, time, p) {
+    Plugins.exitJunction(node, edge, time, p);
     const en = this.entry;
     this.entry = null;
     const dirOut = node === edge.a ? edge.d : { x: -edge.d.x, y: -edge.d.y };
@@ -1531,6 +1928,414 @@ const Rules = {
     this.instr = { node, edge: pick, text, turn, time };
   },
 };
+
+// ---- js/plugins.js ----
+'use strict';
+// ===== תוספים: חוקים חדשים לבוחן, כתובים בקוד (למשל על ידי Gemini) =====
+// תוסף הוא קוד JavaScript שמקבל אובייקט DP ומוסיף חוקים עם DP.addRule(...).
+// המסמך המלא לכותבי תוספים: docs/gemini-plugin-prompt.md (ו-PLUGIN_PROMPT ב-js/prompt.js)
+
+const Plugins = {
+  list: [],          // { key, name, description, code, enabled, builtin, error, rules, drawers }
+  loading: null,
+  visit: null,       // מעקב אחרי הצומת שבו הרכב נמצא עכשיו
+  prevV: new Map(),
+  lastSense: null,
+  evalOK: (() => { try { return new Function('return 1')() === 1; } catch (e) { return false; } })(),
+};
+
+const PLUGIN_STORE = 'driving-practice.plugins';
+
+// ===== עזרים =====
+const blinkName = b => (b === -1 ? 'left' : b === 1 ? 'right' : null);
+const lightName = st => (st === 'redyellow' ? 'redYellow' : st);
+const nodeTypeName = n => (n.type === 'plain' || n.type === 'priority' ? 'junction' : n.type);
+
+function rbExitNumber(node, inEdge, outEdge) {
+  const o = otherEnd(inEdge, node);
+  const thIn = Math.atan2(o.y - node.y, o.x - node.x);
+  const exits = node.edges.filter(x => x !== inEdge).map(x => {
+    const q = otherEnd(x, node);
+    let d = thIn - Math.atan2(q.y - node.y, q.x - node.x);
+    while (d <= 0) d += 2 * Math.PI;
+    return { x, d };
+  }).sort((a, b) => a.d - b.d);
+  const k = exits.findIndex(q => q.x === outEdge);
+  return k < 0 ? exits.length + 1 : k + 1;   // יציאה בדרך שממנה נכנסו = פרסה
+}
+
+function junctionInfo(node, edge, time) {
+  const info = {
+    id: node.id, type: nodeTypeName(node), control: edge ? control(node, edge) : 'none',
+    light: null, roadCount: node.edges.length, exits: [],
+  };
+  if (edge && node.type === 'light') info.light = lightName(lightState(node, axisOf(edge), time));
+  if (edge) {
+    const din = node === edge.b ? edge.d : { x: -edge.d.x, y: -edge.d.y };
+    for (const x of node.edges) {
+      if (x === edge || !canExit(node, x)) continue;
+      const ex = { roadId: x.id, roadName: x.name, turn: turnType(din, dirVec(x, exitDirFrom(node, x))), lanes: laneCount(x, exitDirFrom(node, x)) };
+      if (node.type === 'roundabout') ex.exitNumber = rbExitNumber(node, edge, x);
+      info.exits.push(ex);
+    }
+  }
+  return info;
+}
+
+function ringLaneAt(node, x, y) {
+  const r = Math.hypot(x - node.x, y - node.y);
+  return r < RB_IN ? 'island' : r < RB_RING ? 'inner' : 'outer';
+}
+
+function whereIs(v) {
+  const loc = locate(v);
+  if (!loc) return { where: 'off' };
+  if (loc.kind === 'node') {
+    const w = { where: 'junction', junctionId: loc.node.id };
+    if (loc.node.type === 'roundabout') w.ringLane = ringLaneAt(loc.node, v.x, v.y);
+    return w;
+  }
+  const e = loc.edge, hd = Math.cos(v.h) * e.d.x + Math.sin(v.h) * e.d.y, dir = hd >= 0 ? 1 : -1;
+  const n = laneCount(e, dir);
+  const L = n ? laneFromST(e, dir, Math.max(0, loc.s * dir)) : null;
+  return { where: 'road', roadId: e.id, lane: L ? L.idx : null, lanes: n, distanceToJunction: dir > 0 ? e.t1 - loc.t : loc.t - e.t0, nextJunctionId: toNodeOf(e, dir).id };
+}
+
+// ===== חיישנים: תמונת מצב שמועברת לכל חוק בכל פריים =====
+function sense(time, dt, p, vehicles) {
+  const loc = locate(p);
+  const hx = Math.cos(p.h), hy = Math.sin(p.h);
+  const rx = -hy, ry = hx;   // ימין של הרכב
+  const s = {
+    time, dt,
+    car: {
+      x: p.x, y: p.y, heading: p.h, speed: p.v, speedKmh: Math.abs(p.v) * 3.6,
+      gear: p.gear === 'R' ? 'reverse' : 'drive', blinker: blinkName(p.blinker),
+      steering: p.steer, braking: p.braking, gas: input.up, length: p.len, width: p.wid,
+    },
+    blinkerUsed: (side, secondsBack) => Rules.wasOn(side === 'left' ? -1 : 1, time - secondsBack, time),
+    where: !loc ? 'off' : loc.kind === 'edge' ? 'road' : 'junction',
+    road: null, junction: null, nextJunction: null, crosswalkAhead: null,
+    vehicles: [], pedestrians: [],
+    instruction: Rules.instr ? { junctionId: Rules.instr.node.id, toRoadId: Rules.instr.edge.id, turn: Rules.instr.turn, text: Rules.instr.text } : null,
+    score: Rules.score, mapName: currentMap ? currentMap.name : '',
+  };
+  if (loc && loc.kind === 'edge') {
+    const e = loc.edge, hd = hx * e.d.x + hy * e.d.y, dir = hd >= 0 ? 1 : -1;
+    const n = laneCount(e, dir), sT = loc.s * dir;
+    const L = n ? laneFromST(e, dir, Math.max(0, sT)) : null;
+    const distToEnd = dir > 0 ? e.t1 - loc.t : loc.t - e.t0;
+    s.road = {
+      id: e.id, name: e.name, speedLimit: e.lim, oneWay: e.oneway, school: e.school, overtakingAllowed: e.pass,
+      lanes: n, lanesOpposite: laneCount(e, -dir),
+      lane: L ? L.idx : null, laneFromRight: L ? n - 1 - L.idx : null,
+      isRightmostLane: L ? L.idx === n - 1 : false, isLeftmostLane: L ? L.idx === 0 : false,
+      offsetFromCenter: sT, width: e.W,
+      onWrongSide: e.oneway ? dir < 0 : sT < 0,
+      alignedWithRoad: Math.abs(hd) > 0.85,
+      distanceToJunction: distToEnd, distanceFromJunction: dir > 0 ? loc.t - e.t0 : e.t1 - loc.t, length: e.t1 - e.t0,
+    };
+    const node = toNodeOf(e, dir);
+    s.nextJunction = Object.assign(junctionInfo(node, e, time), { distance: distToEnd, distanceToStopLine: distToEnd });
+    let best = null;
+    for (const cw of e.crosswalks) {
+      const d = (dir > 0 ? cw.t - loc.t : loc.t - cw.t) - 1.8;
+      if (d > -4 && (!best || d < best.distance)) {
+        best = {
+          distance: d,
+          pedestriansCrossing: cw.peds.filter(q => q.state === 'cross').length,
+          pedestriansWaiting: cw.peds.filter(q => q.state === 'wait').length,
+          pedestrianOnRoad: pedOnRoad(cw),
+        };
+      }
+    }
+    s.crosswalkAhead = best;
+  }
+  if (loc && loc.kind === 'node') {
+    const n = loc.node, v = Plugins.visit && Plugins.visit.node === n ? Plugins.visit : null;
+    s.junction = {
+      id: n.id, type: nodeTypeName(n), roadCount: n.edges.length,
+      timeInside: v ? time - v.time : 0, enteredFromRoadId: v && v.fromEdge ? v.fromEdge.id : null,
+      stops: v ? v.stops : 0, stoppedSeconds: v ? v.stoppedTime : 0,
+    };
+    if (n.type === 'roundabout') {
+      s.junction.ringLane = ringLaneAt(n, p.x, p.y);
+      s.junction.distanceFromCenter = Math.hypot(p.x - n.x, p.y - n.y);
+      s.junction.exitsPassed = v ? v.exitsPassed : 0;
+      s.junction.ringLaneChanges = v ? v.ringChanges.slice() : [];
+    }
+  }
+  for (const o of vehicles) {
+    if (o === p) continue;
+    const dx = o.x - p.x, dy = o.y - p.y;
+    const prev = Plugins.prevV.get(o);
+    s.vehicles.push(Object.assign({
+      ahead: dx * hx + dy * hy, side: dx * rx + dy * ry, distance: Math.hypot(dx, dy),
+      speedKmh: Math.abs(o.v) * 3.6, accel: prev == null || !dt ? 0 : (o.v - prev) / dt,
+      braking: !!o.braking, blinker: blinkName(o.blinker), heading: o.h,
+      sameDirection: Math.cos(o.h - p.h) > 0.7, oppositeDirection: Math.cos(o.h - p.h) < -0.7,
+      x: o.x, y: o.y,
+    }, whereIs(o)));
+  }
+  for (const cw of crosswalks) for (const pd of cw.peds) {
+    const dx = pd.x - p.x, dy = pd.y - p.y;
+    s.pedestrians.push({
+      roadId: cw.edge.id, state: pd.state === 'wait' ? 'waiting' : pd.state === 'cross' ? 'crossing' : 'leaving',
+      onRoad: pd.state === 'cross' && Math.abs(pd.s) < cw.edge.W / 2 + 0.6,
+      ahead: dx * hx + dy * hy, side: dx * rx + dy * ry, distance: Math.hypot(dx, dy), x: pd.x, y: pd.y,
+    });
+  }
+  return s;
+}
+
+// ===== מעקב אחרי ביקור בצומת =====
+function startVisit(node, edge, time, p) {
+  const v = {
+    node, fromEdge: edge, time, stops: 0, stoppedTime: 0, wasStopped: false,
+    minSpeedKmh: Math.abs(p.v) * 3.6, maxSpeedKmh: Math.abs(p.v) * 3.6,
+    exitsPassed: 0, ringChanges: [], ringLane: null, ringLaneAtEntry: null, angle: 0,
+    lastAng: Math.atan2(p.y - node.y, p.x - node.x),
+    entryLane: null, entryLanes: edge ? laneCount(edge, node === edge.b ? 1 : -1) : 0,
+  };
+  const lastRoad = Plugins.lastSense && Plugins.lastSense.road;
+  if (edge && lastRoad && lastRoad.id === edge.id) v.entryLane = lastRoad.lane;
+  Plugins.visit = v;
+}
+function trackVisit(time, dt, p) {
+  const v = Plugins.visit;
+  if (!v || !nodeContains(v.node, p)) return;
+  const kmh = Math.abs(p.v) * 3.6;
+  v.minSpeedKmh = Math.min(v.minSpeedKmh, kmh); v.maxSpeedKmh = Math.max(v.maxSpeedKmh, kmh);
+  const stopped = Math.abs(p.v) < 0.3;
+  if (stopped) { v.stoppedTime += dt; if (!v.wasStopped) v.stops++; }
+  v.wasStopped = stopped;
+  if (v.node.type === 'roundabout' && v.fromEdge) {
+    const lane = ringLaneAt(v.node, p.x, p.y);
+    const r = Math.hypot(p.x - v.node.x, p.y - v.node.y);
+    if (r < RB_OUT - 2) {
+      if (!v.ringLaneAtEntry) v.ringLaneAtEntry = lane;
+      if (v.ringLane && lane !== v.ringLane && lane !== 'island') v.ringChanges.push({ time, from: v.ringLane, to: lane, blinker: blinkName(p.blinker) });
+      if (lane !== 'island') v.ringLane = lane;
+    }
+    const a = Math.atan2(p.y - v.node.y, p.x - v.node.x);
+    v.angle += angNorm(v.lastAng - a);   // כיוון התנועה בכיכר = זווית יורדת
+    v.lastAng = a;
+    const o = otherEnd(v.fromEdge, v.node);
+    const thIn = Math.atan2(o.y - v.node.y, o.x - v.node.x);
+    v.exitsPassed = v.node.edges.filter(x => {
+      if (x === v.fromEdge) return false;
+      const q = otherEnd(x, v.node);
+      let d = thIn - Math.atan2(q.y - v.node.y, q.x - v.node.x);
+      while (d <= 0) d += 2 * Math.PI;
+      return d + 0.35 < v.angle;
+    }).length;
+  }
+}
+
+// ===== הפעלת החוקים =====
+function pluginReport(pl, rule, res, time) {
+  if (!res) return;
+  const text = typeof res === 'string' ? res : res.text;
+  if (!text) return;
+  const severe = typeof res === 'object' && res.severe != null ? !!res.severe : rule.severity === 'severe';
+  Rules.report('plugin:' + pl.key + ':' + rule.id, String(text).slice(0, 140), severe, time, rule.cooldown == null ? 6 : rule.cooldown);
+}
+function runHook(pl, rule, fnName, args, time) {
+  if (pl.error || rule.disabled || typeof rule[fnName] !== 'function') return;
+  try { pluginReport(pl, rule, rule[fnName](...args, rule.mem), time); }
+  catch (err) {
+    rule.fails = (rule.fails || 0) + 1;
+    if (rule.fails >= 3) {
+      rule.disabled = true;
+      pl.error = `החוק "${rule.id}" נכשל ב-${fnName}: ${err.message}`;
+      if (Rules.onEvent) Rules.onEvent('bad', { text: `התוסף "${pl.name}" הושבת בגלל שגיאה. פרטים במסך התוספים.`, severe: false, pts: 0, time });
+    }
+  }
+}
+function activeRules() {
+  const out = [];
+  for (const pl of Plugins.list) if (pl.enabled && !pl.error) for (const r of pl.rules) out.push([pl, r]);
+  return out;
+}
+
+Plugins.tick = function (time, dt, p, vehicles) {
+  trackVisit(time, dt, p);
+  const s = sense(time, dt, p, vehicles);
+  Plugins.lastSense = s;
+  for (const [pl, r] of activeRules()) runHook(pl, r, 'check', [s], time);
+  for (const o of vehicles) Plugins.prevV.set(o, o.v);
+};
+Plugins.enterJunction = function (node, edge, time, p) {
+  const before = Plugins.lastSense;
+  startVisit(node, edge, time, p);
+  const s = before || sense(time, 0, p, [p]);
+  const ev = Object.assign(junctionInfo(node, edge, time), {
+    junctionId: node.id, fromRoadId: edge ? edge.id : null, speedKmh: Math.abs(p.v) * 3.6,
+    lane: Plugins.visit.entryLane, lanes: Plugins.visit.entryLanes,
+    stoppedBeforeLine: edge ? !!Rules.stopped[edge.id + node.id] : false,
+  });
+  for (const [pl, r] of activeRules()) runHook(pl, r, 'onEnterJunction', [s, ev], time);
+};
+Plugins.exitJunction = function (node, edge, time, p) {
+  const v = Plugins.visit;
+  Plugins.visit = null;
+  if (!v || v.node !== node) return;
+  const dirOut = node === edge.a ? edge.d : { x: -edge.d.x, y: -edge.d.y };
+  let turn = null;
+  if (v.fromEdge) {
+    const din = node === v.fromEdge.b ? v.fromEdge.d : { x: -v.fromEdge.d.x, y: -v.fromEdge.d.y };
+    turn = edge === v.fromEdge ? 'uturn' : turnType(din, dirOut);
+  }
+  const s = sense(time, 0, p, [p, ...(typeof npcs !== 'undefined' ? npcs : [])]);
+  const ev = {
+    junctionId: node.id, type: nodeTypeName(node), fromRoadId: v.fromEdge ? v.fromEdge.id : null, toRoadId: edge.id,
+    turn, exitNumber: node.type === 'roundabout' && v.fromEdge ? rbExitNumber(node, v.fromEdge, edge) : null,
+    entryLane: v.entryLane, entryLanes: v.entryLanes,
+    exitLanes: laneCount(edge, exitDirFrom(node, edge)),
+    timeInside: time - v.time, minSpeedKmh: v.minSpeedKmh, maxSpeedKmh: v.maxSpeedKmh,
+    stops: v.stops, stoppedSeconds: v.stoppedTime,
+    ringLaneAtEntry: v.ringLaneAtEntry, ringLaneAtExit: v.ringLane, ringLaneChanges: v.ringChanges,
+    wrongExitDirection: edge.oneway && node === edge.b,
+    instructionFollowed: Rules.instr && Rules.instr.node === node ? Rules.instr.edge === edge : null,
+  };
+  for (const [pl, r] of activeRules()) runHook(pl, r, 'onExitJunction', [s, ev], time);
+};
+Plugins.draw = function (ctx) {
+  const s = Plugins.lastSense;
+  if (!s) return;
+  for (const pl of Plugins.list) {
+    if (!pl.enabled || pl.error) continue;
+    for (const d of pl.drawers) {
+      try { ctx.save(); d(ctx, s); } catch (err) { pl.error = 'שגיאה בציור: ' + err.message; } finally { ctx.restore(); }
+    }
+  }
+};
+Plugins.reset = function () {
+  Plugins.visit = null; Plugins.prevV = new Map(); Plugins.lastSense = null;
+  for (const pl of Plugins.list) for (const r of pl.rules) { r.mem = {}; r.fails = 0; }
+};
+
+// ===== טעינת תוסף =====
+function extractCode(text) {
+  let t = String(text || '').trim();
+  const fence = t.match(/```(?:javascript|js)?\s*\n([\s\S]*?)```/i);
+  if (fence) t = fence[1].trim();
+  return t;
+}
+function pluginMeta(code) {
+  const get = k => { const m = code.match(new RegExp('//\\s*@' + k + '\\s+(.+)')); return m ? m[1].trim() : ''; };
+  return { name: get('name'), description: get('description') };
+}
+
+function compilePlugin(code, opts = {}) {
+  const meta = pluginMeta(code);
+  const pl = {
+    key: opts.key || ('p' + Math.random().toString(36).slice(2, 9)), code,
+    name: (meta.name || 'תוסף ללא שם').slice(0, 60), description: meta.description.slice(0, 200),
+    enabled: opts.enabled !== false, builtin: !!opts.builtin, error: null, rules: [], drawers: [],
+  };
+  if (!Plugins.evalOK) { pl.error = 'בגרסה שפתוחה באתר אי אפשר להריץ תוספים. הורד את הקובץ driving-practice.html ופתח אותו מהמחשב.'; return pl; }
+  const errors = [];
+  const api = {
+    addRule(r) {
+      if (!r || typeof r !== 'object') { errors.push('DP.addRule קיבל משהו שאינו אובייקט.'); return; }
+      if (!r.id || typeof r.id !== 'string') errors.push('לכל חוק חייב להיות "id" (מחרוזת).');
+      else if (pl.rules.some(x => x.id === r.id)) errors.push(`ה-id "${r.id}" מופיע פעמיים.`);
+      if (!['minor', 'severe'].includes(r.severity)) errors.push(`בחוק "${r.id}": "severity" חייב להיות "minor" או "severe".`);
+      if (!['check', 'onEnterJunction', 'onExitJunction'].some(k => typeof r[k] === 'function')) errors.push(`בחוק "${r.id}" חסרה פונקציה: check, onEnterJunction או onExitJunction.`);
+      pl.rules.push(Object.assign({}, r, { mem: {}, fails: 0 }));
+    },
+    onDraw(fn) { if (typeof fn === 'function') pl.drawers.push(fn); else errors.push('DP.onDraw צריך לקבל פונקציה.'); },
+    say(text) { if (Rules.onEvent) Rules.onEvent('good', { text: String(text).slice(0, 120) }); },
+    lightState(junctionId, roadId) {
+      const n = nodes[junctionId], e = edgeById[roadId];
+      return n && e && n.type === 'light' ? lightName(lightState(n, axisOf(e), Plugins.lastSense ? Plugins.lastSense.time : 0)) : null;
+    },
+    get map() { return currentMap ? JSON.parse(JSON.stringify(currentMap)) : null; },
+    angleDiff: (a, b) => angNorm(a - b),
+  };
+  try { new Function('DP', '"use strict";\n' + code)(api); }
+  catch (err) { pl.error = 'שגיאה בקוד: ' + err.message; return pl; }
+  if (!errors.length && !pl.rules.length && !pl.drawers.length) errors.push('התוסף לא הוסיף אף חוק. צריך לקרוא ל-DP.addRule({...}).');
+  if (errors.length) { pl.error = errors.join(' '); return pl; }
+  // הרצת ניסיון אחת כדי לתפוס שגיאות מוקדם
+  const s = Plugins.lastSense || sense(0, 0, player, [player]);
+  for (const r of pl.rules) {
+    if (typeof r.check !== 'function') continue;
+    try { r.check(s, {}); } catch (err) { pl.error = `החוק "${r.id}" נכשל בהרצת ניסיון: ${err.message}`; break; }
+  }
+  return pl;
+}
+
+function savedPlugins() {
+  try { const v = JSON.parse(localStorage.getItem(PLUGIN_STORE) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
+function storePlugins() {
+  const data = Plugins.list.filter(p => !p.builtin).map(p => ({ key: p.key, code: p.code, enabled: p.enabled }));
+  const builtinState = Plugins.list.filter(p => p.builtin).map(p => ({ key: p.key, builtin: true, enabled: p.enabled }));
+  try { localStorage.setItem(PLUGIN_STORE, JSON.stringify(data.concat(builtinState))); return true; } catch (e) { return false; }
+}
+function initPlugins() {
+  const saved = savedPlugins();
+  for (const b of BUILTIN_PLUGINS) {
+    const st = saved.find(x => x.builtin && x.key === b.key);
+    Plugins.list.push(compilePlugin(b.code, { key: b.key, builtin: true, enabled: st ? st.enabled : true }));
+  }
+  for (const x of saved) if (!x.builtin && x.code) Plugins.list.push(compilePlugin(x.code, { key: x.key, enabled: x.enabled }));
+}
+
+// ===== תוספים לדוגמה (מובנים) =====
+const BUILTIN_PLUGINS = [
+  {
+    key: 'ex-forgot-blinker',
+    code: `// @name דוגמה: שכחת לכבות איתות
+// @description אם האיתות דולק יותר מ-6 שניות בנסיעה ישרה בכביש, בלי צומת קרוב
+DP.addRule({
+  id: 'forgot-blinker',
+  name: 'איתות שנשאר דולק',
+  severity: 'minor',
+  cooldown: 15,
+  check(s, mem) {
+    const r = s.road;
+    const straight = r && r.alignedWithRoad && r.distanceToJunction > 100 && s.car.speedKmh > 15;
+    if (s.car.blinker && straight) mem.t = (mem.t || 0) + s.dt; else mem.t = 0;
+    if (mem.t > 6) { mem.t = 0; return 'איתות דולק בלי סיבה: שכחת לכבות אותו'; }
+  },
+});`,
+  },
+  {
+    key: 'ex-reverse-junction',
+    code: `// @name דוגמה: נסיעה לאחור בצומת
+// @description אסור לנסוע לאחור בתוך צומת או פחות מ-12 מטר ממנו
+DP.addRule({
+  id: 'reverse-near-junction',
+  name: 'נסיעה לאחור בצומת',
+  severity: 'minor',
+  cooldown: 8,
+  check(s) {
+    if (s.car.gear !== 'reverse' || s.car.speedKmh < 1) return;
+    const near = s.where === 'junction' || (s.road && (s.road.distanceToJunction < 12 || s.road.distanceFromJunction < 12));
+    if (near) return 'נסיעה לאחור בתוך צומת או קרוב אליו';
+  },
+});`,
+  },
+  {
+    key: 'ex-fast-turn',
+    code: `// @name דוגמה: פנייה מהירה מדי
+// @description פנייה ימינה או שמאלה בצומת במהירות מעל 30 קמ"ש
+DP.addRule({
+  id: 'fast-turn',
+  name: 'פנייה מהירה מדי',
+  severity: 'minor',
+  cooldown: 4,
+  onExitJunction(s, ev) {
+    if ((ev.turn === 'left' || ev.turn === 'right') && ev.type !== 'roundabout' && ev.maxSpeedKmh > 30) {
+      return 'פנייה מהירה מדי (' + Math.round(ev.maxSpeedKmh) + ' קמ"ש). יש להאט לפני הפנייה';
+    }
+  },
+});`,
+  },
+];
 
 // ---- js/render.js ----
 'use strict';
@@ -1934,6 +2739,7 @@ function renderWorld(ctx, W, H, time, npcs) {
   ctx.fillStyle = '#1f6feb'; ctx.fillRect(-1.4, -0.12, 2.4, 0.24); ctx.restore();
   drawTrees(ctx);
   drawSigns(ctx, time);
+  Plugins.draw(ctx);
 }
 
 // ===== מפה קטנה =====
@@ -1995,12 +2801,20 @@ const keyMap = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', Arr
 window.addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('textarea, input')) return;
   if (!$('maps').hidden) { if (e.code === 'Escape') closeMaps(); return; }
-  if (keyMap[e.code]) { input[keyMap[e.code]] = true; e.preventDefault(); }
+  if (!$('plugins').hidden) { if (e.code === 'Escape') closePlugins(); return; }
+  const k = keyMap[e.code];
+  if (assist.on && (k === 'left' || k === 'right')) {
+    e.preventDefault();
+    if (!e.repeat) { setBlinker(k === 'left' ? -1 : 1); tick(true); }
+    return;
+  }
+  if (k) { input[k] = true; e.preventDefault(); }
   if (e.repeat) return;
   switch (e.code) {
     case 'KeyQ': case 'Comma': setBlinker(-1); tick(true); break;
     case 'KeyE': case 'Period': setBlinker(1); tick(true); break;
     case 'KeyC': toggleCamera(); break;
+    case 'KeyG': toggleSteer(); break;
     case 'KeyR': resetPlayer(); Rules.loc = null; Rules.entry = null; break;
     case 'KeyI': toggleInstructor(); break;
     case 'KeyL': toggleLog(); break;
@@ -2017,7 +2831,11 @@ canvas.addEventListener('wheel', e => { e.preventDefault(); cam.userZoom = Math.
 // ===== שליטה במגע =====
 document.querySelectorAll('[data-hold]').forEach(btn => {
   const k = btn.dataset.hold;
-  const on = e => { e.preventDefault(); input[k] = true; btn.classList.add('pressed'); };
+  const on = e => {
+    e.preventDefault();
+    if (assist.on && (k === 'left' || k === 'right')) { setBlinker(k === 'left' ? -1 : 1); tick(true); return; }
+    input[k] = true; btn.classList.add('pressed');
+  };
   const off = e => { e.preventDefault(); input[k] = false; btn.classList.remove('pressed'); };
   btn.addEventListener('pointerdown', on); btn.addEventListener('pointerup', off);
   btn.addEventListener('pointerleave', off); btn.addEventListener('pointercancel', off);
@@ -2032,6 +2850,15 @@ function toggleCamera() {
   cam.mode = cam.mode === 'chase' ? 'north' : 'chase';
   $('btnCam').textContent = cam.mode === 'chase' ? 'מצלמה: מאחורי הרכב' : 'מצלמה: צפון למעלה';
 }
+function toggleSteer() {
+  if (!assist.on) {
+    if (!apSnap()) { Rules.onEvent('good', { text: 'אפשר לעבור להיגוי אוטומטי רק כשהרכב על כביש, לא בתוך צומת' }); return; }
+    assist.on = true;
+  } else { assist.on = false; assist.st = null; }
+  for (const k in input) input[k] = false;
+  $('btnSteer').textContent = assist.on ? 'היגוי: אוטומטי' : 'היגוי: ידני';
+  document.body.classList.toggle('manual', !assist.on);
+}
 function toggleInstructor() {
   Rules.instructorOn = !Rules.instructorOn;
   $('btnInstr').textContent = Rules.instructorOn ? 'הוראות בוחן: פועל' : 'הוראות בוחן: כבוי';
@@ -2041,6 +2868,7 @@ function toggleLog() { $('log').hidden = !$('log').hidden; }
 function showHelp() { paused = true; $('help').hidden = false; }
 function startDriving() { $('help').hidden = true; paused = false; ensureAudio(); canvas.focus(); }
 $('btnCam').addEventListener('click', toggleCamera);
+$('btnSteer').addEventListener('click', toggleSteer);
 $('btnInstr').addEventListener('click', toggleInstructor);
 $('btnLog').addEventListener('click', toggleLog);
 $('btnHelp').addEventListener('click', showHelp);
@@ -2141,9 +2969,10 @@ function copyText(text, btn) {
     btn.textContent = ok ? 'הועתק ✓' : 'סמן והעתק ידנית מהתיבה למטה';
     setTimeout(() => { btn.textContent = old; }, 2200);
   };
-  const fallback = () => { const box = $('copyOut'); box.hidden = false; box.value = text; box.focus(); box.select(); done(false); };
+  const boxId = !$('plugins').hidden ? 'copyOut2' : 'copyOut';
+  const fallback = () => { const box = $(boxId); box.hidden = false; box.value = text; box.focus(); box.select(); done(false); };
   try {
-    navigator.clipboard.writeText(text).then(() => { $('copyOut').hidden = true; done(true); }, fallback);
+    navigator.clipboard.writeText(text).then(() => { $(boxId).hidden = true; done(true); }, fallback);
   } catch (e) { fallback(); }
 }
 
@@ -2303,6 +3132,9 @@ function updateHUD(dt) {
     $('nextBox').dataset.state = up.state || '';
     $('street').textContent = up.street;
   }
+  const plan = apPlanText();
+  $('plan').hidden = !plan;
+  if (plan) { $('plan').textContent = plan; $('plan').classList.toggle('warn', plan === assist.hint); }
   const ins = $('instr');
   if (Rules.instr) { ins.hidden = false; $('instrText').textContent = Rules.instr.text; }
   else ins.hidden = true;
@@ -2331,6 +3163,74 @@ function frame(now) {
   updateHUD(dt);
   requestAnimationFrame(frame);
 }
+// ===== מסך תוספים =====
+function openPlugins() { paused = true; $('evalNote').hidden = Plugins.evalOK; renderPluginList(); $('plugins').hidden = false; }
+function closePlugins() { $('plugins').hidden = true; if ($('help').hidden && $('summary').hidden && $('maps').hidden) paused = false; }
+
+function fixRequest(pl) {
+  return 'התוסף שכתבת נכשל בשגיאה הבאה:\n' + pl.error + '\n\nתקן את השגיאה והחזר את התוסף המלא, באותו פורמט (בלוק javascript אחד עם // @name ו-// @description). זה הקוד הנוכחי:\n```javascript\n' + pl.code + '\n```';
+}
+
+function renderPluginList() {
+  const box = $('pluginList'); box.innerHTML = '';
+  for (const pl of Plugins.list) {
+    const el = document.createElement('div');
+    el.className = 'mapcard' + (pl.enabled ? '' : ' off');
+    const rules = pl.rules.map(r => r.name || r.id).join(' · ');
+    el.innerHTML = '<div class="mapinfo"><strong></strong><span class="desc"></span><span class="meta"></span><span class="err"></span></div><div class="mapbtns"></div>';
+    el.querySelector('strong').textContent = pl.name;
+    el.querySelector('.desc').textContent = pl.description;
+    el.querySelector('.meta').textContent = (pl.rules.length ? `${pl.rules.length} חוקים: ${rules}` : '') + (pl.builtin ? ' · מובנה' : ' · שמור אצלך');
+    el.querySelector('.err').textContent = pl.error ? 'שגיאה: ' + pl.error : '';
+    const btns = el.querySelector('.mapbtns');
+    const mk = (label, fn, cls) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (cls) b.className = cls; b.addEventListener('click', () => fn(b)); btns.appendChild(b); return b; };
+    mk(pl.enabled ? 'פעיל' : 'כבוי', () => { pl.enabled = !pl.enabled; storePlugins(); renderPluginList(); }, pl.enabled ? 'primary' : '');
+    if (pl.error && Plugins.evalOK) mk('העתק בקשת תיקון ל-Gemini', b => copyText(fixRequest(pl), b));
+    mk('העתק קוד', b => copyText(pl.code, b));
+    if (!pl.builtin) mk('מחק', b => {
+      if (b.dataset.armed) { Plugins.list.splice(Plugins.list.indexOf(pl), 1); storePlugins(); renderPluginList(); }
+      else { b.dataset.armed = '1'; b.textContent = 'בטוח? לחץ שוב'; }
+    });
+    box.appendChild(el);
+  }
+}
+
+function addPluginText(text) {
+  const code = extractCode(text);
+  const box = $('pluginMsg'); box.innerHTML = '';
+  const msg = (t, cls) => { const p = document.createElement('p'); p.className = 'msgtitle ' + cls; p.textContent = t; box.appendChild(p); };
+  if (!code) { msg('התיבה ריקה. הדבק את התשובה של Gemini.', 'bad'); return; }
+  const pl = compilePlugin(code);
+  if (pl.error) {
+    msg('התוסף לא נוסף: ' + pl.error, 'bad');
+    if (Plugins.evalOK) {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = 'העתק בקשת תיקון ל-Gemini';
+      b.addEventListener('click', () => copyText(fixRequest(pl), b)); box.appendChild(b);
+    }
+    return;
+  }
+  const old = Plugins.list.findIndex(x => !x.builtin && x.name === pl.name);
+  if (old >= 0) { pl.key = Plugins.list[old].key; Plugins.list[old] = pl; } else Plugins.list.push(pl);
+  const saved = storePlugins();
+  renderPluginList();
+  msg(`התוסף "${pl.name}" נוסף עם ${pl.rules.length} חוקים${saved ? ' ונשמר' : ''}${old >= 0 ? ' (החליף גרסה קודמת)' : ''}. הבוחן יבדוק אותם מעכשיו.`, 'good');
+  $('pluginInput').value = '';
+}
+
+$('btnPlugins').addEventListener('click', openPlugins);
+$('btnClosePlugins').addEventListener('click', closePlugins);
+$('btnAddPlugin').addEventListener('click', () => addPluginText($('pluginInput').value));
+$('btnCopyPluginPrompt').addEventListener('click', e => copyText(PLUGIN_PROMPT, e.currentTarget));
+$('pluginFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => addPluginText(rd.result);
+  rd.readAsText(f);
+  e.target.value = '';
+});
+
+initPlugins();
 loadMap(BUILTIN_MAPS[0]);
 requestAnimationFrame(frame);
 
