@@ -152,7 +152,11 @@ function toggleInstructor() {
 }
 function toggleLog() { $('log').hidden = !$('log').hidden; }
 function showHelp() { paused = true; $('help').hidden = false; }
-function startDriving() { $('help').hidden = true; paused = false; ensureAudio(); canvas.focus(); speak(''); }
+let testStarted = false;
+function startDriving() {
+  $('help').hidden = true; paused = false; ensureAudio(); canvas.focus();
+  if (!testStarted) { testStarted = true; Voice.say('start'); lastSpeakAt = time; }
+}
 $('btnCam').addEventListener('click', toggleCamera);
 $('btnSteer').addEventListener('click', toggleSteer);
 $('btnInstr').addEventListener('click', toggleInstructor);
@@ -166,34 +170,39 @@ $('btnFinish').addEventListener('click', showSummary);
 $('btnNew').addEventListener('click', newTest);
 $('btnResume').addEventListener('click', () => { $('summary').hidden = true; paused = false; });
 
-// ===== קול הבוחן (דיבור בעברית מהדפדפן) =====
-let voiceOn = true, heVoice = null;
-function pickVoice() {
-  if (!window.speechSynthesis) return;
-  const vs = speechSynthesis.getVoices();
-  heVoice = vs.find(v => /^he|^iw/i.test(v.lang)) || null;
-}
-if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-function speak(text) {
-  if (!voiceOn || !window.speechSynthesis) return;
-  try {
-    speechSynthesis.cancel();
-    if (!text) return;
-    const u = new SpeechSynthesisUtterance(text.replace(/–/g, ','));
-    u.lang = 'he-IL'; if (heVoice) u.voice = heVoice;
-    u.rate = 1.0;
-    speechSynthesis.speak(u);
-  } catch (e) { /* אין תמיכה בדיבור */ }
-}
+// ===== קול הבוחן (קבצי קול מוקלטים, ראו js/voice.js) =====
+function speak(text) { Voice.say(text); }
 function toggleVoice() {
-  voiceOn = !voiceOn;
-  if (!voiceOn && window.speechSynthesis) speechSynthesis.cancel();
-  $('btnVoice').textContent = voiceOn ? 'קול בוחן: פועל' : 'קול בוחן: כבוי';
+  Voice.on = !Voice.on;
+  if (!Voice.on) Voice.stop();
+  $('btnVoice').textContent = Voice.on ? 'קול בוחן: פועל' : 'קול בוחן: כבוי';
 }
-Rules.onInstr = ins => speak(ins.text);
+let lastSpeakAt = -10;
+Rules.onInstr = ins => {
+  Voice.say(ins.voice || ins.text);
+  lastSpeakAt = time;
+  // אם הנהג לא בנתיב שמתאים לפנייה, הבוחן מזכיר (כמו בטסט)
+  if (ins.kind === 'turn' && ins.node.type !== 'roundabout' && (ins.turn === 'left' || ins.turn === 'right') && assist.on && assist.st && assist.st.kind === 'edge') {
+    const n = apLaneCount(assist.st.e, assist.st.dir);
+    const want = ins.turn === 'left' ? 0 : n - 1;
+    if (n > 1 && assist.st.lane !== want) setTimeout(() => Voice.say(ins.turn === 'left' ? 'lane_left_turn' : 'lane_right_turn'), 3200);
+  }
+};
+// הערה קצרה בקול על עבירה (רק אם הבוחן לא באמצע הוראה)
+const REMARKS = { speed: 'warn_speed', signal: 'warn_signal', lanechg: 'warn_signal', rbsignal: 'warn_signal', parksig: 'warn_signal', unparksig: 'warn_signal',
+  ped: 'warn_ped', pedhit: 'warn_ped', red: 'warn_red', stop: 'warn_stop', yield: 'warn_yield', rbcut: 'warn_yield', unparkyield: 'warn_yield',
+  fromlane: 'warn_lane', turnlane: 'warn_lane', rbentry: 'warn_lane' };
+function remark(key) {
+  const id = REMARKS[key];
+  if (!id || time - lastSpeakAt < 3.5) return;
+  lastSpeakAt = time;
+  Voice.say(id);
+}
+
 
 function newTest() {
   loadMap(currentMap);
+  Voice.say('start'); lastSpeakAt = time;
   $('summary').hidden = true;
   paused = false;
 }
@@ -328,6 +337,7 @@ Rules.onEvent = (kind, item) => {
   if (kind === 'bad') {
     el.innerHTML = `<span class="tag">${item.severe ? 'עבירה חמורה' : 'עבירה'} · −${item.pts}</span><span class="msg"></span>`;
     el.querySelector('.msg').textContent = item.text;
+    remark(item.key);
     const rule = ruleForKey(item.key);
     if (rule) {
       const why = document.createElement('p'); why.className = 'why';
@@ -373,6 +383,7 @@ renderLog();
 
 function showSummary() {
   paused = true;
+  Voice.say(assist.on && assist.st && assist.st.kind === 'parked' ? 'end_full' : 'end_here');
   const sc = Rules.score;
   let verdict, cls;
   if (Rules.failed) { verdict = 'נכשל: בוצעה עבירה חמורה'; cls = 'bad'; }

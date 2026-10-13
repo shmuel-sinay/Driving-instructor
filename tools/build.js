@@ -8,7 +8,16 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 const html = read('index.html');
 const css = read('css/style.css');
 const scripts = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m => m[1]);
-const js = scripts.map(f => `// ---- ${f} ----\n` + read(f)).join('\n');
+// קבצי הקול של הבוחן (אם נוצרו) מוטמעים בקובץ היחיד
+let voiceEmbed = '';
+const vdir = path.join(root, 'assets', 'voice');
+if (fs.existsSync(vdir)) {
+  const map = {};
+  for (const f of fs.readdirSync(vdir)) if (f.endsWith('.mp3')) map[f.slice(0, -4)] = 'data:audio/mpeg;base64,' + fs.readFileSync(path.join(vdir, f)).toString('base64');
+  if (Object.keys(map).length) voiceEmbed = 'const VOICE_DATA_EMBED = ' + JSON.stringify(map) + ';\n';
+  console.log('embedded voice lines:', Object.keys(map).length);
+}
+const js = voiceEmbed + scripts.map(f => `// ---- ${f} ----\n` + read(f)).join('\n');
 
 let out = html
   .replace('<link rel="stylesheet" href="css/style.css">', () => `<style>\n${css}\n</style>`)

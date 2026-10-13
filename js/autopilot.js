@@ -272,6 +272,15 @@ function apUpdate(dt) {
   const st = assist.st;
   if (assist.hint && time > assist.hintUntil) assist.hint = null;
   if (st.kind === 'parked') {
+    // נסיעה לאחור לאורך המדרכה (משימת בוחן)
+    if (p.gear === 'R' && input.up) {
+      const behind = st.e.parked.some(c => c.key === st.key && (st.t - c.t) * st.dir > 0 && (st.t - c.t) * st.dir < 5.0);
+      const tStart = st.dir > 0 ? st.e.t0 : st.e.t1;
+      if (behind || (st.t - tStart) * st.dir < 3) { p.v = 0; apHint('יש רכב או צומת מאחור: עצור'); apPlace(); return; }
+      st.t -= 1.3 * dt * st.dir; p.v = -1.3; p.braking = false;
+      apPlace();
+      return;
+    }
     p.v = 0;
     if (input.up && player.gear === 'D') { assist.st = apUnparkPath(st); Rules.onUnpark(st.e, st.dir, st.side, time); }
     apPlace();

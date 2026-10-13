@@ -79,7 +79,10 @@ s.vehicles     כל הרכבים האחרים: [{ ahead, side, distance, speedKm
   where ('road' | 'junction' | 'off'),
   כשעל דרך: roadId, lane, lanes, distanceToJunction, nextJunctionId,
   כשבצומת: junctionId, ובכיכר גם ringLane }]
-s.instruction  ההוראה הנוכחית של הבוחן, או null: { junctionId, toRoadId, turn, text }
+s.instruction  ההוראה הנוכחית של הבוחן, או null. סוגים (kind):
+  'turn': { kind, junctionId, toRoadId, turn, text } | 'park': { kind, side ('right'|'left'), text } | 'unpark' | 'reverse' (נסיעה לאחור לאורך המדרכה)
+s.parking      מצב החניה בנהיגה המסייעת: 'parking' (נכנס לחניה) | 'parked' (חונה) | 'leaving' (יוצא) | null
+כל רכב ב-s.vehicles כולל גם parked (true לרכב חונה בצד הכביש).
 s.score, s.mapName
 
 # האירועים: האובייקט ev

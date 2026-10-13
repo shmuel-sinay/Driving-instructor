@@ -1,0 +1,49 @@
+name: Generate assets
+
+# יוצר את קבצי הקול של הבוחן (assets/voice/*.mp3) מתוך js/voice.js,
+# ומוריד את איורי שאלות התיאוריה (assets/theory/*) מאתר משרד התחבורה, אם הוא זמין.
+# הפעלה: Actions ← Generate assets ← Run workflow (על הענף שרוצים לעדכן).
+
+on:
+  workflow_dispatch:
+    inputs:
+      voice:
+        description: 'Hebrew voice (he-IL-AvriNeural = male, he-IL-HilaNeural = female)'
+        default: 'he-IL-AvriNeural'
+        required: true
+      images:
+        description: 'Also download theory question images (true/false)'
+        default: 'true'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install edge-tts
+        run: pip install edge-tts
+      - name: Generate voice lines
+        run: python3 tools/gen-voice.py --voice "${{ inputs.voice }}"
+      - name: Download theory images
+        if: ${{ inputs.images == 'true' }}
+        run: python3 tools/fetch-theory-images.py || echo "images skipped"
+      - name: Build single file
+        run: node tools/build.js
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets dist docs
+          if git diff --cached --quiet; then echo "nothing to commit"; exit 0; fi
+          git commit -m "Generate examiner voice lines and theory images"
+          git push
