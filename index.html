@@ -18,7 +18,7 @@
     <div class="brand">
       <span class="plate">ל</span>
       <div>
-        <h1>מגרש תרגול נהיגה</h1>
+        <h1>מגרש תרגול נהיגה · <span id="mapTitle"></span></h1>
         <p id="street" class="street">רחוב הרצל</p>
       </div>
     </div>
@@ -26,6 +26,7 @@
       <span class="label">ציון</span><span id="score">100</span>
     </div>
     <nav class="tools" aria-label="הגדרות">
+      <button id="btnMaps" type="button">מפות</button>
       <button id="btnInstr" type="button" aria-pressed="true">הוראות בוחן: פועל</button>
       <button id="btnCam" type="button">מצלמה: מאחורי הרכב</button>
       <button id="btnLog" type="button">יומן עבירות (0)</button>
@@ -102,6 +103,7 @@
             <dt><kbd>R</kbd></dt><dd>חזרה לנקודת ההתחלה</dd>
             <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>זום</dd>
             <dt><kbd>P</kbd></dt><dd>השהיה</dd>
+            <dt>מפות</dt><dd>בחירת מפה או בניית מפה חדשה</dd>
           </dl>
         </div>
         <div>
@@ -121,6 +123,34 @@
       </div>
       <p class="fine">עבירה רגילה מורידה 5 נקודות. עבירה חמורה מורידה 15 ונחשבת כישלון בטסט.</p>
       <button id="btnStart" class="primary big" type="button">התחל לנהוג</button>
+    </div>
+  </section>
+
+  <section id="maps" class="modal" hidden>
+    <div class="card">
+      <p class="eyebrow">מפות</p>
+      <h2>בחר מפה, או בנה מפה חדשה בעזרת Gemini</h2>
+      <div id="mapList" class="maplist"></div>
+
+      <h3 class="sec">מפה חדשה מ-Gemini</h3>
+      <ol class="steps">
+        <li>לחץ <b>העתק הנחיות ל-Gemini</b> והדבק אותן בצ'אט חדש ב-Gemini.</li>
+        <li>בסוף ההודעה, תחת "הבקשה שלי", כתוב איזו מפה אתה רוצה. כדי להוסיף רחובות למפה שכבר יש לך, לחץ גם <b>העתק את המפה הנוכחית</b> והדבק אותה מתחת לבקשה.</li>
+        <li>העתק את כל התשובה של Gemini, הדבק אותה בתיבה ולחץ <b>בדוק וטען</b>. אם יש שגיאות, התוכנה תכין לך בקשת תיקון להדביק חזרה ל-Gemini.</li>
+      </ol>
+      <div class="row">
+        <button id="btnCopyPrompt" type="button">העתק הנחיות ל-Gemini</button>
+        <button id="btnCopyMap" type="button">העתק את המפה הנוכחית</button>
+      </div>
+      <textarea id="copyOut" class="copyout" readonly hidden aria-label="טקסט להעתקה"></textarea>
+      <label class="fieldlabel" for="mapInput">התשובה של Gemini</label>
+      <textarea id="mapInput" class="mapinput" spellcheck="false" placeholder='הדבק כאן את התשובה. למשל: ```json { "name": "...", "nodes": [...], "roads": [...] } ```'></textarea>
+      <div class="row">
+        <button id="btnLoadMap" class="primary" type="button">בדוק וטען</button>
+        <label class="filebtn">טען מקובץ JSON<input id="mapFile" type="file" accept=".json,application/json,text/plain"></label>
+        <button id="btnCloseMaps" type="button">סגור</button>
+      </div>
+      <div id="mapMsg" class="msgs" aria-live="polite"></div>
     </div>
   </section>
 
@@ -144,6 +174,8 @@
 </div>
 <!--/APP-->
 <script src="js/world.js"></script>
+<script src="js/maps.js"></script>
+<script src="js/prompt.js"></script>
 <script src="js/traffic.js"></script>
 <script src="js/player.js"></script>
 <script src="js/rules.js"></script>

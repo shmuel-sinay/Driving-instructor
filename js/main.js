@@ -18,7 +18,7 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-let npcs = spawnNPCs(12, player);
+let npcs = [];
 let time = 0;
 let paused = true;
 let soundOn = true;
@@ -26,6 +26,8 @@ let soundOn = true;
 // ===== שליטה במקלדת =====
 const keyMap = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
 window.addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('textarea, input')) return;
+  if (!$('maps').hidden) { if (e.code === 'Escape') closeMaps(); return; }
   if (keyMap[e.code]) { input[keyMap[e.code]] = true; e.preventDefault(); }
   if (e.repeat) return;
   switch (e.code) {
@@ -82,12 +84,115 @@ $('btnNew').addEventListener('click', newTest);
 $('btnResume').addEventListener('click', () => { $('summary').hidden = true; paused = false; });
 
 function newTest() {
-  Rules.reset(); resetPlayer();
-  npcs = spawnNPCs(12, player);
-  for (const cw of crosswalks) cw.peds = [];
-  $('summary').hidden = true; $('toasts').innerHTML = '';
-  renderLog(); paused = false;
+  loadMap(currentMap);
+  $('summary').hidden = true;
+  paused = false;
 }
+
+// ===== מפות =====
+function loadMap(map) {
+  buildWorld(map); buildSigns(); buildScenery();
+  Rules.reset(); Rules.lastLim = START.lim;
+  resetPlayer();
+  npcs = spawnNPCs(map.traffic == null ? 12 : map.traffic, player);
+  cam.x = player.x; cam.y = player.y; cam.rot = cam.mode === 'chase' ? -Math.PI / 2 - player.h : 0;
+  lastLimit = null; time = 0;
+  $('toasts').innerHTML = '';
+  $('mapTitle').textContent = map.name;
+  renderLog();
+}
+
+const STORE_KEY = 'driving-practice.maps';
+function savedMaps() {
+  try { const v = JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
+function storeMaps(list) { try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); return true; } catch (e) { return false; } }
+
+function openMaps() { paused = true; renderMapList(); $('maps').hidden = false; }
+function closeMaps() { $('maps').hidden = true; if ($('help').hidden && $('summary').hidden) paused = false; }
+
+function renderMapList() {
+  const box = $('mapList'); box.innerHTML = '';
+  const add = (map, custom, idx) => {
+    const el = document.createElement('div');
+    el.className = 'mapcard' + (currentMap && currentMap.name === map.name ? ' current' : '');
+    const roadsKm = (map.roads.reduce((s, r) => { const a = map.nodes.find(n => n.id === r.from), b = map.nodes.find(n => n.id === r.to); return s + Math.hypot(a.x - b.x, a.y - b.y); }, 0) / 1000).toFixed(1);
+    el.innerHTML = `<div class="mapinfo"><strong></strong><span class="desc"></span><span class="meta">${map.nodes.length} צמתים · ${map.roads.length} דרכים · ${roadsKm} ק"מ${custom ? ' · שמורה אצלך' : ''}</span></div><div class="mapbtns"><button type="button" class="primary">נסע במפה</button></div>`;
+    el.querySelector('strong').textContent = map.name;
+    el.querySelector('.desc').textContent = map.description || '';
+    el.querySelector('.primary').addEventListener('click', () => { loadMap(map); closeMaps(); });
+    if (custom) {
+      const del = document.createElement('button'); del.type = 'button'; del.textContent = 'מחק';
+      del.addEventListener('click', () => {
+        if (del.dataset.armed) { const l = savedMaps(); l.splice(idx, 1); storeMaps(l); renderMapList(); }
+        else { del.dataset.armed = '1'; del.textContent = 'בטוח? לחץ שוב'; }
+      });
+      el.querySelector('.mapbtns').appendChild(del);
+    }
+    box.appendChild(el);
+  };
+  BUILTIN_MAPS.forEach(m => add(m, false));
+  savedMaps().forEach((m, i) => { const r = validateMap(m); if (r.map) add(r.map, true, i); });
+}
+
+function showMapMsgs(errors, warnings, okText) {
+  const box = $('mapMsg'); box.innerHTML = '';
+  const addList = (items, cls, title) => {
+    if (!items.length) return;
+    const h = document.createElement('p'); h.className = 'msgtitle ' + cls; h.textContent = title; box.appendChild(h);
+    const ul = document.createElement('ul'); ul.className = 'msglist ' + cls;
+    for (const t of items) { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); }
+    box.appendChild(ul);
+  };
+  if (okText) { const p = document.createElement('p'); p.className = 'msgtitle good'; p.textContent = okText; box.appendChild(p); }
+  addList(errors, 'bad', `המפה לא נטענה. יש ${errors.length} שגיאות. אפשר להעתיק אותן ולבקש מ-Gemini לתקן:`);
+  addList(warnings, 'warn', 'הערות (המפה תעבוד, אבל כדאי לבדוק):');
+  if (errors.length) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = 'העתק בקשת תיקון ל-Gemini';
+    b.addEventListener('click', () => copyText('המפה שהחזרת נדחתה בגלל השגיאות הבאות. תקן אותן והחזר את המפה המלאה כ-JSON בלבד, באותו פורמט:\n- ' + errors.join('\n- '), b));
+    box.appendChild(b);
+  }
+}
+
+function tryLoadText(text) {
+  let raw;
+  try { raw = extractJSON(text); } catch (e) { showMapMsgs([e.message], []); return; }
+  const r = validateMap(raw);
+  if (!r.map) { showMapMsgs(r.errors, r.warnings); return; }
+  const list = savedMaps().filter(m => m.name !== r.map.name);
+  list.push(r.map);
+  const saved = storeMaps(list);
+  loadMap(r.map);
+  renderMapList();
+  showMapMsgs([], r.warnings, `המפה "${r.map.name}" נטענה${saved ? ' ונשמרה ברשימה' : ''}. סגור את החלון כדי לנסוע.`);
+}
+
+function copyText(text, btn) {
+  const done = ok => {
+    if (!btn) return;
+    const old = btn.dataset.label || btn.textContent; btn.dataset.label = old;
+    btn.textContent = ok ? 'הועתק ✓' : 'סמן והעתק ידנית מהתיבה למטה';
+    setTimeout(() => { btn.textContent = old; }, 2200);
+  };
+  const fallback = () => { const box = $('copyOut'); box.hidden = false; box.value = text; box.focus(); box.select(); done(false); };
+  try {
+    navigator.clipboard.writeText(text).then(() => { $('copyOut').hidden = true; done(true); }, fallback);
+  } catch (e) { fallback(); }
+}
+
+$('btnMaps').addEventListener('click', openMaps);
+$('btnCloseMaps').addEventListener('click', closeMaps);
+$('btnLoadMap').addEventListener('click', () => tryLoadText($('mapInput').value));
+$('btnCopyPrompt').addEventListener('click', e => copyText(GEMINI_PROMPT, e.currentTarget));
+$('btnCopyMap').addEventListener('click', e => copyText(JSON.stringify(currentMap, null, 2), e.currentTarget));
+$('mapFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { $('mapInput').value = rd.result; tryLoadText(rd.result); };
+  rd.readAsText(f);
+  e.target.value = '';
+});
 
 // ===== צלילים =====
 let actx = null;
@@ -259,4 +364,5 @@ function frame(now) {
   updateHUD(dt);
   requestAnimationFrame(frame);
 }
+loadMap(BUILTIN_MAPS[0]);
 requestAnimationFrame(frame);

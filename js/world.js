@@ -8,95 +8,83 @@ const RB_OUT = 19;       // רדיוס חיצוני של כיכר
 const RB_IN = 8.5;       // רדיוס אי התנועה
 const RB_RING = (RB_OUT + RB_IN) / 2;
 
-const NODE_DEF = {
-  A: { x: 0,   y: 0,   type: 'plain' },
-  B: { x: 230, y: 0,   type: 'priority', minor: { 'B-F': 'stop' } },
-  C: { x: 460, y: 0,   type: 'light', offset: 0 },
-  D: { x: 690, y: 0,   type: 'plain' },
-  E: { x: 0,   y: 210, type: 'priority', minor: { 'F-E': 'yield' } },
-  F: { x: 230, y: 210, type: 'light', offset: 9 },
-  G: { x: 460, y: 210, type: 'roundabout' },
-  H: { x: 690, y: 210, type: 'allstop' },
-  I: { x: 0,   y: 420, type: 'plain' },
-  J: { x: 230, y: 420, type: 'priority', minor: { 'F-J': 'stop' } },
-  K: { x: 460, y: 420, type: 'light', offset: 20 },
-  L: { x: 690, y: 420, type: 'plain' },
-};
-
-// nf = נתיבים בכיוון a→b, nb = נתיבים בכיוון b→a, lim = מהירות מותרת
-const EDGE_DEF = [
-  ['A', 'B', { nf: 1, nb: 1, lim: 50, name: 'רחוב הרצל' }],
-  ['B', 'C', { nf: 2, nb: 2, lim: 60, name: 'שדרות בן גוריון' }],
-  ['C', 'D', { nf: 1, nb: 1, lim: 50, name: 'רחוב ויצמן' }],
-  ['A', 'E', { nf: 1, nb: 1, lim: 30, name: 'רחוב הגפן (אזור מגורים)', cross: [105] }],
-  ['E', 'I', { nf: 1, nb: 1, lim: 50, name: 'רחוב הזית' }],
-  ['B', 'F', { nf: 1, nb: 1, lim: 40, name: 'רחוב התאנה' }],
-  ['C', 'G', { nf: 2, nb: 2, lim: 50, name: 'דרך השלום' }],
-  ['D', 'H', { nf: 1, nb: 1, lim: 70, name: 'דרך הים', pass: true }],
-  ['F', 'E', { nf: 2, nb: 0, lim: 50, name: 'רחוב יפו (חד-סטרי)' }],
-  ['F', 'G', { nf: 2, nb: 2, lim: 60, name: 'שדרות רוטשילד', cross: [115] }],
-  ['G', 'H', { nf: 1, nb: 1, lim: 50, name: 'רחוב הנביאים' }],
-  ['F', 'J', { nf: 1, nb: 1, lim: 30, name: 'רחוב בית הספר', cross: [70, 140], school: true }],
-  ['K', 'G', { nf: 1, nb: 0, lim: 40, name: 'רחוב הדקל (חד-סטרי)' }],
-  ['H', 'L', { nf: 1, nb: 1, lim: 80, name: 'כביש עוקף', pass: true }],
-  ['I', 'J', { nf: 1, nb: 1, lim: 50, name: 'רחוב אלנבי' }],
-  ['J', 'K', { nf: 2, nb: 2, lim: 70, name: 'דרך מנחם בגין' }],
-  ['K', 'L', { nf: 1, nb: 1, lim: 50, name: 'רחוב הירקון' }],
-];
-
+// המפה נבנית מנתוני JSON (ראו js/maps.js ו-docs/map-format.md)
 const nodes = {};
 const nodeList = [];
-for (const id in NODE_DEF) {
-  const n = Object.assign({ id, edges: [], hx: LW, hy: LW }, NODE_DEF[id]);
-  nodes[id] = n;
-  nodeList.push(n);
-}
-
 const edges = [];
 const edgeById = {};
-for (const [a, b, o] of EDGE_DEF) {
-  const A = nodes[a], B = nodes[b];
-  const dx = B.x - A.x, dy = B.y - A.y;
-  const len = Math.hypot(dx, dy);
-  const d = { x: dx / len, y: dy / len };
-  const e = {
-    id: a + '-' + b, a: A, b: B, len, d,
-    n: { x: -d.y, y: d.x },            // נורמל: צד ימין של כיוון a→b
-    nf: o.nf, nb: o.nb, lim: o.lim, name: o.name,
-    W: (o.nf + o.nb) * LW,
-    oneway: o.nb === 0,
-    pass: !!o.pass,
-    school: !!o.school,
-    horizontal: Math.abs(d.y) < 0.01,
-    crosswalks: [],
-  };
-  e.crossDef = o.cross || [];
-  edges.push(e);
-  edgeById[e.id] = e;
-  A.edges.push(e);
-  B.edges.push(e);
-}
+const crosswalks = [];
+const WORLD = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+const START = { x: 0, y: 0, h: 0, lim: 50 };
+let currentMap = null;
 
-// גודל אזור הצומת
-for (const n of nodeList) {
-  let hx = 0, hy = 0;
-  for (const e of n.edges) {
-    if (e.horizontal) hy = Math.max(hy, e.W / 2);
-    else hx = Math.max(hx, e.W / 2);
+function buildWorld(map) {
+  for (const k in nodes) delete nodes[k];
+  nodeList.length = 0; edges.length = 0; crosswalks.length = 0;
+  for (const k in edgeById) delete edgeById[k];
+
+  for (const nd of map.nodes) {
+    const n = { id: nd.id, x: nd.x, y: nd.y, edges: [], hx: LW, hy: LW, minor: {}, offset: nd.lightOffset || 0 };
+    n.type = { light: 'light', roundabout: 'roundabout', allstop: 'allstop' }[nd.type] || 'plain';
+    nodes[n.id] = n; nodeList.push(n);
   }
-  n.hx = hx || hy; n.hy = hy || hx;
+  for (const r of map.roads) {
+    const A = nodes[r.from], B = nodes[r.to];
+    const dx = B.x - A.x, dy = B.y - A.y;
+    const len = Math.hypot(dx, dy);
+    const d = { x: dx / len, y: dy / len };
+    const nf = r.lanesForward, nb = r.lanesBackward || 0;
+    const e = {
+      id: r.from + '-' + r.to, a: A, b: B, len, d,
+      n: { x: -d.y, y: d.x },            // נורמל: צד ימין של כיוון a→b
+      nf, nb, lim: r.speed, name: r.name || 'רחוב ללא שם',
+      W: (nf + nb) * LW,
+      oneway: nb === 0,
+      pass: !!r.overtaking,
+      school: !!r.school,
+      horizontal: Math.abs(d.y) < 0.01,
+      crosswalks: [],
+    };
+    e.crossDef = r.crosswalks || [];
+    edges.push(e); edgeById[e.id] = e;
+    A.edges.push(e); B.edges.push(e);
+    // תמרור "עצור" / "תן זכות קדימה" בקצה הדרך
+    if (r.signAtFrom && r.signAtFrom !== 'none') A.minor[e.id] = r.signAtFrom;
+    if (r.signAtTo && r.signAtTo !== 'none') B.minor[e.id] = r.signAtTo;
+  }
+  for (const n of nodeList) if (n.type === 'plain' && Object.keys(n.minor).length) n.type = 'priority';
+
+  // גודל אזור הצומת
+  for (const n of nodeList) {
+    let hx = 0, hy = 0;
+    for (const e of n.edges) {
+      if (e.horizontal) hy = Math.max(hy, e.W / 2);
+      else hx = Math.max(hx, e.W / 2);
+    }
+    n.hx = hx || hy || LW; n.hy = hy || hx || LW;
+  }
+  for (const e of edges) {
+    e.t0 = trimAt(e.a, e);
+    e.t1 = e.len - trimAt(e.b, e);
+    for (const t of e.crossDef) { const cw = { edge: e, t, peds: [], timer: 2 + Math.random() * 5 }; e.crosswalks.push(cw); crosswalks.push(cw); }
+  }
+  WORLD.minX = Math.min(...nodeList.map(n => n.x)) - 60; WORLD.maxX = Math.max(...nodeList.map(n => n.x)) + 60;
+  WORLD.minY = Math.min(...nodeList.map(n => n.y)) - 60; WORLD.maxY = Math.max(...nodeList.map(n => n.y)) + 60;
+
+  const st = map.start || {};
+  const se = edgeById[st.road] || edges[0];
+  let dir = st.direction === 'backward' ? -1 : 1;
+  if (!laneCount(se, dir)) dir = -dir;
+  const dist = Math.min(Math.max(st.distance || 30, 5), se.t1 - se.t0 - 5);
+  const p = edgePoint(se, dir > 0 ? se.t0 + dist : se.t1 - dist, laneS(se, dir, laneCount(se, dir) - 1));
+  Object.assign(START, { x: p.x, y: p.y, h: Math.atan2(se.d.y * dir, se.d.x * dir), lim: se.lim });
+  currentMap = map;
 }
 
 function trimAt(node, e) {
   if (node.type === 'roundabout') return Math.sqrt(RB_OUT * RB_OUT - (e.W / 2) ** 2);
   return e.horizontal ? node.hx : node.hy;
 }
-for (const e of edges) {
-  e.t0 = trimAt(e.a, e);
-  e.t1 = e.len - trimAt(e.b, e);
-  for (const t of e.crossDef) e.crosswalks.push({ edge: e, t, peds: [], timer: 2 + Math.random() * 5 });
-}
-const crosswalks = edges.flatMap(e => e.crosswalks);
 
 // ===== עזרים =====
 function edgeLocal(e, p) {
@@ -268,9 +256,3 @@ function nodePath(node, p0, din, p1, dout) {
   }
   return makePath(pts);
 }
-
-// גבולות העולם
-const WORLD = {
-  minX: Math.min(...nodeList.map(n => n.x)) - 60, maxX: Math.max(...nodeList.map(n => n.x)) + 60,
-  minY: Math.min(...nodeList.map(n => n.y)) - 60, maxY: Math.max(...nodeList.map(n => n.y)) + 60,
-};

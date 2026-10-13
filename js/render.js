@@ -10,8 +10,11 @@ const COL = {
 // ===== סצנה סטטית: בניינים, עצים, תמרורים =====
 function seeded(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 const scenery = { buildings: [], trees: [] };
-(() => {
+function buildScenery() {
+  scenery.buildings.length = 0; scenery.trees.length = 0;
   const rnd = seeded(1234);
+  const rbs = nodeList.filter(n => n.type === 'roundabout');
+  const nearRb = (x, y, w, h) => rbs.some(n => Math.max(Math.abs(n.x - (x + w / 2)) - w / 2, 0) ** 2 + Math.max(Math.abs(n.y - (y + h / 2)) - h / 2, 0) ** 2 < 26 * 26);
   const xs = [...new Set(nodeList.map(n => n.x))].sort((a, b) => a - b);
   const ys = [...new Set(nodeList.map(n => n.y))].sort((a, b) => a - b);
   const cells = [];
@@ -20,25 +23,30 @@ const scenery = { buildings: [], trees: [] };
   for (let j = 0; j < ys.length - 1; j++) { cells.push([xs[0] - 110, ys[j], xs[0], ys[j + 1]]); cells.push([xs[xs.length - 1], ys[j], xs[xs.length - 1] + 110, ys[j + 1]]); }
   const roofs = ['#b5651d', '#a0522d', '#8c8c8c', '#c2b280', '#9e9e9e', '#d2b48c', '#7a6a5a', '#b0a090'];
   for (const [x0, y0, x1, y1] of cells) {
-    const m = 18;
+    if (x1 - x0 < 70 || y1 - y0 < 70) continue;
+    const m = 20;
     let x = x0 + m;
     while (x < x1 - m - 10) {
       const w = 14 + rnd() * 18;
       if (x + w > x1 - m) break;
       const hTop = 12 + rnd() * 14, hBot = 12 + rnd() * 14;
-      scenery.buildings.push({ x, y: y0 + m, w, h: hTop, c: roofs[Math.floor(rnd() * roofs.length)] });
-      scenery.buildings.push({ x, y: y1 - m - hBot, w, h: hBot, c: roofs[Math.floor(rnd() * roofs.length)] });
+      const c1 = roofs[Math.floor(rnd() * roofs.length)], c2 = roofs[Math.floor(rnd() * roofs.length)];
+      if (y1 - y0 > 2 * m + hTop + hBot + 6) {
+        if (!nearRb(x, y0 + m, w, hTop)) scenery.buildings.push({ x, y: y0 + m, w, h: hTop, c: c1 });
+        if (!nearRb(x, y1 - m - hBot, w, hBot)) scenery.buildings.push({ x, y: y1 - m - hBot, w, h: hBot, c: c2 });
+      }
       x += w + 4 + rnd() * 8;
     }
     for (let k = 0; k < 10; k++) {
       const tx = x0 + 25 + rnd() * (x1 - x0 - 50), ty = y0 + 50 + rnd() * (y1 - y0 - 100);
-      if (ty > y0 + 45 && ty < y1 - 45) scenery.trees.push({ x: tx, y: ty, r: 2.5 + rnd() * 2.5 });
+      if (ty > y0 + 45 && ty < y1 - 45 && !nearRb(tx, ty, 0, 0)) scenery.trees.push({ x: tx, y: ty, r: 2.5 + rnd() * 2.5 });
     }
   }
-})();
+}
 
 const signs = [];
-(() => {
+function buildSigns() {
+  signs.length = 0;
   for (const e of edges) {
     for (const dir of [1, -1]) {
       if (!laneCount(e, dir)) continue;
@@ -64,7 +72,7 @@ const signs = [];
       signs.push(Object.assign(edgePoint(e, e.t1 - 4, side), { kind: 'noentry' }));
     }
   }
-})();
+}
 
 // ===== מצלמה =====
 const cam = { x: player.x, y: player.y, rot: -Math.PI / 2, zoom: 9, mode: 'chase', userZoom: 1 };

@@ -118,6 +118,32 @@ li.severe .pts { color: var(--red); }
   .toasts { top: calc(220px + env(safe-area-inset-top, 0px)); }
 }
 
+/* ===== מסך מפות ===== */
+.maplist { display: grid; gap: 8px; margin: 14px 0 8px; }
+.mapcard { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: #1a2025; }
+.mapcard.current { border-color: var(--amber); }
+.mapinfo { display: grid; gap: 2px; min-width: 0; }
+.mapinfo strong { font-size: 16px; }
+.mapinfo .desc { font-size: 14px; color: #d4d6d2; }
+.mapinfo .meta { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mapbtns { display: flex; gap: 6px; }
+.mapbtns button, .msgs > button { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: #232a30; font-size: 14px; }
+.mapbtns button.primary { background: var(--amber); }
+h3.sec { margin-top: 22px; }
+.steps { margin: 0 0 4px; padding-inline-start: 20px; display: grid; gap: 6px; font-size: 15px; line-height: 1.45; color: #d4d6d2; max-width: 66ch; }
+.fieldlabel { display: block; margin: 16px 0 6px; font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: .04em; }
+.mapinput, .copyout { width: 100%; min-height: 130px; resize: vertical; background: #0e1215; color: var(--paper); border: 1px solid #3a434b; border-radius: 10px; padding: 10px 12px; font: 13px/1.5 ui-monospace, 'Cascadia Mono', Consolas, monospace; direction: ltr; text-align: left; -webkit-user-select: text; user-select: text; }
+.copyout { min-height: 90px; margin-top: 10px; }
+.mapinput:focus, .copyout:focus { outline: 2px solid var(--sky); outline-offset: 1px; }
+.filebtn { position: relative; padding: 10px 20px; border-radius: 10px; border: 1px solid var(--line); background: #232a30; font-size: 16px; cursor: pointer; }
+.filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.filebtn:focus-within { outline: 2px solid var(--sky); }
+.msgs { margin-top: 12px; display: grid; gap: 6px; }
+.msgtitle { margin: 6px 0 0; font-weight: 700; font-size: 15px; }
+.msgtitle.bad { color: var(--red); } .msgtitle.warn { color: var(--amber); } .msgtitle.good { color: var(--green); }
+.msglist { margin: 0; padding-inline-start: 20px; display: grid; gap: 4px; font-size: 14px; line-height: 1.45; color: #d4d6d2; }
+.msgs > button { justify-self: start; margin-top: 6px; }
+
 /* ===== חלונות ===== */
 .modal { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(8, 12, 10, 0.55); backdrop-filter: blur(3px); overflow-y: auto; }
 .card { width: min(760px, 100%); background: #14191d; border: 1px solid var(--line); border-radius: 18px; padding: 26px 28px; box-shadow: 0 30px 80px rgba(0,0,0,.45); max-height: calc(100% - 8px); overflow-y: auto; }

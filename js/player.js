@@ -1,11 +1,6 @@
 'use strict';
 // ===== הרכב שלך: פיזיקה ושליטה =====
 
-const START = (() => {
-  const e = edgeById['A-B'];
-  const p = edgePoint(e, 45, laneS(e, 1, 0));
-  return { x: p.x, y: p.y, h: 0 };
-})();
 
 const player = {
   isPlayer: true, len: 4.4, wid: 1.8, wb: 2.6,
