@@ -103,9 +103,7 @@ li.severe .pts { color: var(--red); }
 .blink svg { width: 28px; height: 28px; fill: #3c4a3c; transition: fill .05s; }
 .blink.on svg { fill: var(--green); filter: drop-shadow(0 0 6px var(--green)); }
 
-/* ===== שליטת מגע ===== */
-}
-
+/* ===== תכנון הנסיעה (מעל לוח המחוונים) ===== */
 .plan { background: var(--glass); border: 1px solid var(--sky); color: var(--paper); border-radius: 999px; padding: 5px 14px; font-size: 15px; font-weight: 700; white-space: nowrap; }
 .plan.warn { border-color: var(--amber); color: var(--amber); }
 .lead.assist { border-inline-start: 3px solid var(--sky); padding-inline-start: 12px; font-size: 16px; }

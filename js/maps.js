@@ -36,7 +36,7 @@ const BUILTIN_MAPS = [
       { from: 'E', to: 'F', name: 'רחוב הרימון', lanesForward: 1, lanesBackward: 1, speed: 50, signAtFrom: 'stop' },
       { from: 'F', to: 'G', name: 'רחוב הכיכרות', lanesForward: 1, lanesBackward: 1, speed: 40 },
       { from: 'G', to: 'H', name: 'רחוב הנביאים', lanesForward: 1, lanesBackward: 1, speed: 50 },
-      { from: 'H', to: 'I', name: 'שדרות בן גוריון', lanesForward: 2, lanesBackward: 2, speed: 60, banAtTo: ['left'] },
+      { from: 'H', to: 'I', name: 'שדרות בן גוריון', lanesForward: 2, lanesBackward: 2, speed: 60, banAtTo: ['left'], signAtTo: 'stop' },
       { from: 'F', to: 'K', name: 'רחוב בית הספר', lanesForward: 1, lanesBackward: 1, speed: 30, school: true, crosswalks: [80, 165], speedBumps: [120] },
       { from: 'N', to: 'G', name: 'רחוב השוק (חד-סטרי)', lanesForward: 1, lanesBackward: 0, speed: 30, parking: 'both' },
       { from: 'J', to: 'K', name: 'רחוב אלנבי', lanesForward: 1, lanesBackward: 1, speed: 50 },
@@ -45,6 +45,43 @@ const BUILTIN_MAPS = [
       { from: 'H', to: 'L', name: 'רחוב הגפן', lanesForward: 1, lanesBackward: 1, speed: 40, parking: 'right', crosswalks: [110], signAtTo: 'stop' },
       { from: 'L', to: 'M', name: 'דרך מנחם בגין', lanesForward: 2, lanesBackward: 2, speed: 70 },
       { from: 'I', to: 'M', name: 'רחוב הירקון', lanesForward: 1, lanesBackward: 1, speed: 50 },
+    ],
+  },
+  {
+    name: 'כביש בין-עירוני',
+    description: 'יציאה מהעיר לכביש 80 עם עקיפה, דרך מהירה 110, כביש מחולק 90, כיכר דו-נתיבית ודרך לכפר',
+    traffic: 10,
+    start: { road: 'A-B', direction: 'forward', distance: 30 },
+    nodes: [
+      { id: 'A', x: 0, y: 0, type: 'light', lightOffset: 4 },
+      { id: 'B', x: 250, y: 0, type: 'junction' },
+      { id: 'C', x: 0, y: 250, type: 'roundabout' },
+      { id: 'D', x: 250, y: 250, type: 'junction' },
+      { id: 'E', x: 900, y: 0, type: 'junction' },
+      { id: 'F', x: 900, y: 250, type: 'roundabout', lanes: 2 },
+      { id: 'G', x: 1600, y: 0, type: 'junction' },
+      { id: 'H', x: 1600, y: 250, type: 'junction' },
+      { id: 'I', x: 900, y: 700, type: 'junction' },
+      { id: 'J', x: 0, y: -200, type: 'junction' },
+      { id: 'K', x: -220, y: 0, type: 'junction' },
+      { id: 'L', x: -220, y: 250, type: 'junction' },
+    ],
+    roads: [
+      { from: 'A', to: 'B', name: 'רחוב העצמאות', lanesForward: 1, lanesBackward: 1, speed: 50, crosswalks: [120], parking: 'right' },
+      { from: 'A', to: 'C', name: 'רחוב הגפן', lanesForward: 1, lanesBackward: 1, speed: 40, speedBumps: [110], school: true, crosswalks: [70] },
+      { from: 'J', to: 'A', name: 'רחוב הדקל', lanesForward: 1, lanesBackward: 1, speed: 50, parking: 'both' },
+      { from: 'K', to: 'A', name: 'רחוב הרימון', lanesForward: 1, lanesBackward: 1, speed: 50 },
+      { from: 'K', to: 'L', name: 'דרך השדות', lanesForward: 1, lanesBackward: 1, speed: 50 },
+      { from: 'L', to: 'C', name: 'דרך השדות', lanesForward: 1, lanesBackward: 1, speed: 50 },
+      { from: 'B', to: 'D', name: 'רחוב התעשייה', lanesForward: 1, lanesBackward: 1, speed: 40, speedBumps: [125], signAtFrom: 'stop', signAtTo: 'yield' },
+      { from: 'C', to: 'D', name: 'רחוב המייסדים', lanesForward: 1, lanesBackward: 1, speed: 50, parking: 'both', crosswalks: [130] },
+      { from: 'B', to: 'E', name: 'כביש 40', lanesForward: 1, lanesBackward: 1, speed: 80, overtaking: true },
+      { from: 'D', to: 'F', name: 'כביש 4 (מחולק)', lanesForward: 2, lanesBackward: 2, speed: 90 },
+      { from: 'E', to: 'F', name: 'כביש הגישה', lanesForward: 2, lanesBackward: 2, speed: 70, signAtFrom: 'yield' },
+      { from: 'E', to: 'G', name: 'כביש 40', lanesForward: 1, lanesBackward: 1, speed: 80, overtaking: true },
+      { from: 'F', to: 'H', name: 'דרך מהירה 1', lanesForward: 2, lanesBackward: 2, speed: 110 },
+      { from: 'G', to: 'H', name: 'כביש 3', lanesForward: 1, lanesBackward: 1, speed: 80, overtaking: true },
+      { from: 'F', to: 'I', name: 'דרך הכפר (ללא מוצא)', lanesForward: 2, lanesBackward: 2, speed: 60, crosswalks: [380] },
     ],
   },
   {
@@ -260,7 +297,7 @@ function validateMap(raw) {
     if (n.type === 'light' && rs.length < 3) warnings.push(`ברמזור "${n.id}" יש רק ${rs.length} דרכים.`);
     const signs = rs.filter(r => (r.from === n.id && r.signAtFrom) || (r.to === n.id && r.signAtTo));
     if (n.type !== 'junction' && signs.length) warnings.push(`בצומת "${n.id}" (${NODE_TYPE_HE[n.type]}) תמרורי "עצור"/"תן זכות קדימה" מיותרים ולא יוצגו.`);
-    if (n.type === 'junction' && rs.length >= 3 && !signs.length) warnings.push(`בצומת "${n.id}" אין תמרורים: כל הדרכים בו נחשבות ראשיות. כדאי לשים "stop" או "yield" על הדרך המשנית.`);
+    if (n.type === 'junction' && ins >= 3 && !signs.length) warnings.push(`בצומת "${n.id}" אין תמרורים: כל הדרכים בו נחשבות ראשיות. כדאי לשים "stop" או "yield" על הדרך המשנית.`);
   }
   // דרך שעוברת דרך צומת, ודרכים שחוצות זו את זו בלי צומת
   for (const r of map.roads) {

@@ -79,6 +79,9 @@ const View3D = {
     scene.add(this.nearMesh);
     this.nearAt = null;
 
+    this.buildSky();
+    this.buildCurbs();
+    this.buildLamps();
     this.buildBuildings();
     this.buildTrees();
     this.buildSigns();
@@ -111,6 +114,71 @@ const View3D = {
     this.paintRoads(this.nearCv.getContext('2d'), px - N / 2, py - N / 2, S / N, S, S);
     this.nearTex.needsUpdate = true;
     this.nearMesh.position.x = px; this.nearMesh.position.z = py;
+  },
+
+  // שמיים: כיפה עם מעבר צבע מהאופק לכחול
+  buildSky() {
+    const T = THREE;
+    const c = document.createElement('canvas'); c.width = 4; c.height = 256;
+    const g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 0, 256);
+    gr.addColorStop(0, '#5f9fd8'); gr.addColorStop(0.55, '#9cc8ea'); gr.addColorStop(0.8, '#d9ecf7'); gr.addColorStop(1, '#eef6fb');
+    g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+    const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace;
+    const sky = new T.Mesh(new T.SphereGeometry(800, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new T.MeshBasicMaterial({ map: tex, side: T.BackSide, fog: false, depthWrite: false }));
+    sky.position.set((WORLD.minX + WORLD.maxX) / 2, -5, (WORLD.minY + WORLD.maxY) / 2);
+    sky.renderOrder = -1;
+    this.sky = sky;
+    this.scene.add(sky);
+  },
+
+  // אבני שפה מוגבהות בין הכביש למדרכה
+  buildCurbs() {
+    const T = THREE, list = [];
+    for (const e of edges) for (const s of [e.sMax + 0.1, e.sMin - 0.1]) {
+      const len = e.t1 - e.t0;
+      if (len < 2) continue;
+      const mid = edgePoint(e, (e.t0 + e.t1) / 2, s);
+      list.push({ x: mid.x, y: mid.y, len, ang: Math.atan2(e.d.y, e.d.x) });
+    }
+    const mesh = new T.InstancedMesh(new T.BoxGeometry(1, 0.16, 0.22), this.mat(0xd8d4cc), list.length);
+    const m = new T.Matrix4(), q = new T.Quaternion(), up = new T.Vector3(0, 1, 0);
+    list.forEach((c, i) => { q.setFromAxisAngle(up, -c.ang); m.compose(new T.Vector3(c.x, 0.08, c.y), q, new T.Vector3(c.len, 1, 1)); mesh.setMatrixAt(i, m); });
+    this.scene.add(mesh);
+    // מדרכה מעט מוגבהת
+    const walks = [];
+    for (const e of edges) for (const [a, b] of [[e.sMax + 0.2, e.sMax + SIDEWALK], [e.sMin - SIDEWALK, e.sMin - 0.2]]) {
+      const len = e.t1 - e.t0; if (len < 2) continue;
+      const mid = edgePoint(e, (e.t0 + e.t1) / 2, (a + b) / 2);
+      walks.push({ x: mid.x, y: mid.y, len, w: b - a, ang: Math.atan2(e.d.y, e.d.x) });
+    }
+    const wm = new T.InstancedMesh(new T.BoxGeometry(1, 0.1, 1), this.mat(0xc9c4b8), walks.length);
+    walks.forEach((c, i) => { q.setFromAxisAngle(up, -c.ang); m.compose(new T.Vector3(c.x, 0.05, c.y), q, new T.Vector3(c.len, 1, c.w)); wm.setMatrixAt(i, m); });
+    this.scene.add(wm);
+  },
+
+  // עמודי תאורה לאורך הרחובות, לסירוגין משני הצדדים
+  buildLamps() {
+    const T = THREE, list = [];
+    for (const e of edges) {
+      let side = 1;
+      for (let t = e.t0 + 15; t < e.t1 - 10; t += 38) {
+        const s = side > 0 ? e.sMax + 1.0 : e.sMin - 1.0;
+        const p = edgePoint(e, t, s);
+        list.push({ x: p.x, y: p.y, inX: -e.n.x * side, inY: -e.n.y * side });
+        side = -side;
+      }
+    }
+    if (!list.length) return;
+    const pole = new T.InstancedMesh(new T.CylinderGeometry(0.07, 0.1, 7, 6), this.mat(0x6c737a), list.length);
+    const head = new T.InstancedMesh(new T.BoxGeometry(1.4, 0.18, 0.4), this.mat(0x4a5056), list.length);
+    const m = new T.Matrix4(), q = new T.Quaternion(), one = new T.Vector3(1, 1, 1), up = new T.Vector3(0, 1, 0);
+    list.forEach((l, i) => {
+      m.compose(new T.Vector3(l.x, 3.5, l.y), q, one); pole.setMatrixAt(i, m);
+      const hq = new T.Quaternion().setFromAxisAngle(up, -Math.atan2(l.inY, l.inX));
+      m.compose(new T.Vector3(l.x + l.inX * 0.6, 7, l.y + l.inY * 0.6), hq, one); head.setMatrixAt(i, m);
+    });
+    this.scene.add(pole, head);
   },
 
   buildBuildings() {
@@ -324,6 +392,7 @@ const View3D = {
       cam.lookAt(p.x + ch * 8, 0.8, p.y + sh * 8);
     }
     cam.updateProjectionMatrix();
+    if (this.sky) { this.sky.position.x = cam.position.x; this.sky.position.z = cam.position.z; }
     const R = this.renderer;
     R.setScissorTest(false);
     R.setViewport(0, 0, this.w, this.h);

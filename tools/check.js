@@ -17,6 +17,14 @@ for (const f of scripts) {
 }
 ok(`syntax of ${scripts.length} scripts`);
 
+// סוגריים מסולסלים מאוזנים ב-CSS (סוגר מיותר מבטל בשקט את הכלל שאחריו)
+{
+  const css = read('css/style.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  let depth = 0, stray = 0;
+  for (const ch of css) { if (ch === '{') depth++; else if (ch === '}') { depth--; if (depth < 0) { stray++; depth = 0; } } }
+  depth || stray ? fail(`css/style.css: unbalanced braces (open ${depth}, stray ${stray})`) : ok('css braces balanced');
+}
+
 // 2. לוגיקה שלא תלויה בדפדפן
 const ctx = vm.createContext({ console, Math, JSON, Object, Array, Set, Map, Number, String, isFinite });
 const load = f => vm.runInContext(read(f).replace(/^'use strict';/, '').replace(/^const (\w+) =/gm, 'var $1 ='), ctx, { filename: f });

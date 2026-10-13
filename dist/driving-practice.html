@@ -113,9 +113,7 @@ li.severe .pts { color: var(--red); }
 .blink svg { width: 28px; height: 28px; fill: #3c4a3c; transition: fill .05s; }
 .blink.on svg { fill: var(--green); filter: drop-shadow(0 0 6px var(--green)); }
 
-/* ===== שליטת מגע ===== */
-}
-
+/* ===== תכנון הנסיעה (מעל לוח המחוונים) ===== */
 .plan { background: var(--glass); border: 1px solid var(--sky); color: var(--paper); border-radius: 999px; padding: 5px 14px; font-size: 15px; font-weight: 700; white-space: nowrap; }
 .plan.warn { border-color: var(--amber); color: var(--amber); }
 .lead.assist { border-inline-start: 3px solid var(--sky); padding-inline-start: 12px; font-size: 16px; }
@@ -1181,7 +1179,7 @@ const BUILTIN_MAPS = [
       { from: 'E', to: 'F', name: 'רחוב הרימון', lanesForward: 1, lanesBackward: 1, speed: 50, signAtFrom: 'stop' },
       { from: 'F', to: 'G', name: 'רחוב הכיכרות', lanesForward: 1, lanesBackward: 1, speed: 40 },
       { from: 'G', to: 'H', name: 'רחוב הנביאים', lanesForward: 1, lanesBackward: 1, speed: 50 },
-      { from: 'H', to: 'I', name: 'שדרות בן גוריון', lanesForward: 2, lanesBackward: 2, speed: 60, banAtTo: ['left'] },
+      { from: 'H', to: 'I', name: 'שדרות בן גוריון', lanesForward: 2, lanesBackward: 2, speed: 60, banAtTo: ['left'], signAtTo: 'stop' },
       { from: 'F', to: 'K', name: 'רחוב בית הספר', lanesForward: 1, lanesBackward: 1, speed: 30, school: true, crosswalks: [80, 165], speedBumps: [120] },
       { from: 'N', to: 'G', name: 'רחוב השוק (חד-סטרי)', lanesForward: 1, lanesBackward: 0, speed: 30, parking: 'both' },
       { from: 'J', to: 'K', name: 'רחוב אלנבי', lanesForward: 1, lanesBackward: 1, speed: 50 },
@@ -1190,6 +1188,43 @@ const BUILTIN_MAPS = [
       { from: 'H', to: 'L', name: 'רחוב הגפן', lanesForward: 1, lanesBackward: 1, speed: 40, parking: 'right', crosswalks: [110], signAtTo: 'stop' },
       { from: 'L', to: 'M', name: 'דרך מנחם בגין', lanesForward: 2, lanesBackward: 2, speed: 70 },
       { from: 'I', to: 'M', name: 'רחוב הירקון', lanesForward: 1, lanesBackward: 1, speed: 50 },
+    ],
+  },
+  {
+    name: 'כביש בין-עירוני',
+    description: 'יציאה מהעיר לכביש 80 עם עקיפה, דרך מהירה 110, כביש מחולק 90, כיכר דו-נתיבית ודרך לכפר',
+    traffic: 10,
+    start: { road: 'A-B', direction: 'forward', distance: 30 },
+    nodes: [
+      { id: 'A', x: 0, y: 0, type: 'light', lightOffset: 4 },
+      { id: 'B', x: 250, y: 0, type: 'junction' },
+      { id: 'C', x: 0, y: 250, type: 'roundabout' },
+      { id: 'D', x: 250, y: 250, type: 'junction' },
+      { id: 'E', x: 900, y: 0, type: 'junction' },
+      { id: 'F', x: 900, y: 250, type: 'roundabout', lanes: 2 },
+      { id: 'G', x: 1600, y: 0, type: 'junction' },
+      { id: 'H', x: 1600, y: 250, type: 'junction' },
+      { id: 'I', x: 900, y: 700, type: 'junction' },
+      { id: 'J', x: 0, y: -200, type: 'junction' },
+      { id: 'K', x: -220, y: 0, type: 'junction' },
+      { id: 'L', x: -220, y: 250, type: 'junction' },
+    ],
+    roads: [
+      { from: 'A', to: 'B', name: 'רחוב העצמאות', lanesForward: 1, lanesBackward: 1, speed: 50, crosswalks: [120], parking: 'right' },
+      { from: 'A', to: 'C', name: 'רחוב הגפן', lanesForward: 1, lanesBackward: 1, speed: 40, speedBumps: [110], school: true, crosswalks: [70] },
+      { from: 'J', to: 'A', name: 'רחוב הדקל', lanesForward: 1, lanesBackward: 1, speed: 50, parking: 'both' },
+      { from: 'K', to: 'A', name: 'רחוב הרימון', lanesForward: 1, lanesBackward: 1, speed: 50 },
+      { from: 'K', to: 'L', name: 'דרך השדות', lanesForward: 1, lanesBackward: 1, speed: 50 },
+      { from: 'L', to: 'C', name: 'דרך השדות', lanesForward: 1, lanesBackward: 1, speed: 50 },
+      { from: 'B', to: 'D', name: 'רחוב התעשייה', lanesForward: 1, lanesBackward: 1, speed: 40, speedBumps: [125], signAtFrom: 'stop', signAtTo: 'yield' },
+      { from: 'C', to: 'D', name: 'רחוב המייסדים', lanesForward: 1, lanesBackward: 1, speed: 50, parking: 'both', crosswalks: [130] },
+      { from: 'B', to: 'E', name: 'כביש 40', lanesForward: 1, lanesBackward: 1, speed: 80, overtaking: true },
+      { from: 'D', to: 'F', name: 'כביש 4 (מחולק)', lanesForward: 2, lanesBackward: 2, speed: 90 },
+      { from: 'E', to: 'F', name: 'כביש הגישה', lanesForward: 2, lanesBackward: 2, speed: 70, signAtFrom: 'yield' },
+      { from: 'E', to: 'G', name: 'כביש 40', lanesForward: 1, lanesBackward: 1, speed: 80, overtaking: true },
+      { from: 'F', to: 'H', name: 'דרך מהירה 1', lanesForward: 2, lanesBackward: 2, speed: 110 },
+      { from: 'G', to: 'H', name: 'כביש 3', lanesForward: 1, lanesBackward: 1, speed: 80, overtaking: true },
+      { from: 'F', to: 'I', name: 'דרך הכפר (ללא מוצא)', lanesForward: 2, lanesBackward: 2, speed: 60, crosswalks: [380] },
     ],
   },
   {
@@ -1405,7 +1440,7 @@ function validateMap(raw) {
     if (n.type === 'light' && rs.length < 3) warnings.push(`ברמזור "${n.id}" יש רק ${rs.length} דרכים.`);
     const signs = rs.filter(r => (r.from === n.id && r.signAtFrom) || (r.to === n.id && r.signAtTo));
     if (n.type !== 'junction' && signs.length) warnings.push(`בצומת "${n.id}" (${NODE_TYPE_HE[n.type]}) תמרורי "עצור"/"תן זכות קדימה" מיותרים ולא יוצגו.`);
-    if (n.type === 'junction' && rs.length >= 3 && !signs.length) warnings.push(`בצומת "${n.id}" אין תמרורים: כל הדרכים בו נחשבות ראשיות. כדאי לשים "stop" או "yield" על הדרך המשנית.`);
+    if (n.type === 'junction' && ins >= 3 && !signs.length) warnings.push(`בצומת "${n.id}" אין תמרורים: כל הדרכים בו נחשבות ראשיות. כדאי לשים "stop" או "yield" על הדרך המשנית.`);
   }
   // דרך שעוברת דרך צומת, ודרכים שחוצות זו את זו בלי צומת
   for (const r of map.roads) {
@@ -3849,6 +3884,9 @@ const View3D = {
     scene.add(this.nearMesh);
     this.nearAt = null;
 
+    this.buildSky();
+    this.buildCurbs();
+    this.buildLamps();
     this.buildBuildings();
     this.buildTrees();
     this.buildSigns();
@@ -3881,6 +3919,71 @@ const View3D = {
     this.paintRoads(this.nearCv.getContext('2d'), px - N / 2, py - N / 2, S / N, S, S);
     this.nearTex.needsUpdate = true;
     this.nearMesh.position.x = px; this.nearMesh.position.z = py;
+  },
+
+  // שמיים: כיפה עם מעבר צבע מהאופק לכחול
+  buildSky() {
+    const T = THREE;
+    const c = document.createElement('canvas'); c.width = 4; c.height = 256;
+    const g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 0, 256);
+    gr.addColorStop(0, '#5f9fd8'); gr.addColorStop(0.55, '#9cc8ea'); gr.addColorStop(0.8, '#d9ecf7'); gr.addColorStop(1, '#eef6fb');
+    g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+    const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace;
+    const sky = new T.Mesh(new T.SphereGeometry(800, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new T.MeshBasicMaterial({ map: tex, side: T.BackSide, fog: false, depthWrite: false }));
+    sky.position.set((WORLD.minX + WORLD.maxX) / 2, -5, (WORLD.minY + WORLD.maxY) / 2);
+    sky.renderOrder = -1;
+    this.sky = sky;
+    this.scene.add(sky);
+  },
+
+  // אבני שפה מוגבהות בין הכביש למדרכה
+  buildCurbs() {
+    const T = THREE, list = [];
+    for (const e of edges) for (const s of [e.sMax + 0.1, e.sMin - 0.1]) {
+      const len = e.t1 - e.t0;
+      if (len < 2) continue;
+      const mid = edgePoint(e, (e.t0 + e.t1) / 2, s);
+      list.push({ x: mid.x, y: mid.y, len, ang: Math.atan2(e.d.y, e.d.x) });
+    }
+    const mesh = new T.InstancedMesh(new T.BoxGeometry(1, 0.16, 0.22), this.mat(0xd8d4cc), list.length);
+    const m = new T.Matrix4(), q = new T.Quaternion(), up = new T.Vector3(0, 1, 0);
+    list.forEach((c, i) => { q.setFromAxisAngle(up, -c.ang); m.compose(new T.Vector3(c.x, 0.08, c.y), q, new T.Vector3(c.len, 1, 1)); mesh.setMatrixAt(i, m); });
+    this.scene.add(mesh);
+    // מדרכה מעט מוגבהת
+    const walks = [];
+    for (const e of edges) for (const [a, b] of [[e.sMax + 0.2, e.sMax + SIDEWALK], [e.sMin - SIDEWALK, e.sMin - 0.2]]) {
+      const len = e.t1 - e.t0; if (len < 2) continue;
+      const mid = edgePoint(e, (e.t0 + e.t1) / 2, (a + b) / 2);
+      walks.push({ x: mid.x, y: mid.y, len, w: b - a, ang: Math.atan2(e.d.y, e.d.x) });
+    }
+    const wm = new T.InstancedMesh(new T.BoxGeometry(1, 0.1, 1), this.mat(0xc9c4b8), walks.length);
+    walks.forEach((c, i) => { q.setFromAxisAngle(up, -c.ang); m.compose(new T.Vector3(c.x, 0.05, c.y), q, new T.Vector3(c.len, 1, c.w)); wm.setMatrixAt(i, m); });
+    this.scene.add(wm);
+  },
+
+  // עמודי תאורה לאורך הרחובות, לסירוגין משני הצדדים
+  buildLamps() {
+    const T = THREE, list = [];
+    for (const e of edges) {
+      let side = 1;
+      for (let t = e.t0 + 15; t < e.t1 - 10; t += 38) {
+        const s = side > 0 ? e.sMax + 1.0 : e.sMin - 1.0;
+        const p = edgePoint(e, t, s);
+        list.push({ x: p.x, y: p.y, inX: -e.n.x * side, inY: -e.n.y * side });
+        side = -side;
+      }
+    }
+    if (!list.length) return;
+    const pole = new T.InstancedMesh(new T.CylinderGeometry(0.07, 0.1, 7, 6), this.mat(0x6c737a), list.length);
+    const head = new T.InstancedMesh(new T.BoxGeometry(1.4, 0.18, 0.4), this.mat(0x4a5056), list.length);
+    const m = new T.Matrix4(), q = new T.Quaternion(), one = new T.Vector3(1, 1, 1), up = new T.Vector3(0, 1, 0);
+    list.forEach((l, i) => {
+      m.compose(new T.Vector3(l.x, 3.5, l.y), q, one); pole.setMatrixAt(i, m);
+      const hq = new T.Quaternion().setFromAxisAngle(up, -Math.atan2(l.inY, l.inX));
+      m.compose(new T.Vector3(l.x + l.inX * 0.6, 7, l.y + l.inY * 0.6), hq, one); head.setMatrixAt(i, m);
+    });
+    this.scene.add(pole, head);
   },
 
   buildBuildings() {
@@ -4094,6 +4197,7 @@ const View3D = {
       cam.lookAt(p.x + ch * 8, 0.8, p.y + sh * 8);
     }
     cam.updateProjectionMatrix();
+    if (this.sky) { this.sky.position.x = cam.position.x; this.sky.position.z = cam.position.z; }
     const R = this.renderer;
     R.setScissorTest(false);
     R.setViewport(0, 0, this.w, this.h);
