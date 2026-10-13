@@ -42,15 +42,22 @@ class NPC {
   }
   planNext(edge, dir) {
     const node = toNodeOf(edge, dir);
-    let opts = node.edges.filter(e => e !== edge && canExit(node, e));
+    const din = dirVec(edge, dir);
+    let opts = node.edges.filter(e => e !== edge && canExit(node, e) && !isBanned(node, edge, turnType(din, dirVec(e, exitDirFrom(node, e)))));
     if (!opts.length) opts = [edge];
     const e2 = opts[Math.floor(Math.random() * opts.length)];
     const d2 = exitDirFrom(node, e2);
-    return { node, edge: e2, dir: d2, turn: e2 === edge ? 'uturn' : turnType(dirVec(edge, dir), dirVec(e2, d2)) };
+    const plan = { node, edge: e2, dir: d2, turn: e2 === edge ? 'uturn' : turnType(dirVec(edge, dir), dirVec(e2, d2)) };
+    if (node.type === 'roundabout') {
+      plan.exitNumber = rbExitNumber(node, edge, e2);
+      plan.ring = node.rbLanes === 2 && plan.exitNumber >= 3 ? 'inner' : 'outer';
+    }
+    return plan;
   }
   startEdge(edge, dir, lane, t = 0) {
     this.next = this.planNext(edge, dir);
     const n = laneCount(edge, dir);
+    if (lane == null && this.next.ring) lane = this.next.ring === 'inner' ? 0 : n - 1;
     if (lane == null) {
       if (this.next.turn === 'right') lane = n - 1;
       else if (this.next.turn === 'left' || this.next.turn === 'uturn') lane = 0;
@@ -68,13 +75,14 @@ class NPC {
     const nx = this.next;
     const n2 = laneCount(nx.edge, nx.dir);
     let lane2;
-    if (nx.turn === 'right') lane2 = n2 - 1;
+    if (nx.ring) lane2 = nx.ring === 'inner' ? 0 : n2 - 1;
+    else if (nx.turn === 'right') lane2 = n2 - 1;
     else if (nx.turn === 'left' || nx.turn === 'uturn') lane2 = 0;
     else lane2 = Math.min(lane, n2 - 1);
     const t2 = nx.dir > 0 ? nx.edge.t0 : nx.edge.t1;
     const p1 = edgePoint(nx.edge, t2, laneS(nx.edge, nx.dir, lane2));
     const p0 = path.pts[path.pts.length - 1];
-    this.leg = { kind: 'node', node: nx.node, lane2, path: nodePath(nx.node, p0, dirVec(edge, dir), p1, dirVec(nx.edge, nx.dir)) };
+    this.leg = { kind: 'node', node: nx.node, lane2, path: nodePath(nx.node, p0, dirVec(edge, dir), p1, dirVec(nx.edge, nx.dir), ringRadius(nx.node, nx.ring)) };
     this.s = 0;
   }
   place() {
@@ -183,7 +191,7 @@ function updatePeds(dt, player) {
       cw.timer = 6 + Math.random() * 10;
       const side = Math.random() < 0.5 ? 1 : -1;
       cw.peds.push({
-        side, s: side * (e.W / 2 + 1.3), jit: (Math.random() - 0.5) * 2.2,
+        side, s: side > 0 ? e.sMax + 1.3 : e.sMin - 1.3, jit: (Math.random() - 0.5) * 2.2,
         state: 'wait', wait: 1 + Math.random() * 2, speed: 1.2 + Math.random() * 0.4,
         color: PED_COLORS[Math.floor(Math.random() * PED_COLORS.length)], phase: Math.random() * 6,
       });
@@ -194,13 +202,13 @@ function updatePeds(dt, player) {
         if (pd.wait <= 0) {
           // הולך רגל לא יקפוץ ממש מול רכב קרוב ומהיר
           const { t } = edgeLocal(e, player);
-          const near = Math.abs(t - cw.t) < 16 && Math.abs(player.v) > 3 && Math.abs(edgeLocal(e, player).s) < e.W / 2 + 2;
+          const near = Math.abs(t - cw.t) < 16 && Math.abs(player.v) > 3 && Math.abs(edgeLocal(e, player).s) < e.half + 2;
           if (!near) pd.state = 'cross'; else pd.wait = 0.5;
         }
       } else if (pd.state === 'cross') {
         pd.s -= pd.side * pd.speed * dt;
         pd.phase += dt * 8;
-        if (pd.s * pd.side <= -(e.W / 2 + 1.3)) { pd.state = 'leave'; pd.wait = 2; }
+        if (pd.side > 0 ? pd.s <= e.sMin - 1.3 : pd.s >= e.sMax + 1.3) { pd.state = 'leave'; pd.wait = 2; }
       } else {
         pd.wait -= dt;
       }
@@ -211,5 +219,5 @@ function updatePeds(dt, player) {
   }
 }
 function pedOnRoad(cw) {
-  return cw.peds.some(pd => pd.state === 'cross' && Math.abs(pd.s) < cw.edge.W / 2 + 0.6);
+  return cw.peds.some(pd => pd.state === 'cross' && pd.s < cw.edge.sMax + 0.6 && pd.s > cw.edge.sMin - 0.6);
 }

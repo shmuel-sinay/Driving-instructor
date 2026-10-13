@@ -23,6 +23,17 @@ let time = 0;
 let paused = true;
 let soundOn = true;
 
+// ===== פעולות נהיגה (משותפות למקלדת ולכפתורים) =====
+const act = {
+  blink(side) { setBlinker(side); tick(true); },
+  blinkOff() { if (player.blinker) { player.blinker = 0; tick(false); } },
+  lane(side) { if (assist.on) apLane(side); },
+  park(side) { if (assist.on) apPark(side); else Rules.onEvent('good', { text: 'חניה אוטומטית עובדת בהיגוי אוטומטי' }); },
+  gear() { if (!toggleGear()) Rules.onEvent('good', { text: 'עצור לגמרי לפני החלפת הילוך' }); else tick(false); },
+  horn(on) { player.horn = on; if (on) beep(392, 0.35, 0.07, 'sawtooth'); },
+  reset() { resetPlayer(); Rules.loc = null; Rules.entry = null; Rules.rb = null; },
+};
+
 // ===== שליטה במקלדת =====
 const keyMap = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
 window.addEventListener('keydown', e => {
@@ -30,52 +41,82 @@ window.addEventListener('keydown', e => {
   if (!$('maps').hidden) { if (e.code === 'Escape') closeMaps(); return; }
   if (!$('plugins').hidden) { if (e.code === 'Escape') closePlugins(); return; }
   const k = keyMap[e.code];
+  // בהיגוי אוטומטי החיצים מחליפים נתיב / בוחרים פנייה
   if (assist.on && (k === 'left' || k === 'right')) {
     e.preventDefault();
-    if (!e.repeat) { setBlinker(k === 'left' ? -1 : 1); tick(true); }
+    if (!e.repeat) act.lane(k === 'left' ? -1 : 1);
     return;
   }
   if (k) { input[k] = true; e.preventDefault(); }
   if (e.repeat) return;
   switch (e.code) {
-    case 'KeyQ': case 'Comma': setBlinker(-1); tick(true); break;
-    case 'KeyE': case 'Period': setBlinker(1); tick(true); break;
+    case 'KeyQ': case 'Comma': act.blink(-1); break;
+    case 'KeyE': case 'Period': act.blink(1); break;
+    case 'KeyX': act.blinkOff(); break;
+    case 'KeyR': act.gear(); break;
+    case 'KeyP': act.park('right'); break;
+    case 'KeyO': act.park('left'); break;
     case 'KeyC': toggleCamera(); break;
     case 'KeyG': toggleSteer(); break;
-    case 'KeyR': resetPlayer(); Rules.loc = null; Rules.entry = null; break;
+    case 'KeyV': toggleVoice(); break;
     case 'KeyI': toggleInstructor(); break;
     case 'KeyL': toggleLog(); break;
-    case 'Escape': case 'KeyP': if (!$('help').hidden) startDriving(); else showHelp(); break;
+    case 'Backspace': act.reset(); e.preventDefault(); break;
+    case 'Escape': if (!$('help').hidden) startDriving(); else showHelp(); break;
     case 'Equal': case 'NumpadAdd': cam.userZoom = Math.min(2, cam.userZoom * 1.15); break;
     case 'Minus': case 'NumpadSubtract': cam.userZoom = Math.max(0.45, cam.userZoom / 1.15); break;
-    case 'Space': e.preventDefault(); break;
+    case 'Space': e.preventDefault(); act.horn(true); break;
   }
 });
-window.addEventListener('keyup', e => { if (keyMap[e.code]) input[keyMap[e.code]] = false; });
+window.addEventListener('keyup', e => {
+  if (keyMap[e.code]) input[keyMap[e.code]] = false;
+  if (e.code === 'Space') act.horn(false);
+});
 window.addEventListener('blur', () => { for (const k in input) input[k] = false; });
 canvas.addEventListener('wheel', e => { e.preventDefault(); cam.userZoom = Math.max(0.45, Math.min(2, cam.userZoom * (e.deltaY > 0 ? 0.9 : 1.1))); }, { passive: false });
 
-// ===== שליטה במגע =====
+// ===== לוח כפתורים (עכבר ומגע) =====
 document.querySelectorAll('[data-hold]').forEach(btn => {
   const k = btn.dataset.hold;
-  const on = e => {
-    e.preventDefault();
-    if (assist.on && (k === 'left' || k === 'right')) { setBlinker(k === 'left' ? -1 : 1); tick(true); return; }
-    input[k] = true; btn.classList.add('pressed');
-  };
-  const off = e => { e.preventDefault(); input[k] = false; btn.classList.remove('pressed'); };
+  const on = e => { e.preventDefault(); input[k] = true; btn.classList.add('pressed'); };
+  const off = () => { input[k] = false; btn.classList.remove('pressed'); };
   btn.addEventListener('pointerdown', on); btn.addEventListener('pointerup', off);
   btn.addEventListener('pointerleave', off); btn.addEventListener('pointercancel', off);
 });
-$('tBlinkL').addEventListener('click', () => { setBlinker(-1); tick(true); });
-$('tBlinkR').addEventListener('click', () => { setBlinker(1); tick(true); });
-$('blinkL').addEventListener('click', () => { setBlinker(-1); tick(true); });
-$('blinkR').addEventListener('click', () => { setBlinker(1); tick(true); });
+// חיצים: בהיגוי אוטומטי לחיצה = נתיב/פנייה, בהיגוי ידני החזקה = הגה
+document.querySelectorAll('[data-steer]').forEach(btn => {
+  const side = +btn.dataset.steer, k = side < 0 ? 'left' : 'right';
+  btn.addEventListener('pointerdown', e => { e.preventDefault(); if (assist.on) act.lane(side); else { input[k] = true; btn.classList.add('pressed'); } });
+  const off = () => { if (!assist.on) { input[k] = false; btn.classList.remove('pressed'); } };
+  btn.addEventListener('pointerup', off); btn.addEventListener('pointerleave', off); btn.addEventListener('pointercancel', off);
+});
+const clickAct = (id, fn) => $(id).addEventListener('click', e => { e.currentTarget.blur(); fn(); });
+clickAct('cBlinkL', () => act.blink(-1));
+clickAct('cBlinkR', () => act.blink(1));
+clickAct('cBlinkOff', () => act.blinkOff());
+clickAct('cParkR', () => act.park('right'));
+clickAct('cParkL', () => act.park('left'));
+clickAct('cGear', () => act.gear());
+clickAct('blinkL', () => act.blink(-1));
+clickAct('blinkR', () => act.blink(1));
+$('cHorn').addEventListener('pointerdown', e => { e.preventDefault(); act.horn(true); });
+$('cHorn').addEventListener('pointerup', () => act.horn(false));
+$('cHorn').addEventListener('pointerleave', () => act.horn(false));
 
 // ===== כפתורים =====
+const CAM_LABEL = { driver: 'מבט: מכיסא הנהג', follow: 'מבט: מאחורי הרכב', chase: 'מבט: מלמעלה', north: 'מבט: מפה' };
+function setCamera(mode) {
+  if ((mode === 'driver' || mode === 'follow') && !View3D.ok) mode = 'chase';
+  cam.mode = mode;
+  $('btnCam').textContent = CAM_LABEL[mode];
+  const is3d = mode === 'driver' || mode === 'follow';
+  document.body.classList.toggle('view3d', is3d);
+  $('mirror').hidden = mode !== 'driver';
+  try { localStorage.setItem('driving-practice.cam', mode); } catch (e) { /* לא חובה */ }
+}
 function toggleCamera() {
-  cam.mode = cam.mode === 'chase' ? 'north' : 'chase';
-  $('btnCam').textContent = cam.mode === 'chase' ? 'מצלמה: מאחורי הרכב' : 'מצלמה: צפון למעלה';
+  const order = View3D.ok ? ['driver', 'follow', 'chase', 'north'] : ['chase', 'north'];
+  setCamera(order[(order.indexOf(cam.mode) + 1) % order.length]);
 }
 function toggleSteer() {
   if (!assist.on) {
@@ -93,17 +134,45 @@ function toggleInstructor() {
 }
 function toggleLog() { $('log').hidden = !$('log').hidden; }
 function showHelp() { paused = true; $('help').hidden = false; }
-function startDriving() { $('help').hidden = true; paused = false; ensureAudio(); canvas.focus(); }
+function startDriving() { $('help').hidden = true; paused = false; ensureAudio(); canvas.focus(); speak(''); }
 $('btnCam').addEventListener('click', toggleCamera);
 $('btnSteer').addEventListener('click', toggleSteer);
 $('btnInstr').addEventListener('click', toggleInstructor);
+$('btnVoice').addEventListener('click', toggleVoice);
+$('btnReset').addEventListener('click', () => { act.reset(); $('settings').open = false; });
 $('btnLog').addEventListener('click', toggleLog);
 $('btnHelp').addEventListener('click', showHelp);
 $('btnStart').addEventListener('click', startDriving);
-$('btnSound').addEventListener('click', () => { soundOn = !soundOn; $('btnSound').textContent = soundOn ? 'צליל: פועל' : 'צליל: כבוי'; });
+$('btnSound').addEventListener('click', () => { soundOn = !soundOn; $('btnSound').textContent = soundOn ? 'צלילים: פועל' : 'צלילים: כבוי'; });
 $('btnFinish').addEventListener('click', showSummary);
 $('btnNew').addEventListener('click', newTest);
 $('btnResume').addEventListener('click', () => { $('summary').hidden = true; paused = false; });
+
+// ===== קול הבוחן (דיבור בעברית מהדפדפן) =====
+let voiceOn = true, heVoice = null;
+function pickVoice() {
+  if (!window.speechSynthesis) return;
+  const vs = speechSynthesis.getVoices();
+  heVoice = vs.find(v => /^he|^iw/i.test(v.lang)) || null;
+}
+if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function speak(text) {
+  if (!voiceOn || !window.speechSynthesis) return;
+  try {
+    speechSynthesis.cancel();
+    if (!text) return;
+    const u = new SpeechSynthesisUtterance(text.replace(/–/g, ','));
+    u.lang = 'he-IL'; if (heVoice) u.voice = heVoice;
+    u.rate = 1.0;
+    speechSynthesis.speak(u);
+  } catch (e) { /* אין תמיכה בדיבור */ }
+}
+function toggleVoice() {
+  voiceOn = !voiceOn;
+  if (!voiceOn && window.speechSynthesis) speechSynthesis.cancel();
+  $('btnVoice').textContent = voiceOn ? 'קול בוחן: פועל' : 'קול בוחן: כבוי';
+}
+Rules.onInstr = ins => speak(ins.text);
 
 function newTest() {
   loadMap(currentMap);
@@ -114,10 +183,11 @@ function newTest() {
 // ===== מפות =====
 function loadMap(map) {
   buildWorld(map); buildSigns(); buildScenery();
+  View3D.build();
   Rules.reset(); Rules.lastLim = START.lim;
   resetPlayer();
   npcs = spawnNPCs(map.traffic == null ? 12 : map.traffic, player);
-  cam.x = player.x; cam.y = player.y; cam.rot = cam.mode === 'chase' ? -Math.PI / 2 - player.h : 0;
+  cam.x = player.x; cam.y = player.y; cam.rot = cam.mode === 'north' ? 0 : -Math.PI / 2 - player.h;
   lastLimit = null; time = 0;
   $('toasts').innerHTML = '';
   $('mapTitle').textContent = map.name;

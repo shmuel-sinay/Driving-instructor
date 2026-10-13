@@ -16,6 +16,14 @@ function resetPlayer() {
   if (assist.on) apReset();
 }
 
+// החלפת הילוך D / R (רק כשהרכב כמעט עומד)
+function toggleGear() {
+  if (Math.abs(player.v) > 0.5) return false;
+  player.v = 0;
+  player.gear = player.gear === 'D' ? 'R' : 'D';
+  return true;
+}
+
 function setBlinker(side) {
   player.blinker = player.blinker === side ? 0 : side;
   player.blinkStartH = player.h;
@@ -27,8 +35,9 @@ function updatePedals(dt, allowReverse) {
   const p = player;
   let a = 0;
   const fwd = p.gear === 'D';
-  const gas = fwd ? input.up : input.down;
-  const brake = fwd ? input.down : input.up;
+  // דוושת הגז מסיעה בכיוון ההילוך (D קדימה, R אחורה), והבלם תמיד בולם
+  const gas = input.up;
+  const brake = input.down;
   const sp = Math.abs(p.v);
   p.braking = false;
   if (brake) {

@@ -6,7 +6,16 @@ const LW = 3.5;          // רוחב נתיב
 const SIDEWALK = 2.6;    // רוחב מדרכה
 const RB_OUT = 19;       // רדיוס חיצוני של כיכר
 const RB_IN = 8.5;       // רדיוס אי התנועה
-const RB_RING = (RB_OUT + RB_IN) / 2;
+const RB_RING = (RB_OUT + RB_IN) / 2;   // קו האמצע של הטבעת (וקו ההפרדה בכיכר דו-נתיבית)
+const PW = 2.4;          // רוחב רצועת חניה לאורך המדרכה
+const NO_PARK_JUNCTION = 12;   // אסור לחנות פחות מ-12 מ' מצומת
+const NO_PARK_CROSSWALK = 12;  // ולא בטווח 12 מ' ממעבר חציה
+
+// רדיוס הנסיעה בטבעת: בכיכר דו-נתיבית יש נתיב פנימי וחיצוני
+function ringRadius(node, lane) {
+  if (node.rbLanes === 2) return lane === 'inner' ? 11.6 : 16.2;
+  return RB_RING;
+}
 
 // המפה נבנית מנתוני JSON (ראו js/maps.js ו-docs/map-format.md)
 const nodes = {};
@@ -26,6 +35,7 @@ function buildWorld(map) {
   for (const nd of map.nodes) {
     const n = { id: nd.id, x: nd.x, y: nd.y, edges: [], hx: LW, hy: LW, minor: {}, offset: nd.lightOffset || 0 };
     n.type = { light: 'light', roundabout: 'roundabout', allstop: 'allstop' }[nd.type] || 'plain';
+    n.rbLanes = n.type === 'roundabout' && nd.lanes === 2 ? 2 : 1;
     nodes[n.id] = n; nodeList.push(n);
   }
   for (const r of map.roads) {
@@ -34,17 +44,30 @@ function buildWorld(map) {
     const len = Math.hypot(dx, dy);
     const d = { x: dx / len, y: dy / len };
     const nf = r.lanesForward, nb = r.lanesBackward || 0;
+    const oneway = nb === 0;
+    const pk = r.parking || 'none';
     const e = {
       id: r.from + '-' + r.to, a: A, b: B, len, d,
       n: { x: -d.y, y: d.x },            // נורמל: צד ימין של כיוון a→b
       nf, nb, lim: r.speed, name: r.name || 'רחוב ללא שם',
-      W: (nf + nb) * LW,
-      oneway: nb === 0,
+      oneway,
       pass: !!r.overtaking,
       school: !!r.school,
       horizontal: Math.abs(d.y) < 0.01,
       crosswalks: [],
+      // רצועות חניה: pf בצד ימין של כיוון from→to, pb בצד השני
+      pf: pk === 'right' || pk === 'both', pb: pk === 'left' || pk === 'both',
+      bumps: (r.speedBumps || []).slice(),
+      banTo: r.banAtTo || [], banFrom: r.banAtFrom || [],
+      parked: [],
     };
+    // היסטים לרוחב הכביש (s חיובי = ימין של from→to)
+    e.laneR = oneway ? (nf * LW) / 2 : nf * LW;
+    e.laneL = oneway ? (nf * LW) / 2 : nb * LW;
+    e.sMax = e.laneR + (e.pf ? PW : 0);
+    e.sMin = -(e.laneL + (e.pb ? PW : 0));
+    e.W = e.sMax - e.sMin;
+    e.half = Math.max(e.sMax, -e.sMin);
     e.crossDef = r.crosswalks || [];
     edges.push(e); edgeById[e.id] = e;
     A.edges.push(e); B.edges.push(e);
@@ -58,8 +81,8 @@ function buildWorld(map) {
   for (const n of nodeList) {
     let hx = 0, hy = 0;
     for (const e of n.edges) {
-      if (e.horizontal) hy = Math.max(hy, e.W / 2);
-      else hx = Math.max(hx, e.W / 2);
+      if (e.horizontal) hy = Math.max(hy, e.half);
+      else hx = Math.max(hx, e.half);
     }
     n.hx = hx || hy || LW; n.hy = hy || hx || LW;
   }
@@ -68,6 +91,7 @@ function buildWorld(map) {
     e.t1 = e.len - trimAt(e.b, e);
     for (const t of e.crossDef) { const cw = { edge: e, t, peds: [], timer: 2 + Math.random() * 5 }; e.crosswalks.push(cw); crosswalks.push(cw); }
   }
+  for (const e of edges) placeParkedCars(e);
   WORLD.minX = Math.min(...nodeList.map(n => n.x)) - 60; WORLD.maxX = Math.max(...nodeList.map(n => n.x)) + 60;
   WORLD.minY = Math.min(...nodeList.map(n => n.y)) - 60; WORLD.maxY = Math.max(...nodeList.map(n => n.y)) + 60;
 
@@ -85,7 +109,7 @@ function buildWorld(map) {
 }
 
 function trimAt(node, e) {
-  if (node.type === 'roundabout') return Math.sqrt(RB_OUT * RB_OUT - (e.W / 2) ** 2);
+  if (node.type === 'roundabout') return Math.sqrt(RB_OUT * RB_OUT - Math.min(RB_OUT - 1, e.half) ** 2);
   return e.horizontal ? node.hx : node.hy;
 }
 
@@ -101,7 +125,7 @@ function laneCount(e, dir) { return dir > 0 ? e.nf : e.nb; }
 // היסט נתיב i (0 = שמאלי ביותר) ביחס לנורמל של הקטע
 function laneS(e, dir, i) {
   let sT;
-  if (e.oneway) sT = -e.W / 2 + (i + 0.5) * LW;
+  if (e.oneway) sT = -e.laneL + (i + 0.5) * LW;
   else sT = (i + 0.5) * LW;
   return sT * dir;
 }
@@ -109,7 +133,7 @@ function laneS(e, dir, i) {
 function laneFromST(e, dir, sT) {
   const n = laneCount(e, dir);
   let k;
-  if (e.oneway) k = (sT + e.W / 2) / LW;
+  if (e.oneway) k = (sT + e.laneL) / LW;
   else k = sT / LW;
   return { idx: Math.max(0, Math.min(n - 1, Math.floor(k))), frac: k - Math.floor(k), n };
 }
@@ -118,6 +142,56 @@ function toNodeOf(e, dir) { return dir > 0 ? e.b : e.a; }
 function exitDirFrom(node, e) { return e.a === node ? 1 : -1; }
 function canExit(node, e) { return e.a === node ? e.nf > 0 : e.nb > 0; }
 function otherEnd(e, node) { return e.a === node ? e.b : e.a; }
+
+// ===== חניה =====
+// צד החניה ביחס לכיוון הנסיעה: 'right' או 'left' (שמאל רק ברחוב חד-סטרי)
+function parkStripOf(e, dir, side) {
+  if (side === 'left' && !e.oneway) return null;
+  const useF = side === 'right' ? dir > 0 : dir < 0;   // הרצועה בצד s>0 או s<0
+  if (useF ? !e.pf : !e.pb) return null;
+  const s = useF ? e.laneR + PW / 2 : -(e.laneL + PW / 2);
+  return { key: useF ? 'f' : 'b', s };
+}
+// האם מותר לחנות בנקודה t ברצועה (ואם לא, למה)
+function parkingRule(e, t) {
+  if (t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION) return 'junction';
+  for (const cw of e.crosswalks) if (Math.abs(t - cw.t) < NO_PARK_CROSSWALK) return 'crosswalk';
+  for (const b of e.bumps) if (Math.abs(t - b) < 3) return 'bump';
+  return null;
+}
+function placeParkedCars(e) {
+  e.parked = [];
+  const colors = ['#c9c4b8', '#3b5b7a', '#7a2f2f', '#4b6b45', '#bfa040', '#5a5f6a', '#e0ded8', '#6b4f8a'];
+  for (const key of ['f', 'b']) {
+    if (key === 'f' ? !e.pf : !e.pb) continue;
+    const s = key === 'f' ? e.laneR + PW / 2 : -(e.laneL + PW / 2);
+    const along = key === 'f' || e.oneway ? 1 : -1;   // כיוון החונים = כיוון התנועה שלידם
+    for (let t = e.t0 + NO_PARK_JUNCTION + 4; t < e.t1 - NO_PARK_JUNCTION - 3; t += 6.5) {
+      if (parkingRule(e, t) || Math.random() > 0.5) continue;
+      const p = edgePoint(e, t, s);
+      e.parked.push({ edge: e, key, t, s, x: p.x, y: p.y, h: Math.atan2(e.d.y * along, e.d.x * along), len: 4.3, wid: 1.8, v: 0, isParked: true, color: colors[Math.floor(Math.random() * colors.length)] });
+    }
+  }
+}
+function parkedCars() { return edges.flatMap(e => e.parked); }
+
+// מספר היציאה בכיכר (1 = הראשונה מימין), לפי סדר נגד כיוון השעון
+function rbExitNumber(node, inEdge, outEdge) {
+  const o = otherEnd(inEdge, node);
+  const thIn = Math.atan2(o.y - node.y, o.x - node.x);
+  const exits = node.edges.filter(x => x !== inEdge).map(x => {
+    const q = otherEnd(x, node);
+    let d = thIn - Math.atan2(q.y - node.y, q.x - node.x);
+    while (d <= 0) d += 2 * Math.PI;
+    return { x, d };
+  }).sort((a, b) => a.d - b.d);
+  const k = exits.findIndex(q => q.x === outEdge);
+  return k < 0 ? exits.length + 1 : k + 1;
+}
+function isBanned(node, e, turn) {
+  const list = node === e.b ? e.banTo : e.banFrom;
+  return list.includes(turn);
+}
 
 function control(node, e) {
   switch (node.type) {
@@ -167,7 +241,7 @@ function locate(p) {
   for (const e of edges) {
     const { t, s } = edgeLocal(e, p);
     if (t < 0 || t > e.len) continue;
-    const ex = Math.abs(s) - e.W / 2;
+    const ex = Math.max(s - e.sMax, e.sMin - s);
     if (ex < 2.5 && ex < bestEx) { bestEx = ex; best = { kind: 'edge', edge: e, t, s }; }
   }
   return best;
@@ -183,7 +257,7 @@ function surfaceAt(p) {
   }
   for (const e of edges) {
     const { t, s } = edgeLocal(e, p);
-    if (t >= 0 && t <= e.len && Math.abs(s) <= e.W / 2 + 0.15) return 'road';
+    if (t >= 0 && t <= e.len && s <= e.sMax + 0.15 && s >= e.sMin - 0.15) return 'road';
   }
   return 'off';
 }
@@ -231,15 +305,15 @@ function pathAt(path, s) {
 }
 
 // מסלול מעבר בצומת – מנקודת קצה נתיב כניסה לנקודת תחילת נתיב יציאה
-function nodePath(node, p0, din, p1, dout) {
+function nodePath(node, p0, din, p1, dout, ringR = RB_RING) {
   const pts = [];
   if (node.type === 'roundabout') {
     const th0 = Math.atan2(p0.y - node.y, p0.x - node.x) - 0.32;
     let th1 = Math.atan2(p1.y - node.y, p1.x - node.x) + 0.32;
     while (th1 > th0 - 0.4) th1 -= 2 * Math.PI;        // נגד כיוון השעון במסך = זווית יורדת
     pts.push(p0);
-    for (let th = th0; th > th1; th -= 0.12) pts.push({ x: node.x + Math.cos(th) * RB_RING, y: node.y + Math.sin(th) * RB_RING });
-    pts.push({ x: node.x + Math.cos(th1) * RB_RING, y: node.y + Math.sin(th1) * RB_RING });
+    for (let th = th0; th > th1; th -= 0.12) pts.push({ x: node.x + Math.cos(th) * ringR, y: node.y + Math.sin(th) * ringR });
+    pts.push({ x: node.x + Math.cos(th1) * ringR, y: node.y + Math.sin(th1) * ringR });
     pts.push(p1);
     return makePath(pts);
   }

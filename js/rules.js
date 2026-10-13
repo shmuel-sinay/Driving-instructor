@@ -12,7 +12,8 @@ const Rules = {
     Object.assign(this, {
       score: 100, log: [], cool: {}, failed: false, good: 0, loc: null, entry: null, lane: null,
       blinkHist: [], lastHistT: -1e9, stopped: {}, overTimer: 0, wrongTimer: 0, offTimer: 0, islandTimer: 0,
-      pendingLane: null, instr: null, lastT: null, lastEdge: null,
+      pendingLane: null, instr: null, lastT: null, lastEdge: null, rb: null, rbStop: 0,
+      parkRolled: null, unparkAt: null, parkedAt: null,
     });
     if (typeof Plugins !== 'undefined') Plugins.reset();
   },
@@ -143,6 +144,12 @@ const Rules = {
         }
       }
     }
+    // פסי האטה
+    if (this.lastT != null && this.lastEdge === e) {
+      for (const bt of e.bumps) {
+        if ((this.lastT - bt) * (loc.t - bt) <= 0 && this.lastT !== loc.t && kmh > 25) this.report('bump', `מעבר מהיר על פס האטה (${Math.round(kmh)} קמ"ש)`, false, time, 3);
+      }
+    }
     this.lastT = loc.t; this.lastEdge = e;
   },
 
@@ -151,6 +158,7 @@ const Rules = {
       this.overTimer += dt;
       if (this.overTimer > 1.5) this.report('speed', `מהירות מופרזת בצומת: ${Math.round(kmh)} קמ"ש`, kmh > this.lastLim + 20, time, 10);
     } else this.overTimer = 0;
+    if (node.type === 'roundabout') this.trackRing(node, dt, time, p);
     if (node.type === 'roundabout' && p.v > 1) {
       const rx = p.x - node.x, ry = p.y - node.y, r = Math.hypot(rx, ry);
       if (r > RB_IN + 1) {
@@ -160,10 +168,48 @@ const Rules = {
     }
   },
 
+  // מעקב בכיכר: אילו יציאות עברת ומתי, באיזה נתיב בטבעת, ועצירות מיותרות
+  trackRing(node, dt, time, p) {
+    const rb = this.rb;
+    if (!rb || rb.node !== node || !rb.edge) return;
+    const a = Math.atan2(p.y - node.y, p.x - node.x);
+    rb.angle += angNorm(rb.lastAng - a);
+    rb.lastAng = a;
+    const o = otherEnd(rb.edge, node);
+    const thIn = Math.atan2(o.y - node.y, o.x - node.x);
+    for (const x of node.edges) {
+      if (x === rb.edge || rb.passed.has(x)) continue;
+      const q = otherEnd(x, node);
+      let d = thIn - Math.atan2(q.y - node.y, q.x - node.x);
+      while (d <= 0) d += 2 * Math.PI;
+      if (d + 0.35 < rb.angle) { rb.passed.add(x); rb.passTimes[rbExitNumber(node, rb.edge, x)] = time; }
+    }
+    const r = Math.hypot(p.x - node.x, p.y - node.y);
+    if (node.rbLanes === 2 && r < RB_OUT - 2.5 && r > RB_IN + 0.5) {
+      const lane = r < RB_RING ? 'inner' : 'outer';
+      if (rb.lane && lane !== rb.lane) {
+        const side = lane === 'inner' ? -1 : 1;
+        if (!this.wasOn(side, time - 5, time)) this.report('rblane', 'החלפת נתיב בתוך הכיכר ללא איתות', false, time, 4);
+      }
+      rb.lane = lane;
+    }
+    // עצירה בתוך הכיכר בלי רכב מלפנים
+    if (Math.abs(p.v) < 0.3 && r < RB_OUT - 2) {
+      const blocked = (typeof npcs !== 'undefined' ? npcs : []).some(n => {
+        const dx = n.x - p.x, dy = n.y - p.y, f = dx * Math.cos(p.h) + dy * Math.sin(p.h);
+        return f > 0 && Math.hypot(dx, dy) < 12;
+      });
+      this.rbStop = blocked ? 0 : this.rbStop + dt;
+      if (this.rbStop > 2.5) { this.report('rbstop', 'עצירה מיותרת בתוך הכיכר', false, time, 10); this.rbStop = 0; }
+    } else this.rbStop = 0;
+  },
+
   enterNode(node, edge, time, p, vehicles) {
     this.entry = { node, edge, time, valid: false };
     Plugins.enterJunction(node, edge, time, p);
-    if (this.instr && this.instr.node !== node) this.instr = null;
+    if (this.instr && this.instr.kind === 'turn' && this.instr.node !== node) this.instr = null;
+    if (this.instr && this.instr.kind === 'park') { this.report('instr', 'לא ביצעת את הוראת הבוחן לחנות', false, time, 3); this.instr = null; }
+    this.rb = node.type === 'roundabout' ? { node, edge, time, angle: 0, lastAng: Math.atan2(p.y - node.y, p.x - node.x), passed: new Set(), passTimes: {}, lane: null } : null;
     if (!edge) return;
     const dirIn = node === edge.b ? edge.d : { x: -edge.d.x, y: -edge.d.y };
     if (Math.cos(p.h) * dirIn.x + Math.sin(p.h) * dirIn.y < 0.4 || p.v <= 0) return;
@@ -197,8 +243,9 @@ const Rules = {
     if (!en || en.node !== node || !en.valid) return;
     const turn = edge === en.edge ? 'uturn' : turnType(en.dirIn, dirOut);
     const isJunction = node.edges.length >= 3;
+    if (isBanned(node, en.edge, turn)) this.report('ban', `פנייה ${{ left: 'שמאלה', right: 'ימינה', uturn: 'פרסה', straight: 'ישר' }[turn]} בניגוד לתמרור`, true, time, 5);
     if (node.type === 'roundabout') {
-      if (!this.wasOn(1, en.time - 1, time)) this.report('rbsignal', 'לא איתתת ימינה לפני היציאה מהכיכר', false, time, 4);
+      this.ringExitChecks(node, en, edge, time, p);
     } else if (isJunction) {
       if (turn === 'left' || turn === 'uturn') {
         if (!this.wasOn(-1, en.time - 7, en.time + 0.8)) this.report('signal', 'פנייה שמאלה ללא איתות מוקדם', false, time, 4);
@@ -215,16 +262,87 @@ const Rules = {
       if (nOut > 1 && (turn === 'right' || turn === 'left')) this.pendingLane = { edge, side: turn === 'right' ? 1 : -1 };
     }
     if (turn !== 'straight') p.blinker = 0;
-    if (instr && instr.node === node) {
+    if (instr && instr.kind === 'turn' && instr.node === node) {
       if (instr.edge !== edge) this.report('instr', 'לא ביצעת את הוראת הבוחן', false, time, 3);
       else this.praise('יפה! ביצעת את ההוראה');
     }
   },
 
+  // חוקי יציאה מכיכר: תזמון האיתות, בחירת נתיב בכיכר דו-נתיבית, וחיתוך בנתיב החיצוני
+  ringExitChecks(node, en, edge, time, p) {
+    const rb = this.rb && this.rb.node === node ? this.rb : null;
+    this.rb = null;
+    const k = rbExitNumber(node, en.edge, edge);
+    // איתות ימינה: ביציאה הראשונה כבר בכניסה; אחרת רק אחרי שעברת את היציאה הקודמת
+    if (k <= 1) {
+      if (!this.wasOn(1, en.time - 6, time)) this.report('rbsignal', 'לא איתתת ימינה לפני היציאה מהכיכר', false, time, 4);
+    } else {
+      const tPrev = rb && rb.passTimes[k - 1] != null ? rb.passTimes[k - 1] : null;
+      if (!this.wasOn(1, (tPrev != null ? tPrev : en.time) - 0.5, time)) this.report('rbsignal', 'לא איתתת ימינה לפני היציאה מהכיכר', false, time, 4);
+      else if (tPrev != null && this.wasOn(1, en.time - 1, tPrev - 1)) this.report('rbearly', 'איתות ימינה מוקדם מדי: מאותתים רק אחרי היציאה שלפני היציאה שלך', false, time, 4);
+    }
+    // כיכר דו-נתיבית: יציאה 1-2 מהנתיב הימני, יציאה 3 ומעלה מהשמאלי
+    if (node.rbLanes === 2 && en.nLanes >= 2 && en.lane != null) {
+      const wantRight = k <= 2;
+      if (wantRight && en.lane !== en.nLanes - 1) this.report('rbentry', `בכיכר דו-נתיבית, ליציאה ה-${k} נכנסים מהנתיב הימני`, false, time, 4);
+      if (!wantRight && en.lane !== 0) this.report('rbentry', `בכיכר דו-נתיבית, ליציאה ה-${k} נכנסים מהנתיב השמאלי`, false, time, 4);
+    }
+    // יציאה מהנתיב הפנימי כשרכב מתקרב בנתיב החיצוני
+    if (node.rbLanes === 2 && rb && rb.lane === 'inner') {
+      const thMe = Math.atan2(p.y - node.y, p.x - node.x);
+      const cut = (typeof npcs !== 'undefined' ? npcs : []).some(n => {
+        const r = Math.hypot(n.x - node.x, n.y - node.y);
+        if (r < RB_RING || r > RB_OUT + 1 || n.v < 1.5) return false;
+        const diff = angNorm(Math.atan2(n.y - node.y, n.x - node.x) - thMe);
+        return diff > 0 && diff < 1.0;
+      });
+      if (cut) this.report('rbcut', 'חיתוך רכב בנתיב החיצוני ביציאה מהכיכר', true, time, 5);
+    }
+  },
+
+  // ===== חניה =====
+  onParkStart(e, dir, side, t, time) {
+    const sgn = side === 'right' ? 1 : -1;
+    if (!this.wasOn(sgn, time - 6, time + 0.2)) this.report('parksig', `חניה ללא איתות ${side === 'right' ? 'ימינה' : 'שמאלה'}`, false, time, 4);
+    const rule = parkingRule(e, t);
+    if (rule === 'junction') this.report('parkspot', 'חניה פחות מ-12 מטר מצומת (אבן שפה אדום-לבן)', false, time, 4);
+    else if (rule === 'crosswalk') this.report('parkspot', 'חניה סמוך למעבר חציה (אבן שפה אדום-לבן)', false, time, 4);
+    else if (rule === 'bump') this.report('parkspot', 'חניה על פס האטה', false, time, 4);
+  },
+  onParked(e, dir, side, t, time) {
+    this.parkedAt = time;
+    if (this.instr && this.instr.kind === 'park') {
+      if (this.instr.side === side) this.praise('חנית יפה');
+      else this.report('instr', 'חנית בצד הלא נכון', false, time, 3);
+      this.instr = null;
+      this.unparkAt = time + 4;
+    }
+  },
+  onUnpark(e, dir, side, time) {
+    const away = side === 'right' ? -1 : 1;
+    if (!this.wasOn(away, time - 6, time + 0.2)) this.report('unparksig', `יציאה מחניה ללא איתות ${away < 0 ? 'שמאלה' : 'ימינה'}`, false, time, 4);
+    // רכב שמתקרב מאחור בנתיב שאליו יוצאים
+    const hx = Math.cos(player.h), hy = Math.sin(player.h);
+    const near = (typeof npcs !== 'undefined' ? npcs : []).some(n => {
+      const dx = n.x - player.x, dy = n.y - player.y;
+      const ahead = dx * hx + dy * hy, sideOff = Math.abs(-dx * hy + dy * hx);
+      return ahead < 2 && ahead > -40 && sideOff < 5.5 && Math.cos(n.h - player.h) > 0.7 && n.v > 3;
+    });
+    if (near) this.report('unparkyield', 'יציאה מחניה בלי לתת זכות קדימה לרכב שמתקרב', true, time, 5);
+    if (this.instr && this.instr.kind === 'unpark') { this.praise('יצאת מהחניה'); this.instr = null; }
+    this.unparkAt = null;
+  },
+  newInstr(ins) { this.instr = ins; if (this.onInstr) this.onInstr(ins); },
+
   // ===== הוראות הבוחן =====
   instructorOn: true,
   updateInstructor(time, p) {
     if (!this.instructorOn) { this.instr = null; return; }
+    // אחרי חניה: הוראה לצאת
+    if (this.unparkAt && time > this.unparkAt && !this.instr && assist.on && assist.st && assist.st.kind === 'parked') {
+      this.newInstr({ kind: 'unpark', text: 'צא מהחניה והמשך בנסיעה', time });
+      this.unparkAt = null;
+    }
     if (this.instr) return;
     const loc = this.loc;
     if (!loc || loc.kind !== 'edge') return;
@@ -234,8 +352,21 @@ const Rules = {
     const dir = hd > 0 ? 1 : -1;
     const node = toNodeOf(e, dir);
     const dist = dir > 0 ? e.t1 - loc.t : loc.t - e.t0;
+    const fromStart = dir > 0 ? loc.t - e.t0 : e.t1 - loc.t;
+    // הוראת חניה (בערך בשליש מהרחובות שיש בהם חניה)
+    const rollKey = e.id + dir;
+    if (assist.on && this.parkRolled !== rollKey && fromStart > 10 && dist > 110) {
+      this.parkRolled = rollKey;
+      const sides = ['right', 'left'].filter(sd => parkStripOf(e, dir, sd));
+      if (sides.length && Math.random() < 0.4) {
+        const side = sides[Math.floor(Math.random() * sides.length)];
+        this.newInstr({ kind: 'park', side, text: side === 'right' ? 'חנה בצד ימין במקום הפנוי הבא' : 'חנה בצד שמאל במקום הפנוי הבא', time });
+        return;
+      }
+    }
     if (node.edges.length < 3 || dist > 160 || dist < 45) return;
-    const opts = node.edges.filter(x => x !== e && canExit(node, x));
+    const din0 = dirVec(e, dir);
+    const opts = node.edges.filter(x => x !== e && canExit(node, x) && !isBanned(node, e, turnType(din0, dirVec(x, exitDirFrom(node, x)))));
     if (!opts.length) return;
     const pick = opts[Math.floor(Math.random() * opts.length)];
     const din = dirVec(e, dir), dout = dirVec(pick, exitDirFrom(node, pick));
@@ -256,6 +387,6 @@ const Rules = {
     } else {
       text = turn === 'straight' ? 'בצומת הבא – המשך ישר' : `בצומת הבא – פנה ${word}`;
     }
-    this.instr = { node, edge: pick, text, turn, time };
+    this.newInstr({ kind: 'turn', node, edge: pick, text, turn, time });
   },
 };

@@ -19,19 +19,6 @@ const blinkName = b => (b === -1 ? 'left' : b === 1 ? 'right' : null);
 const lightName = st => (st === 'redyellow' ? 'redYellow' : st);
 const nodeTypeName = n => (n.type === 'plain' || n.type === 'priority' ? 'junction' : n.type);
 
-function rbExitNumber(node, inEdge, outEdge) {
-  const o = otherEnd(inEdge, node);
-  const thIn = Math.atan2(o.y - node.y, o.x - node.x);
-  const exits = node.edges.filter(x => x !== inEdge).map(x => {
-    const q = otherEnd(x, node);
-    let d = thIn - Math.atan2(q.y - node.y, q.x - node.x);
-    while (d <= 0) d += 2 * Math.PI;
-    return { x, d };
-  }).sort((a, b) => a.d - b.d);
-  const k = exits.findIndex(q => q.x === outEdge);
-  return k < 0 ? exits.length + 1 : k + 1;   // יציאה בדרך שממנה נכנסו = פרסה
-}
-
 function junctionInfo(node, edge, time) {
   const info = {
     id: node.id, type: nodeTypeName(node), control: edge ? control(node, edge) : 'none',
@@ -85,7 +72,10 @@ function sense(time, dt, p, vehicles) {
     where: !loc ? 'off' : loc.kind === 'edge' ? 'road' : 'junction',
     road: null, junction: null, nextJunction: null, crosswalkAhead: null,
     vehicles: [], pedestrians: [],
-    instruction: Rules.instr ? { junctionId: Rules.instr.node.id, toRoadId: Rules.instr.edge.id, turn: Rules.instr.turn, text: Rules.instr.text } : null,
+    instruction: !Rules.instr ? null : Rules.instr.kind === 'turn'
+      ? { kind: 'turn', junctionId: Rules.instr.node.id, toRoadId: Rules.instr.edge.id, turn: Rules.instr.turn, text: Rules.instr.text }
+      : { kind: Rules.instr.kind, side: Rules.instr.side || null, text: Rules.instr.text },
+    parking: assist.on && assist.st ? (assist.st.kind === 'parked' ? 'parked' : assist.st.kind === 'park-in' ? 'parking' : assist.st.kind === 'park-out' ? 'leaving' : null) : null,
     score: Rules.score, mapName: currentMap ? currentMap.name : '',
   };
   if (loc && loc.kind === 'edge') {
@@ -141,7 +131,7 @@ function sense(time, dt, p, vehicles) {
       ahead: dx * hx + dy * hy, side: dx * rx + dy * ry, distance: Math.hypot(dx, dy),
       speedKmh: Math.abs(o.v) * 3.6, accel: prev == null || !dt ? 0 : (o.v - prev) / dt,
       braking: !!o.braking, blinker: blinkName(o.blinker), heading: o.h,
-      sameDirection: Math.cos(o.h - p.h) > 0.7, oppositeDirection: Math.cos(o.h - p.h) < -0.7,
+      sameDirection: Math.cos(o.h - p.h) > 0.7, oppositeDirection: Math.cos(o.h - p.h) < -0.7, parked: !!o.isParked,
       x: o.x, y: o.y,
     }, whereIs(o)));
   }
@@ -149,7 +139,7 @@ function sense(time, dt, p, vehicles) {
     const dx = pd.x - p.x, dy = pd.y - p.y;
     s.pedestrians.push({
       roadId: cw.edge.id, state: pd.state === 'wait' ? 'waiting' : pd.state === 'cross' ? 'crossing' : 'leaving',
-      onRoad: pd.state === 'cross' && Math.abs(pd.s) < cw.edge.W / 2 + 0.6,
+      onRoad: pd.state === 'cross' && pd.s < cw.edge.sMax + 0.6 && pd.s > cw.edge.sMin - 0.6,
       ahead: dx * hx + dy * hy, side: dx * rx + dy * ry, distance: Math.hypot(dx, dy), x: pd.x, y: pd.y,
     });
   }
@@ -264,7 +254,7 @@ Plugins.exitJunction = function (node, edge, time, p) {
     stops: v.stops, stoppedSeconds: v.stoppedTime,
     ringLaneAtEntry: v.ringLaneAtEntry, ringLaneAtExit: v.ringLane, ringLaneChanges: v.ringChanges,
     wrongExitDirection: edge.oneway && node === edge.b,
-    instructionFollowed: Rules.instr && Rules.instr.node === node ? Rules.instr.edge === edge : null,
+    instructionFollowed: Rules.instr && Rules.instr.kind === 'turn' && Rules.instr.node === node ? Rules.instr.edge === edge : null,
   };
   for (const [pl, r] of activeRules()) runHook(pl, r, 'onExitJunction', [s, ev], time);
 };

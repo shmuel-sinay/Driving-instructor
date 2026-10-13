@@ -3,7 +3,7 @@
 
 const COL = {
   grass: '#6f9a4a', grassDark: '#5f8a3e', sidewalk: '#c9c4b8', curb: '#9d978a',
-  asphalt: '#3d4045', asphaltNode: '#3a3d42', line: '#f2f0ea', yellow: '#f2c230',
+  asphalt: '#3d4045', asphaltNode: '#3a3d42', line: '#f2f0ea', yellow: '#f2c230', parking: '#46494f',
   island: '#7fae55',
 };
 
@@ -47,29 +47,54 @@ function buildScenery() {
 const signs = [];
 function buildSigns() {
   signs.length = 0;
+  const add = (p, o) => signs.push(Object.assign(p, o));
   for (const e of edges) {
     for (const dir of [1, -1]) {
       if (!laneCount(e, dir)) continue;
-      const side = e.W / 2 + 1.6;
+      // שוליים ימניים לכיוון הנסיעה
+      const side = dir > 0 ? e.sMax + 1.6 : -e.sMin + 1.6;
+      const span = e.t1 - e.t0;
       const tStart = dir > 0 ? e.t0 + 12 : e.t1 - 12;
       const tEnd = dir > 0 ? e.t1 - 6 : e.t0 + 6;
       const at = (t, off = 0) => edgePoint(e, t, (side + off) * dir);
-      signs.push(Object.assign(at(tStart), { kind: 'speed', val: e.lim }));
-      if (e.school) signs.push(Object.assign(at(tStart + 6 * dir), { kind: 'school' }));
-      if (e.oneway) signs.push(Object.assign(at(tStart + 6 * dir), { kind: 'oneway', ang: Math.atan2(e.d.y, e.d.x) }));
+      const back = (m) => tEnd - m * dir;          // m מטרים לפני הצומת
+      const fwd = (m) => tStart + m * dir;         // m מטרים אחרי ההתחלה
+      add(at(tStart), { kind: 'speed', val: e.lim, dir, edge: e });
+      if (e.school) add(at(fwd(7)), { kind: 'school', dir, edge: e });
+      if (e.oneway) add(at(fwd(7)), { kind: 'oneway', ang: Math.atan2(e.d.y, e.d.x), dir, edge: e });
+      const rs = parkStripOf(e, dir, 'right');
+      if (rs) add(at(fwd(14)), { kind: 'parking', dir, edge: e });
+      else if (e.lim <= 50 && span > 120) add(at(fwd(14)), { kind: 'noparking', dir, edge: e });
       const node = toNodeOf(e, dir);
       const ctrl = control(node, e);
-      if (ctrl === 'stop') signs.push(Object.assign(at(tEnd), { kind: 'stop' }));
-      else if (ctrl === 'yield') signs.push(Object.assign(at(tEnd), { kind: 'yield' }));
-      else if (ctrl === 'roundabout') { signs.push(Object.assign(at(tEnd - 4 * dir), { kind: 'roundabout' })); signs.push(Object.assign(at(tEnd), { kind: 'yield' })); }
-      else if (ctrl === 'light') signs.push(Object.assign(at(dir > 0 ? e.t1 - 1 : e.t0 + 1, -0.4), { kind: 'light', node, edge: e, ang: Math.atan2(e.d.y * dir, e.d.x * dir) }));
-      for (const cw of e.crosswalks) signs.push(Object.assign(at(cw.t - 6 * dir), { kind: 'cross' }));
+      // תמרורי אזהרה לפני צומת
+      if (span > 140) {
+        if (ctrl === 'light') add(at(back(65)), { kind: 'lightahead', dir, edge: e });
+        else if (ctrl === 'roundabout') add(at(back(65)), { kind: 'rbahead', dir, edge: e });
+        else if (ctrl === 'stop' || ctrl === 'yield') add(at(back(65)), { kind: 'junctionahead', dir, edge: e });
+      }
+      if (ctrl === 'none' && node.type === 'priority') add(at(back(30)), { kind: 'priority', dir, edge: e });
+      if (ctrl === 'stop') add(at(tEnd), { kind: 'stop', dir, edge: e });
+      else if (ctrl === 'yield') add(at(tEnd), { kind: 'yield', dir, edge: e });
+      else if (ctrl === 'roundabout') { add(at(back(4)), { kind: 'roundabout', dir, edge: e }); add(at(tEnd), { kind: 'yield', dir, edge: e }); }
+      else if (ctrl === 'light') add(at(dir > 0 ? e.t1 - 1 : e.t0 + 1, -0.4), { kind: 'light', node, edge: e, dir, ang: Math.atan2(e.d.y * dir, e.d.x * dir) });
+      // איסורי פנייה
+      const bans = dir > 0 ? e.banTo : e.banFrom;
+      bans.forEach((turn, i) => add(at(back(10 + i * 3)), { kind: 'ban', val: turn, dir, edge: e }));
+      for (const cw of e.crosswalks) {
+        add(at(cw.t - 6 * dir), { kind: 'cross', dir, edge: e });
+        const tw = cw.t - 45 * dir;
+        if ((tw - e.t0) * (e.t1 - tw) > 0 && Math.abs(tw - (dir > 0 ? e.t0 : e.t1)) > 20) add(at(tw), { kind: 'crossahead', dir, edge: e });
+      }
+      for (const bt of e.bumps) {
+        const tw = bt - 25 * dir;
+        if ((tw - e.t0) * (e.t1 - tw) > 0) add(at(tw), { kind: 'bump', dir, edge: e });
+      }
     }
     // אין כניסה בקצה של רחוב חד-סטרי
     if (e.oneway) {
-      const side = e.W / 2 + 1.6;
-      signs.push(Object.assign(edgePoint(e, e.t1 - 4, -side), { kind: 'noentry' }));
-      signs.push(Object.assign(edgePoint(e, e.t1 - 4, side), { kind: 'noentry' }));
+      add(edgePoint(e, e.t1 - 4, e.sMin - 1.6), { kind: 'noentry', dir: -1, edge: e });
+      add(edgePoint(e, e.t1 - 4, e.sMax + 1.6), { kind: 'noentry', dir: -1, edge: e });
     }
   }
 }
@@ -96,14 +121,20 @@ function upright(ctx, x, y, fn) {
 function drawRoads(ctx) {
   // מדרכות
   ctx.fillStyle = COL.sidewalk;
-  for (const e of edges) rectAlong(ctx, e, 0, e.len, e.W / 2 + SIDEWALK);
+  for (const e of edges) rectAlong(ctx, e, 0, e.len, e.sMin - SIDEWALK, e.sMax + SIDEWALK);
   for (const n of nodeList) {
     if (n.type === 'roundabout') { circle(ctx, n.x, n.y, RB_OUT + SIDEWALK); ctx.fill(); }
     else ctx.fillRect(n.x - n.hx - SIDEWALK, n.y - n.hy - SIDEWALK, 2 * (n.hx + SIDEWALK), 2 * (n.hy + SIDEWALK));
   }
   // אספלט
   ctx.fillStyle = COL.asphalt;
-  for (const e of edges) rectAlong(ctx, e, 0, e.len, e.W / 2);
+  for (const e of edges) rectAlong(ctx, e, 0, e.len, e.sMin, e.sMax);
+  // רצועות חניה בגוון מעט שונה
+  ctx.fillStyle = COL.parking;
+  for (const e of edges) {
+    if (e.pf) rectAlong(ctx, e, e.t0, e.t1, e.laneR, e.sMax);
+    if (e.pb) rectAlong(ctx, e, e.t0, e.t1, e.sMin, -e.laneL);
+  }
   for (const n of nodeList) {
     ctx.fillStyle = COL.asphaltNode;
     if (n.type === 'roundabout') { circle(ctx, n.x, n.y, RB_OUT); ctx.fill(); }
@@ -111,8 +142,8 @@ function drawRoads(ctx) {
   }
 }
 
-function rectAlong(ctx, e, t0, t1, half) {
-  const p = [edgePoint(e, t0, -half), edgePoint(e, t1, -half), edgePoint(e, t1, half), edgePoint(e, t0, half)];
+function rectAlong(ctx, e, t0, t1, sLo, sHi) {
+  const p = [edgePoint(e, t0, sLo), edgePoint(e, t1, sLo), edgePoint(e, t1, sHi), edgePoint(e, t0, sHi)];
   ctx.beginPath(); ctx.moveTo(p[0].x, p[0].y); for (let i = 1; i < 4; i++) ctx.lineTo(p[i].x, p[i].y); ctx.closePath(); ctx.fill();
 }
 function circle(ctx, x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); }
@@ -127,8 +158,8 @@ function drawMarkings(ctx) {
     ctx.strokeStyle = COL.line;
     // קווי שוליים
     ctx.lineWidth = 0.15; ctx.setLineDash([]);
-    lineAlong(ctx, e, e.t0, e.t1, e.W / 2 - 0.3);
-    lineAlong(ctx, e, e.t0, e.t1, -e.W / 2 + 0.3);
+    lineAlong(ctx, e, e.t0, e.t1, e.laneR - (e.pf ? 0 : 0.3));
+    lineAlong(ctx, e, e.t0, e.t1, -e.laneL + (e.pb ? 0 : 0.3));
     // קו הפרדה בין כיוונים
     if (!e.oneway) {
       if (e.pass) { ctx.setLineDash([3, 5]); ctx.lineWidth = 0.15; lineAlong(ctx, e, e.t0 + 25, e.t1 - 25, 0); ctx.setLineDash([]); lineAlong(ctx, e, e.t0, e.t0 + 25, 0); lineAlong(ctx, e, e.t1 - 25, e.t1, 0); }
@@ -160,10 +191,8 @@ function drawMarkings(ctx) {
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
       ctx.setLineDash([]);
       if (ctrl === 'stop') {
-        upright(ctx, edgePoint(e, tl - 4 * dir, (s0 + s1) / 2).x, edgePoint(e, tl - 4 * dir, (s0 + s1) / 2).y, () => {
-          ctx.fillStyle = 'rgba(242,240,234,0.85)'; ctx.font = 'bold 1.6px Assistant, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText('עצור', 0, 0);
-        });
+        const q = edgePoint(e, tl - 4 * dir, (s0 + s1) / 2);
+        roadText(ctx, q.x, q.y, Math.atan2(e.d.y * dir, e.d.x * dir), 'עצור', 'rgba(242,240,234,0.85)', 1.6);
       }
       // חצים בנתיבים לפני צומת
       if (node.edges.length >= 3 && node.type !== 'roundabout') {
@@ -178,15 +207,16 @@ function drawMarkings(ctx) {
     // מעבר חציה
     ctx.fillStyle = COL.line;
     for (const cw of e.crosswalks) {
-      for (let s = -e.W / 2 + 0.5; s < e.W / 2 - 0.4; s += 1.1) {
+      for (let s = e.sMin + 0.5; s < e.sMax - 0.4; s += 1.1) {
         const p = [edgePoint(e, cw.t - 1.8, s), edgePoint(e, cw.t + 1.8, s), edgePoint(e, cw.t + 1.8, s + 0.55), edgePoint(e, cw.t - 1.8, s + 0.55)];
         ctx.beginPath(); ctx.moveTo(p[0].x, p[0].y); for (let i = 1; i < 4; i++) ctx.lineTo(p[i].x, p[i].y); ctx.fill();
       }
     }
     if (e.school) {
       for (const dir of [1, -1]) {
+        if (!laneCount(e, dir)) continue;
         const pt = edgePoint(e, e.len / 2 - 20 * dir, laneS(e, dir, 0));
-        upright(ctx, pt.x, pt.y, () => { ctx.fillStyle = 'rgba(242,194,48,0.85)'; ctx.font = 'bold 1.5px Assistant, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('האט', 0, 0); });
+        roadText(ctx, pt.x, pt.y, Math.atan2(e.d.y * dir, e.d.x * dir), 'האט', 'rgba(242,194,48,0.85)', 1.5);
       }
     }
   }
@@ -198,7 +228,66 @@ function drawMarkings(ctx) {
     ctx.strokeStyle = '#e8e4da'; circle(ctx, n.x, n.y, RB_IN); ctx.stroke();
     ctx.strokeStyle = '#c0392b'; ctx.setLineDash([1.2, 1.2]); circle(ctx, n.x, n.y, RB_IN); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = '#4e7d33'; for (let k = 0; k < 5; k++) { circle(ctx, n.x + Math.cos(k * 1.3) * 3.5, n.y + Math.sin(k * 1.3) * 3.5, 1.6); ctx.fill(); }
-    ctx.strokeStyle = 'rgba(242,240,234,0.5)'; ctx.lineWidth = 0.12; ctx.setLineDash([2, 3]); circle(ctx, n.x, n.y, RB_RING); ctx.stroke(); ctx.setLineDash([]);
+    if (n.rbLanes === 2) { ctx.strokeStyle = 'rgba(242,240,234,0.85)'; ctx.lineWidth = 0.15; ctx.setLineDash([3, 4]); circle(ctx, n.x, n.y, RB_RING); ctx.stroke(); ctx.setLineDash([]); }
+  }
+  drawCurbsAndParking(ctx);
+  drawBumps(ctx);
+}
+
+// טקסט על הכביש, קריא לנהג שנוסע בכיוון ang
+function roadText(ctx, x, y, ang, text, color, size) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang + Math.PI / 2);
+  ctx.fillStyle = color; ctx.font = `bold ${size}px Assistant, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, 0, 0); ctx.restore();
+}
+
+// אבני שפה: אדום-לבן = אסור לחנות, כחול-לבן = חניה מותרת. וגם סימון מקומות החניה
+function drawCurbsAndParking(ctx) {
+  for (const e of edges) {
+    for (const key of ['f', 'b']) {
+      const hasStrip = key === 'f' ? e.pf : e.pb;
+      const sc = key === 'f' ? e.sMax + 0.15 : e.sMin - 0.15;
+      // מקטעים לפי החוק
+      const cuts = [e.t0, e.t1];
+      const step = 1;
+      let segStart = e.t0, prev = null;
+      const flush = (t, rule) => {
+        if (prev === null) return;
+        let col = null;
+        if (prev) col = '#d23b2f';
+        else if (hasStrip) col = '#2f6fd2';
+        if (col) {
+          ctx.lineWidth = 0.32; ctx.setLineDash([]); ctx.strokeStyle = '#f2f0ea'; lineAlong(ctx, e, segStart, t, sc);
+          ctx.strokeStyle = col; ctx.setLineDash([0.9, 0.9]); lineAlong(ctx, e, segStart, t, sc); ctx.setLineDash([]);
+        }
+        segStart = t;
+      };
+      for (let t = e.t0; t <= e.t1 + 0.01; t += step) {
+        const rule = !!parkingRule(e, t) && (hasStrip || t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION || e.crosswalks.some(c => Math.abs(t - c.t) < NO_PARK_CROSSWALK));
+        if (prev !== null && rule !== prev) flush(t, rule);
+        prev = rule;
+      }
+      flush(e.t1, prev);
+      // סימון מקומות חניה (קווים קצרים בניצב)
+      if (hasStrip) {
+        const sIn = key === 'f' ? e.laneR : -e.laneL, sOut = key === 'f' ? e.sMax : e.sMin;
+        ctx.strokeStyle = 'rgba(242,240,234,0.55)'; ctx.lineWidth = 0.1;
+        for (let t = e.t0 + NO_PARK_JUNCTION; t < e.t1 - NO_PARK_JUNCTION; t += 6.5) {
+          if (parkingRule(e, t)) continue;
+          const a = edgePoint(e, t, sIn), b = edgePoint(e, t, sOut);
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+      }
+    }
+  }
+}
+function drawBumps(ctx) {
+  for (const e of edges) for (const bt of e.bumps) {
+    const n = 10, w = (e.sMax - e.sMin) / n;
+    for (let i = 0; i < n; i++) {
+      ctx.fillStyle = i % 2 ? '#1d1d1d' : '#f2c230';
+      rectAlong(ctx, e, bt - 0.45, bt + 0.45, e.sMin + i * w, e.sMin + (i + 1) * w);
+    }
   }
 }
 
@@ -303,6 +392,56 @@ function drawSignGlyph(ctx, kind, val, r, ang = 0) {
       ctx.fillRect(-r * 0.06, -r * 0.05, r * 0.14, r * 0.42);
       ctx.fillRect(-r * 0.3, r * 0.5, r * 0.6, r * 0.1);
       break;
+    case 'parking':
+      ctx.fillStyle = '#1565c0'; ctx.fillRect(-r, -r, 2 * r, 2 * r);
+      ctx.fillStyle = '#fff'; ctx.font = `bold ${r * 1.5}px Rubik, sans-serif`; ctx.fillText('P', 0, r * 0.08);
+      break;
+    case 'noparking':
+      ctx.fillStyle = '#1565c0'; circle(ctx, 0, 0, r); ctx.fill();
+      ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = r * 0.2; circle(ctx, 0, 0, r * 0.9); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-r * 0.62, -r * 0.62); ctx.lineTo(r * 0.62, r * 0.62); ctx.stroke();
+      break;
+    case 'priority':
+      ctx.save(); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = '#fff'; ctx.fillRect(-r * 0.75, -r * 0.75, r * 1.5, r * 1.5);
+      ctx.fillStyle = '#f2c230'; ctx.fillRect(-r * 0.5, -r * 0.5, r, r);
+      ctx.strokeStyle = '#222'; ctx.lineWidth = r * 0.06; ctx.strokeRect(-r * 0.75, -r * 0.75, r * 1.5, r * 1.5);
+      ctx.restore();
+      break;
+    case 'lightahead': case 'rbahead': case 'junctionahead': case 'crossahead': case 'bump':
+      warnTriangle(ctx, r);
+      ctx.fillStyle = '#111'; ctx.strokeStyle = '#111';
+      if (kind === 'lightahead') {
+        ctx.fillRect(-r * 0.16, -r * 0.35, r * 0.32, r * 0.78);
+        [['#e53935', -0.2], ['#fbc02d', 0.05], ['#43a047', 0.3]].forEach(([c, y]) => { ctx.fillStyle = c; circle(ctx, 0, y * r, r * 0.09); ctx.fill(); });
+      } else if (kind === 'rbahead') {
+        ctx.lineWidth = r * 0.1;
+        for (let i = 0; i < 3; i++) { const a0 = i * 2.094; ctx.beginPath(); ctx.arc(0, r * 0.08, r * 0.28, a0 + 1.2, a0, true); ctx.stroke(); }
+      } else if (kind === 'junctionahead') {
+        ctx.fillRect(-r * 0.07, -r * 0.4, r * 0.14, r * 0.8); ctx.fillRect(-r * 0.35, -r * 0.02, r * 0.7, r * 0.14);
+      } else if (kind === 'crossahead') {
+        circle(ctx, r * 0.02, -r * 0.3, r * 0.09); ctx.fill();
+        ctx.fillRect(-r * 0.05, -r * 0.2, r * 0.12, r * 0.32);
+        ctx.lineWidth = r * 0.08; ctx.beginPath(); ctx.moveTo(0, r * 0.1); ctx.lineTo(-r * 0.15, r * 0.4); ctx.moveTo(0.05 * r, r * 0.1); ctx.lineTo(r * 0.2, r * 0.4); ctx.stroke();
+      } else {
+        ctx.beginPath(); ctx.moveTo(-r * 0.45, r * 0.38); ctx.quadraticCurveTo(0, -r * 0.15, r * 0.45, r * 0.38); ctx.closePath(); ctx.fill();
+      }
+      break;
+    case 'ban': {
+      ctx.fillStyle = '#fff'; circle(ctx, 0, 0, r); ctx.fill();
+      ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = r * 0.2; circle(ctx, 0, 0, r * 0.9); ctx.stroke();
+      ctx.strokeStyle = '#111'; ctx.fillStyle = '#111'; ctx.lineWidth = r * 0.14;
+      ctx.beginPath();
+      if (val === 'left') { ctx.moveTo(r * 0.15, r * 0.5); ctx.lineTo(r * 0.15, -r * 0.05); ctx.lineTo(-r * 0.3, -r * 0.05); }
+      else if (val === 'right') { ctx.moveTo(-r * 0.15, r * 0.5); ctx.lineTo(-r * 0.15, -r * 0.05); ctx.lineTo(r * 0.3, -r * 0.05); }
+      else if (val === 'uturn') { ctx.moveTo(r * 0.25, r * 0.5); ctx.lineTo(r * 0.25, -r * 0.1); ctx.arc(0, -r * 0.1, r * 0.25, 0, Math.PI, true); ctx.lineTo(-r * 0.25, r * 0.25); }
+      else { ctx.moveTo(0, r * 0.55); ctx.lineTo(0, -r * 0.25); }
+      ctx.stroke();
+      const tip = { left: [-r * 0.5, -r * 0.05, Math.PI], right: [r * 0.5, -r * 0.05, 0], uturn: [-r * 0.25, r * 0.45, Math.PI / 2], straight: [0, -r * 0.5, -Math.PI / 2] }[val] || [0, -r * 0.5, -Math.PI / 2];
+      ctx.save(); ctx.translate(tip[0], tip[1]); ctx.rotate(tip[2]); ctx.beginPath(); ctx.moveTo(r * 0.12, 0); ctx.lineTo(-r * 0.18, r * 0.2); ctx.lineTo(-r * 0.18, -r * 0.2); ctx.closePath(); ctx.fill(); ctx.restore();
+      ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = r * 0.16; ctx.beginPath(); ctx.moveTo(-r * 0.62, -r * 0.62); ctx.lineTo(r * 0.62, r * 0.62); ctx.stroke();
+      break;
+    }
     case 'school':
       ctx.fillStyle = '#fff'; ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = r * 0.16;
       ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(r, r * 0.75); ctx.lineTo(-r, r * 0.75); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -327,6 +466,11 @@ function drawTrafficLight(ctx, s, time) {
   }
   ctx.shadowBlur = 0;
   ctx.restore();
+}
+
+function warnTriangle(ctx, r) {
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = r * 0.16;
+  ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(r, r * 0.75); ctx.lineTo(-r, r * 0.75); ctx.closePath(); ctx.fill(); ctx.stroke();
 }
 
 // ===== רכבים והולכי רגל =====
@@ -381,7 +525,7 @@ function renderWorld(ctx, W, H, time, npcs) {
   drawRoads(ctx);
   drawMarkings(ctx);
   // הדגשת הצומת שבו צריך לבצע את הוראת הבוחן
-  if (Rules.instr) {
+  if (Rules.instr && Rules.instr.kind === 'turn') {
     const n = Rules.instr.node, e = Rules.instr.edge;
     const o = otherEnd(e, n), dx = o.x - n.x, dy = o.y - n.y, L = Math.hypot(dx, dy);
     const pulse = 0.35 + 0.25 * Math.sin(time * 4);
@@ -391,6 +535,7 @@ function renderWorld(ctx, W, H, time, npcs) {
     ctx.setLineDash([]);
   }
   drawPeds(ctx);
+  for (const e of edges) for (const c of e.parked) drawCar(ctx, c, c.color, {});
   const blinkOn = (time % 0.8) < 0.45;
   for (const n of npcs) drawCar(ctx, n, n.color, { braking: n.braking, blinker: n.blinker, blinkOn });
   drawCar(ctx, player, '#f4f1e8', { braking: player.braking || (player.v === 0 && !input.up), blinker: player.blinker, blinkOn, reverse: player.gear === 'R' });
@@ -422,7 +567,7 @@ function renderMinimap(mctx, w, h, npcs) {
     if (n.type === 'light') { mctx.fillStyle = '#f2c230'; mctx.beginPath(); mctx.arc(X(n.x), Y(n.y), 2.5, 0, 7); mctx.fill(); }
     if (n.type === 'allstop' || (n.minor && Object.values(n.minor).includes('stop'))) { mctx.fillStyle = '#e5484d'; mctx.beginPath(); mctx.arc(X(n.x), Y(n.y), 2.5, 0, 7); mctx.fill(); }
   }
-  if (Rules.instr) { mctx.strokeStyle = '#50c8ff'; mctx.lineWidth = 2; mctx.beginPath(); mctx.arc(X(Rules.instr.node.x), Y(Rules.instr.node.y), 7, 0, 7); mctx.stroke(); }
+  if (Rules.instr && Rules.instr.kind === 'turn') { mctx.strokeStyle = '#50c8ff'; mctx.lineWidth = 2; mctx.beginPath(); mctx.arc(X(Rules.instr.node.x), Y(Rules.instr.node.y), 7, 0, 7); mctx.stroke(); }
   mctx.fillStyle = '#9aa4ae';
   for (const n of npcs) { mctx.fillRect(X(n.x) - 1.5, Y(n.y) - 1.5, 3, 3); }
   mctx.save(); mctx.translate(X(player.x), Y(player.y)); mctx.rotate(player.h);
