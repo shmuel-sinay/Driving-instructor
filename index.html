@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>מגרש תרגול נהיגה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Rubik:wght@500;700&family=Secular+One&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<!--APP-->
+<div id="app">
+  <canvas id="game" tabindex="0" aria-label="מגרש הנהיגה"></canvas>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="plate">ל</span>
+      <div>
+        <h1>מגרש תרגול נהיגה</h1>
+        <p id="street" class="street">רחוב הרצל</p>
+      </div>
+    </div>
+    <div id="scoreBox" class="score" title="ציון המבחן">
+      <span class="label">ציון</span><span id="score">100</span>
+    </div>
+    <nav class="tools" aria-label="הגדרות">
+      <button id="btnInstr" type="button" aria-pressed="true">הוראות בוחן: פועל</button>
+      <button id="btnCam" type="button">מצלמה: מאחורי הרכב</button>
+      <button id="btnLog" type="button">יומן עבירות (0)</button>
+      <button id="btnSound" type="button">צליל: פועל</button>
+      <button id="btnHelp" type="button">עזרה</button>
+      <button id="btnFinish" type="button" class="primary">סיום מבחן</button>
+    </nav>
+  </header>
+
+  <div id="instr" class="instr" hidden>
+    <span class="who">הבוחן</span>
+    <span id="instrText"></span>
+  </div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <aside id="log" class="log" hidden>
+    <h2>יומן עבירות</h2>
+    <ul id="logList"></ul>
+  </aside>
+
+  <canvas id="minimap" class="minimap" aria-label="מפה"></canvas>
+
+  <div class="dash">
+    <div id="nextBox" class="next">
+      <span class="k">לפניך</span>
+      <span id="nextText">—</span>
+      <span id="nextDist" class="dist"></span>
+    </div>
+    <div class="cluster">
+      <button id="blinkR" class="blink right" type="button" aria-label="איתות ימינה (E)">
+        <svg viewBox="0 0 24 24"><path d="M4 9h9V4l8 8-8 8v-5H4z"/></svg>
+      </button>
+      <div id="speedBox" class="speedo">
+        <span id="speed">0</span>
+        <span class="unit">קמ"ש</span>
+        <span id="gear" class="gear">D</span>
+      </div>
+      <canvas id="limitSign" class="limit" width="64" height="64" aria-label="המהירות המותרת"></canvas>
+      <button id="blinkL" class="blink left" type="button" aria-label="איתות שמאלה (Q)">
+        <svg viewBox="0 0 24 24"><path d="M20 9h-9V4l-8 8 8 8v-5h9z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="touch" aria-hidden="true">
+    <div class="pad steer">
+      <button data-hold="left" type="button">◀</button>
+      <button data-hold="right" type="button">▶</button>
+    </div>
+    <div class="pad sig">
+      <button id="tBlinkL" type="button">⇦ איתות</button>
+      <button id="tBlinkR" type="button">איתות ⇨</button>
+    </div>
+    <div class="pad pedals">
+      <button data-hold="down" type="button" class="brake">בלם</button>
+      <button data-hold="up" type="button" class="gas">גז</button>
+    </div>
+  </div>
+
+  <section id="help" class="modal">
+    <div class="card">
+      <p class="eyebrow">תרגול לקראת טסט</p>
+      <h2>סע לפי החוק, הבוחן רושם הכל</h2>
+      <p class="lead">עיר קטנה עם רמזורים, כיכר, תמרורי "עצור", רחובות חד-סטריים, מעברי חציה ותנועה אמיתית. הבוחן ייתן לך הוראות, ותקבל ניקוד על כל עבירה.</p>
+      <div class="cols">
+        <div>
+          <h3>שליטה</h3>
+          <dl class="keys">
+            <dt><kbd>↑</kbd> / <kbd>W</kbd></dt><dd>גז</dd>
+            <dt><kbd>↓</kbd> / <kbd>S</kbd></dt><dd>בלם (החזק בעצירה להילוך אחורי)</dd>
+            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>הגה</dd>
+            <dt><kbd>Q</kbd> / <kbd>E</kbd></dt><dd>איתות שמאלה / ימינה</dd>
+            <dt><kbd>C</kbd></dt><dd>החלפת מצלמה</dd>
+            <dt><kbd>R</kbd></dt><dd>חזרה לנקודת ההתחלה</dd>
+            <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>זום</dd>
+            <dt><kbd>P</kbd></dt><dd>השהיה</dd>
+          </dl>
+        </div>
+        <div>
+          <h3>מה הבוחן בודק</h3>
+          <ul class="rules">
+            <li>מהירות לפי התמרור (30 / 40 / 50 / 60 / 70 / 80)</li>
+            <li>איתות לפני כל פנייה והחלפת נתיב</li>
+            <li>עצירה מוחלטת ב"עצור" ונתינת זכות קדימה</li>
+            <li>רמזור: לא נכנסים באדום ולא באדום-צהוב</li>
+            <li>כיכר: נכנסים ימינה, נותנים זכות לבאים מתוכה, מאותתים ימינה ביציאה</li>
+            <li>פנייה ימינה מהנתיב הימני, שמאלה מהשמאלי</li>
+            <li>נסיעה בצד ימין, בלי לחצות קו רצוף</li>
+            <li>עצירה להולכי רגל במעבר חציה</li>
+            <li>רחוב חד-סטרי ותמרור "אין כניסה"</li>
+          </ul>
+        </div>
+      </div>
+      <p class="fine">עבירה רגילה מורידה 5 נקודות. עבירה חמורה מורידה 15 ונחשבת כישלון בטסט.</p>
+      <button id="btnStart" class="primary big" type="button">התחל לנהוג</button>
+    </div>
+  </section>
+
+  <section id="summary" class="modal" hidden>
+    <div class="card">
+      <p class="eyebrow">סיכום המבחן</p>
+      <div class="sumhead">
+        <div class="bigscore"><span id="sumScore">100</span><small>/100</small></div>
+        <div>
+          <p id="sumVerdict" class="verdict">—</p>
+          <p id="sumMeta" class="fine"></p>
+        </div>
+      </div>
+      <ul id="sumList" class="sumlist"></ul>
+      <div class="row">
+        <button id="btnNew" class="primary" type="button">מבחן חדש</button>
+        <button id="btnResume" type="button">המשך לנסוע</button>
+      </div>
+    </div>
+  </section>
+</div>
+<!--/APP-->
+<script src="js/world.js"></script>
+<script src="js/traffic.js"></script>
+<script src="js/player.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/render.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

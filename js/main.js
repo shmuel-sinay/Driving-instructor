@@ -1,0 +1,262 @@
+'use strict';
+// ===== לולאת המשחק, ממשק ושליטה =====
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const mini = document.getElementById('minimap');
+const mctx = mini.getContext('2d');
+const $ = id => document.getElementById(id);
+
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+  const mw = mini.clientWidth, mh = mini.clientHeight;
+  mini.width = mw * DPR; mini.height = mh * DPR;
+}
+window.addEventListener('resize', resize);
+resize();
+
+let npcs = spawnNPCs(12, player);
+let time = 0;
+let paused = true;
+let soundOn = true;
+
+// ===== שליטה במקלדת =====
+const keyMap = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
+window.addEventListener('keydown', e => {
+  if (keyMap[e.code]) { input[keyMap[e.code]] = true; e.preventDefault(); }
+  if (e.repeat) return;
+  switch (e.code) {
+    case 'KeyQ': case 'Comma': setBlinker(-1); tick(true); break;
+    case 'KeyE': case 'Period': setBlinker(1); tick(true); break;
+    case 'KeyC': toggleCamera(); break;
+    case 'KeyR': resetPlayer(); Rules.loc = null; Rules.entry = null; break;
+    case 'KeyI': toggleInstructor(); break;
+    case 'KeyL': toggleLog(); break;
+    case 'Escape': case 'KeyP': if (!$('help').hidden) startDriving(); else showHelp(); break;
+    case 'Equal': case 'NumpadAdd': cam.userZoom = Math.min(2, cam.userZoom * 1.15); break;
+    case 'Minus': case 'NumpadSubtract': cam.userZoom = Math.max(0.45, cam.userZoom / 1.15); break;
+    case 'Space': e.preventDefault(); break;
+  }
+});
+window.addEventListener('keyup', e => { if (keyMap[e.code]) input[keyMap[e.code]] = false; });
+window.addEventListener('blur', () => { for (const k in input) input[k] = false; });
+canvas.addEventListener('wheel', e => { e.preventDefault(); cam.userZoom = Math.max(0.45, Math.min(2, cam.userZoom * (e.deltaY > 0 ? 0.9 : 1.1))); }, { passive: false });
+
+// ===== שליטה במגע =====
+document.querySelectorAll('[data-hold]').forEach(btn => {
+  const k = btn.dataset.hold;
+  const on = e => { e.preventDefault(); input[k] = true; btn.classList.add('pressed'); };
+  const off = e => { e.preventDefault(); input[k] = false; btn.classList.remove('pressed'); };
+  btn.addEventListener('pointerdown', on); btn.addEventListener('pointerup', off);
+  btn.addEventListener('pointerleave', off); btn.addEventListener('pointercancel', off);
+});
+$('tBlinkL').addEventListener('click', () => { setBlinker(-1); tick(true); });
+$('tBlinkR').addEventListener('click', () => { setBlinker(1); tick(true); });
+$('blinkL').addEventListener('click', () => { setBlinker(-1); tick(true); });
+$('blinkR').addEventListener('click', () => { setBlinker(1); tick(true); });
+
+// ===== כפתורים =====
+function toggleCamera() {
+  cam.mode = cam.mode === 'chase' ? 'north' : 'chase';
+  $('btnCam').textContent = cam.mode === 'chase' ? 'מצלמה: מאחורי הרכב' : 'מצלמה: צפון למעלה';
+}
+function toggleInstructor() {
+  Rules.instructorOn = !Rules.instructorOn;
+  $('btnInstr').textContent = Rules.instructorOn ? 'הוראות בוחן: פועל' : 'הוראות בוחן: כבוי';
+  $('btnInstr').setAttribute('aria-pressed', Rules.instructorOn);
+}
+function toggleLog() { $('log').hidden = !$('log').hidden; }
+function showHelp() { paused = true; $('help').hidden = false; }
+function startDriving() { $('help').hidden = true; paused = false; ensureAudio(); canvas.focus(); }
+$('btnCam').addEventListener('click', toggleCamera);
+$('btnInstr').addEventListener('click', toggleInstructor);
+$('btnLog').addEventListener('click', toggleLog);
+$('btnHelp').addEventListener('click', showHelp);
+$('btnStart').addEventListener('click', startDriving);
+$('btnSound').addEventListener('click', () => { soundOn = !soundOn; $('btnSound').textContent = soundOn ? 'צליל: פועל' : 'צליל: כבוי'; });
+$('btnFinish').addEventListener('click', showSummary);
+$('btnNew').addEventListener('click', newTest);
+$('btnResume').addEventListener('click', () => { $('summary').hidden = true; paused = false; });
+
+function newTest() {
+  Rules.reset(); resetPlayer();
+  npcs = spawnNPCs(12, player);
+  for (const cw of crosswalks) cw.peds = [];
+  $('summary').hidden = true; $('toasts').innerHTML = '';
+  renderLog(); paused = false;
+}
+
+// ===== צלילים =====
+let actx = null;
+function ensureAudio() {
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
+  if (actx && actx.state === 'suspended') actx.resume();
+}
+function beep(freq, dur, vol = 0.05, type = 'square') {
+  if (!soundOn || !actx) return;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.value = freq; g.gain.value = vol;
+  g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+  o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + dur);
+}
+function tick(hi) { beep(hi ? 1400 : 1000, 0.03, 0.04); }
+
+// ===== הודעות =====
+Rules.onEvent = (kind, item) => {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind === 'bad' ? (item.severe ? 'severe' : 'minor') : 'good');
+  if (kind === 'bad') {
+    el.innerHTML = `<span class="tag">${item.severe ? 'עבירה חמורה' : 'עבירה'} · −${item.pts}</span><span class="msg"></span>`;
+    el.querySelector('.msg').textContent = item.text;
+    beep(item.severe ? 220 : 330, 0.25, 0.06, 'sawtooth');
+  } else {
+    el.innerHTML = '<span class="msg"></span>';
+    el.querySelector('.msg').textContent = item.text;
+    beep(880, 0.12, 0.04, 'sine');
+  }
+  const box = $('toasts');
+  box.prepend(el);
+  while (box.children.length > 3) box.lastChild.remove();
+  setTimeout(() => el.classList.add('out'), 3200);
+  setTimeout(() => el.remove(), 3700);
+  renderLog();
+};
+
+function renderLog() {
+  const ul = $('logList');
+  ul.innerHTML = '';
+  if (!Rules.log.length) { ul.innerHTML = '<li class="empty">עדיין אין עבירות. סע בזהירות!</li>'; }
+  for (const it of Rules.log) {
+    const li = document.createElement('li');
+    li.className = it.severe ? 'severe' : 'minor';
+    const m = Math.floor(it.time / 60), s = Math.floor(it.time % 60);
+    li.innerHTML = `<span class="when">${m}:${String(s).padStart(2, '0')}</span><span class="what"></span><span class="pts">−${it.pts}</span>`;
+    li.querySelector('.what').textContent = it.text;
+    ul.appendChild(li);
+  }
+  $('btnLog').textContent = `יומן עבירות (${Rules.log.length})`;
+}
+renderLog();
+
+function showSummary() {
+  paused = true;
+  const sc = Rules.score;
+  let verdict, cls;
+  if (Rules.failed) { verdict = 'נכשל: בוצעה עבירה חמורה'; cls = 'bad'; }
+  else if (sc >= 85) { verdict = 'עבר! נהיגה טובה'; cls = 'good'; }
+  else if (sc >= 70) { verdict = 'גבולי: יש על מה לעבוד'; cls = 'warn'; }
+  else { verdict = 'נכשל: יותר מדי טעויות'; cls = 'bad'; }
+  $('sumScore').textContent = sc;
+  $('sumVerdict').textContent = verdict;
+  $('sumVerdict').className = 'verdict ' + cls;
+  const m = Math.floor(time / 60), s = Math.floor(time % 60);
+  $('sumMeta').textContent = `זמן נהיגה ${m}:${String(s).padStart(2, '0')} · ${Rules.log.length} עבירות · ${Rules.good} הוראות בוצעו נכון`;
+  const groups = {};
+  for (const it of Rules.log) { groups[it.text] = groups[it.text] || { n: 0, severe: it.severe }; groups[it.text].n++; }
+  const ul = $('sumList'); ul.innerHTML = '';
+  const entries = Object.entries(groups).sort((a, b) => b[1].severe - a[1].severe || b[1].n - a[1].n);
+  if (!entries.length) ul.innerHTML = '<li class="empty">אין עבירות. כל הכבוד!</li>';
+  for (const [text, g] of entries) {
+    const li = document.createElement('li'); li.className = g.severe ? 'severe' : 'minor';
+    li.innerHTML = `<span class="what"></span><span class="pts">×${g.n}</span>`;
+    li.querySelector('.what').textContent = text; ul.appendChild(li);
+  }
+  $('summary').hidden = false;
+}
+
+// ===== תצוגת לוח מחוונים =====
+const limitCanvas = $('limitSign');
+const lctx = limitCanvas.getContext('2d');
+let lastLimit = null;
+function drawLimit(val) {
+  if (val === lastLimit) return;
+  lastLimit = val;
+  const s = limitCanvas.width = limitCanvas.height = 64 * DPR;
+  lctx.setTransform(s / 4, 0, 0, s / 4, s / 2, s / 2);
+  drawSignGlyph(lctx, 'speed', val, 1.85);
+}
+
+function upcoming() {
+  const loc = Rules.loc;
+  if (!loc || loc.kind !== 'edge') return null;
+  const e = loc.edge;
+  const hd = Math.cos(player.h) * e.d.x + Math.sin(player.h) * e.d.y;
+  if (Math.abs(hd) < 0.5) return null;
+  const dir = hd > 0 ? 1 : -1;
+  const node = toNodeOf(e, dir);
+  const dist = dir > 0 ? e.t1 - loc.t : loc.t - e.t0;
+  const ctrl = control(node, e);
+  let text = null, state = null;
+  if (ctrl === 'light') {
+    const st = lightState(node, axisOf(e), time);
+    state = st;
+    text = 'רמזור · ' + { red: 'אדום', yellow: 'צהוב', green: 'ירוק', redyellow: 'אדום-צהוב' }[st];
+  } else if (ctrl === 'stop') text = node.type === 'allstop' ? 'צומת "עצור" מכל הכיוונים' : 'תמרור "עצור": עצירה מוחלטת';
+  else if (ctrl === 'yield') text = 'תן זכות קדימה';
+  else if (ctrl === 'roundabout') text = 'כיכר: תן זכות קדימה לבאים מתוכה';
+  else if (node.edges.length >= 3) text = 'צומת: אתה בדרך הראשית';
+  else text = 'עיקול';
+  for (const cw of e.crosswalks) {
+    const d = dir > 0 ? cw.t - loc.t : loc.t - cw.t;
+    if (d > 0 && d < dist && d < 60) return { text: 'מעבר חציה' + (pedOnRoad(cw) ? ': הולך רגל חוצה!' : ''), dist: d, state: pedOnRoad(cw) ? 'red' : null, street: e.name };
+  }
+  return { text, dist, state, street: e.name };
+}
+
+let hudT = 0, lastBlinkPhase = false;
+function updateHUD(dt) {
+  const kmh = Math.round(Math.abs(player.v) * 3.6);
+  $('speed').textContent = kmh;
+  $('gear').textContent = player.gear;
+  const lim = Rules.lastLim;
+  drawLimit(lim);
+  $('speedBox').classList.toggle('over', kmh > lim + 3);
+  const blinkPhase = (time % 0.8) < 0.45;
+  $('blinkL').classList.toggle('on', player.blinker === -1 && blinkPhase);
+  $('blinkR').classList.toggle('on', player.blinker === 1 && blinkPhase);
+  if (player.blinker && blinkPhase !== lastBlinkPhase && !paused) tick(blinkPhase);
+  lastBlinkPhase = blinkPhase;
+  hudT -= dt;
+  if (hudT > 0) return;
+  hudT = 0.1;
+  $('score').textContent = Rules.score;
+  $('scoreBox').classList.toggle('failed', Rules.failed);
+  const up = upcoming();
+  if (up) {
+    $('nextText').textContent = up.text;
+    $('nextDist').textContent = up.dist < 400 ? `${Math.max(0, Math.round(up.dist))} מ'` : '';
+    $('nextBox').dataset.state = up.state || '';
+    $('street').textContent = up.street;
+  }
+  const ins = $('instr');
+  if (Rules.instr) { ins.hidden = false; $('instrText').textContent = Rules.instr.text; }
+  else ins.hidden = true;
+}
+
+// ===== לולאה =====
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  if (!paused) {
+    const steps = 2, h = dt / steps;
+    for (let i = 0; i < steps; i++) {
+      time += h;
+      updatePlayer(h);
+      const vehicles = [player, ...npcs];
+      for (const n of npcs) n.update(h, time, vehicles);
+      updatePeds(h, player);
+      Rules.update(h, time, player, vehicles);
+    }
+  }
+  updateCamera(dt, W, H);
+  renderWorld(ctx, W, H, time, npcs);
+  mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  renderMinimap(mctx, mini.clientWidth, mini.clientHeight, npcs);
+  updateHUD(dt);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
