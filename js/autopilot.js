@@ -44,6 +44,8 @@ function apPos() {
   const st = assist.st;
   if (st.kind === 'edge' || st.kind === 'parked') return edgePoint(st.e, st.t, st.lat);
   if (st.kind === 'ring') return { x: st.node.x + Math.cos(st.th) * st.r, y: st.node.y + Math.sin(st.th) * st.r };
+  // מסלול של הסרן האחורי (יציאה מחניה): מרכז הרכב נמצא חצי בסיס גלגלים לפניו, בכיוון הרכב
+  if (st.axle) { const a = pathAt(st.path, st.s); return { x: a.x + Math.cos(a.h) * st.axle, y: a.y + Math.sin(a.h) * st.axle, h: a.h }; }
   return pathAt(st.path, st.s);
 }
 function apPlace(h0, snap) {
@@ -51,6 +53,7 @@ function apPlace(h0, snap) {
   const dx = q.x - p.x, dy = q.y - p.y, moved = Math.hypot(dx, dy);
   p.x = q.x; p.y = q.y;
   if (snap) { p.h = h0; p.steer = 0; return; }
+  if (q.h != null && assist.st.axle) { const dh = angNorm(q.h - p.h); p.h = angNorm(p.h + dh); p.steer = Math.max(-0.6, Math.min(0.6, Math.atan(p.wb * dh / Math.max(moved, 0.05)))); return; }
   if (moved > 1e-4) {
     const target = p.v < 0 ? Math.atan2(-dy, -dx) : Math.atan2(dy, dx);   // ברוורס החזית נשארת קדימה
     const dh = angNorm(target - p.h);
@@ -121,16 +124,26 @@ function apPark(side) {
 function apUnparkPath(st) {
   const e = st.e, dir = st.dir, n = apLaneCount(e, dir);
   const lane = st.side === 'right' ? n - 1 : 0;
-  const tEnd = st.t + 14 * dir;
-  const p0 = edgePoint(e, st.t, st.lat), p3 = edgePoint(e, tEnd, apLaneS(e, dir, lane));
-  const dv = dirVec(e, dir);
-  const p1 = { x: p0.x + dv.x * 6, y: p0.y + dv.y * 6 }, p2 = { x: p3.x - dv.x * 6, y: p3.y - dv.y * 6 };
+  const sLane = apLaneS(e, dir, lane), D = Math.abs(sLane - st.lat), sg = Math.sign(sLane - st.lat) || 1;
+  // יציאה כמו ברכב אמיתי (מודל אופניים): הגה עד הסוף לכיוון הנתיב, קטע ישר באלכסון, הגה חזרה עד שמתיישרים.
+  // הגלגלים האחוריים כמעט לא זזים הצידה, כך שהרכב לא עולה על המדרכה ולא פוגע ברכב שלפנים.
+  // זווית היציאה: חדה רק כשהרכב שלפנים קרוב, אחרת מתונה (כדי לא להגיע לצד השני של רחוב צר)
+  const ahead = e.parked.filter(c => c.key === st.key).map(c => (c.t - st.t) * dir).filter(d => d > 0);
+  const gap = ahead.length ? Math.min(...ahead) : 99;
+  const WB = 2.6, R = 3.9, TH = gap < 7.5 ? 0.6 : 0.42, STEP = 0.2;
+  const wCurve = R * (1 - Math.cos(TH));
+  const straight = Math.max(0, (D - 2 * wCurve) / Math.sin(TH));
+  let u = -WB / 2, w = 0, th = 0;
   const pts = [];
-  for (let i = 0; i <= 16; i++) {
-    const u = i / 16, a = (1 - u) ** 3, b = 3 * (1 - u) ** 2 * u, c = 3 * (1 - u) * u * u, d = u ** 3;
-    pts.push({ x: a * p0.x + b * p1.x + c * p2.x + d * p3.x, y: a * p0.y + b * p1.y + c * p2.y + d * p3.y });
-  }
-  return { kind: 'park-out', path: makePath(pts), s: 0, next: { e, dir, lane, t: tEnd } };
+  const push = () => pts.push(edgePoint(e, st.t + dir * u, st.lat + sg * w));
+  push();
+  const arc = (k, until) => { while ((k > 0 ? th < until : th > until)) { th += k * STEP; th = k > 0 ? Math.min(th, until) : Math.max(th, until); u += Math.cos(th) * STEP; w += Math.sin(th) * STEP; push(); } };
+  arc(1 / R, TH);
+  for (let d = 0; d < straight; d += STEP) { u += Math.cos(th) * STEP; w += Math.sin(th) * STEP; push(); }
+  arc(-1 / R, 0);
+  for (let d = 0; d < 3; d += STEP) { u += STEP; push(); }
+  const tEnd = st.t + dir * (u + WB / 2);
+  return { kind: 'park-out', path: makePath(pts), s: 0, axle: WB / 2, next: { e, dir, lane, t: tEnd } };
 }
 
 // ===== בחירת הדרך בצומת: לפי החיצים =====

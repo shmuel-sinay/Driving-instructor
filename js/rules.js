@@ -491,7 +491,7 @@ const Rules = {
     const st = assist.st;
     if (step.unpark || step.reverse) {
       if (!st || st.kind !== 'parked' || (this.parkedAt != null && time - this.parkedAt < 2.5)) return;
-      if (step.reverse) this.newInstr({ kind: 'reverse', voice: 'reverse_line', text: VOICE_LINES.reverse_line, time, startT: st.t, lessonStep: true });
+      if (step.reverse) this.newInstr({ kind: 'reverse', voice: 'reverse_line', text: VOICE_LINES.reverse_line, time, startT: st.t, need: this.reverseRoom(st), lessonStep: true });
       else this.newInstr({ kind: 'unpark', voice: 'ready', text: VOICE_LINES.ready, time, lessonStep: true });
       return;
     }
@@ -534,12 +534,18 @@ const Rules = {
     const ins = this.instr;
     if (!ins || ins.kind !== 'reverse' || !assist.st || assist.st.kind !== 'parked') return;
     const moved = Math.abs(assist.st.t - ins.startT);
-    if (moved >= 6 && p.gear === 'D') {
+    if (moved >= (ins.need || 6) && p.gear === 'D') {
       this.praise('נסיעה לאחור בקו ישר: בוצע');
       this.instr = null;
       this.unparkAt = time + 2;
       this.stepDone(ins, true, time);
     }
+  },
+  // כמה מטרים אפשר לנסוע לאחור מהחניה (עד הרכב שמאחור או עד הצומת), בין 3 ל-6
+  reverseRoom(st) {
+    let room = (st.t - (st.dir > 0 ? st.e.t0 : st.e.t1)) * st.dir - 3;
+    for (const c of st.e.parked) if (c.key === st.key) { const d = (st.t - c.t) * st.dir; if (d > 0) room = Math.min(room, d - 5); }
+    return Math.max(3, Math.min(6, Math.floor(room * 10) / 10 - 0.3));
   },
   newInstr(ins) { this.instr = ins; if (this.onInstr) this.onInstr(ins); },
 
@@ -553,7 +559,7 @@ const Rules = {
       // לפעמים קודם נסיעה לאחור לאורך המדרכה, ואחר כך יציאה מהחניה
       if (!this.didReverseTask && Math.random() < 0.5) {
         this.didReverseTask = true;
-        this.newInstr({ kind: 'reverse', voice: 'reverse_line', text: VOICE_LINES.reverse_line, time, startT: assist.st.t });
+        this.newInstr({ kind: 'reverse', voice: 'reverse_line', text: VOICE_LINES.reverse_line, time, startT: assist.st.t, need: this.reverseRoom(assist.st) });
       } else {
         this.newInstr({ kind: 'unpark', voice: 'ready', text: VOICE_LINES.ready, time });
         this.unparkAt = null;
