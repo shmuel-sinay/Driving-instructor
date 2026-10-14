@@ -97,6 +97,8 @@ const View3D = {
     this.pedMeshes = new Map();
     this.player = this.makeCar(0xf4f1e8, true);
     scene.add(this.player.group);
+    this.buildStreetSigns();
+    this.buildBusStops();
     this.buildWalkers();
     this.buildPalms();
     this.applyQuality();
@@ -114,7 +116,73 @@ const View3D = {
     c.fillStyle = COL.grass; c.fillRect(0, 0, w, h);
     c.setTransform(k, 0, 0, k, -x0 * k, -y0 * k);
     drawRoads(c);
+    if (k >= 6) this.paintDetail(c, k, x0, y0, w, h);
     drawMarkings(c);
+  },
+
+  // פרטים שנראים רק מקרוב: מרצפות במדרכה, עקבות צמיגים, טלאים, מכסי ביוב ומרקם של אספלט
+  noisePattern(c) {
+    if (!this.noiseCv) {
+      const n = this.noiseCv = document.createElement('canvas'); n.width = n.height = 256;
+      const g = n.getContext('2d'), img = g.createImageData(256, 256), rnd = seeded(4242);
+      for (let i = 0; i < img.data.length; i += 4) {
+        const v = 200 + rnd() * 55;
+        img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
+      }
+      g.putImageData(img, 0, 0);
+    }
+    return c.createPattern(this.noiseCv, 'repeat');
+  },
+  paintDetail(c, k, x0, y0, w, h) {
+    const inView = e => {
+      const xs = [e.a.x, e.b.x], ys = [e.a.y, e.b.y];
+      return Math.max(...xs) > x0 - 20 && Math.min(...xs) < x0 + w / k + 20 && Math.max(...ys) > y0 - 20 && Math.min(...ys) < y0 + h / k + 20;
+    };
+    const vis = edges.filter(inView);
+    // מרצפות
+    c.strokeStyle = 'rgba(90,85,75,0.35)'; c.lineWidth = 0.04;
+    c.beginPath();
+    for (const e of vis) for (const [a, b] of [[e.sMax, e.sMax + SIDEWALK], [e.sMin - SIDEWALK, e.sMin]]) {
+      for (let t = e.t0; t < e.t1; t += 0.6) { const p = edgePoint(e, t, a), q = edgePoint(e, t, b); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); }
+      for (let s = a + 0.6; s < b; s += 0.6) { const p = edgePoint(e, e.t0, s), q = edgePoint(e, e.t1, s); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); }
+    }
+    c.stroke();
+    // עקבות צמיגים כהים במרכז כל נתיב
+    c.strokeStyle = 'rgba(0,0,0,0.13)'; c.lineWidth = 0.55;
+    c.beginPath();
+    for (const e of vis) for (const dir of [1, -1]) for (let i = 0; i < laneCount(e, dir); i++) {
+      const sc = laneS(e, dir, i);
+      for (const off of [-0.8, 0.8]) { const p = edgePoint(e, e.t0, sc + off), q = edgePoint(e, e.t1, sc + off); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); }
+    }
+    c.stroke();
+    // טלאים וסדקים במקומות קבועים (לפי מספר הקטע)
+    for (const e of vis) {
+      const rnd = seeded([...e.id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 100000, 7) + 1);
+      for (let t = e.t0 + 8; t < e.t1 - 8; t += 14 + rnd() * 30) {
+        const s0 = e.sMin + rnd() * (e.sMax - e.sMin - 3);
+        c.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.04)';
+        rectAlong(c, e, t, t + 2 + rnd() * 5, s0, s0 + 1 + rnd() * 2.5);
+        if (rnd() < 0.4) {
+          c.strokeStyle = 'rgba(0,0,0,0.3)'; c.lineWidth = 0.05; c.beginPath();
+          let p = edgePoint(e, t, s0); c.moveTo(p.x, p.y);
+          for (let j = 1; j < 6; j++) { p = edgePoint(e, t + j * 0.6, s0 + (rnd() - 0.5) * 0.8); c.lineTo(p.x, p.y); }
+          c.stroke();
+        }
+      }
+      // מכסה ביוב
+      for (let t = e.t0 + 20 + rnd() * 20; t < e.t1 - 10; t += 55 + rnd() * 30) {
+        const p = edgePoint(e, t, laneS(e, 1, 0) * (rnd() < 0.5 ? 1 : -1) || 0);
+        c.fillStyle = '#2a2c2f'; circle(c, p.x, p.y, 0.4); c.fill();
+        c.strokeStyle = '#55585c'; c.lineWidth = 0.06; c.stroke();
+      }
+    }
+    // מרקם עדין על הכל
+    c.save();
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.globalCompositeOperation = 'multiply';
+    c.fillStyle = this.noisePattern(c);
+    c.fillRect(0, 0, w, h);
+    c.restore();
   },
 
   updateNear(px, py) {
@@ -129,17 +197,39 @@ const View3D = {
   // שמיים: כיפה עם מעבר צבע מהאופק לכחול
   buildSky() {
     const T = THREE;
-    const c = document.createElement('canvas'); c.width = 4; c.height = 256;
-    const g = c.getContext('2d');
+    // שמיים עם עננים לבנים (כיפה), ורכסי גבעות רחוקים באופק
+    const c = document.createElement('canvas'); c.width = 1024; c.height = 256;
+    const g = c.getContext('2d'), rnd = seeded(2024);
     const gr = g.createLinearGradient(0, 0, 0, 256);
     gr.addColorStop(0, '#5f9fd8'); gr.addColorStop(0.55, '#9cc8ea'); gr.addColorStop(0.8, '#d9ecf7'); gr.addColorStop(1, '#eef6fb');
-    g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+    g.fillStyle = gr; g.fillRect(0, 0, 1024, 256);
+    for (let i = 0; i < 26; i++) {
+      const cx = rnd() * 1024, cy = 60 + rnd() * 120, sz = 10 + rnd() * 22;
+      for (let k = 0; k < 9; k++) {
+        const x = cx + (rnd() - 0.5) * sz * 5, y = cy + (rnd() - 0.5) * sz * 0.8, r = sz * (0.6 + rnd() * 0.7);
+        const cg = g.createRadialGradient(x, y, 0, x, y, r);
+        cg.addColorStop(0, 'rgba(255,255,255,0.75)'); cg.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = cg; g.fillRect(x - r, y - r, r * 2, r * 2);
+        for (const dx of [-1024, 1024]) if (x + dx > -r && x + dx < 1024 + r) g.fillRect(x + dx - r, y - r, r * 2, r * 2);
+      }
+    }
     const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace;
     const sky = new T.Mesh(new T.SphereGeometry(800, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new T.MeshBasicMaterial({ map: tex, side: T.BackSide, fog: false, depthWrite: false }));
     sky.position.set((WORLD.minX + WORLD.maxX) / 2, -5, (WORLD.minY + WORLD.maxY) / 2);
     sky.renderOrder = -1;
     this.sky = sky;
     this.scene.add(sky);
+    const hc = document.createElement('canvas'); hc.width = 2048; hc.height = 64;
+    const hg = hc.getContext('2d');
+    for (const [col, base, amp, f] of [['#9fb3a6', 30, 18, 3], ['#8aa38c', 42, 14, 5]]) {
+      hg.fillStyle = col; hg.beginPath(); hg.moveTo(0, 64);
+      for (let x = 0; x <= 2048; x += 16) hg.lineTo(x, base - amp * (0.5 + 0.5 * Math.sin(x / 2048 * Math.PI * 2 * f + base)) - 6 * Math.sin(x / 90 + f));
+      hg.lineTo(2048, 64); hg.fill();
+    }
+    const htex = new T.CanvasTexture(hc); htex.colorSpace = T.SRGBColorSpace; htex.wrapS = T.RepeatWrapping;
+    const hills = new T.Mesh(new T.CylinderGeometry(700, 700, 60, 48, 1, true), new T.MeshBasicMaterial({ map: htex, transparent: true, side: T.BackSide, fog: false, depthWrite: false }));
+    hills.position.y = 22; hills.renderOrder = -1;
+    sky.add(hills);
   },
 
   // אבני שפה מוגבהות בין הכביש למדרכה
@@ -310,6 +400,92 @@ const View3D = {
     }
   },
 
+  // שלטי שם רחוב כחולים בפינות, מקבילים לרחוב (כמו בערים בישראל)
+  streetSignTex(name) {
+    const key = 'street:' + name;
+    if (this.texCache[key]) return this.texCache[key];
+    const c = document.createElement('canvas'); c.width = 256; c.height = 72;
+    const g = c.getContext('2d');
+    g.fillStyle = '#1d4f91'; g.fillRect(0, 0, 256, 72);
+    g.strokeStyle = '#ffffff'; g.lineWidth = 4; g.strokeRect(6, 6, 244, 60);
+    g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'rtl';
+    let size = 34; g.font = `bold ${size}px Arial`;
+    while (g.measureText(name).width > 226 && size > 14) { size -= 2; g.font = `bold ${size}px Arial`; }
+    g.fillText(name, 128, 38);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = this.aniso; tex.userData.cached = true;
+    return (this.texCache[key] = tex);
+  },
+  buildStreetSigns() {
+    const T = THREE, all = new T.Group(), mats = {};
+    const pole = new T.CylinderGeometry(0.04, 0.04, 2.9, 6), poleMat = this.mat(0x8f969c);
+    const plate = new T.PlaneGeometry(1.2, 0.34);
+    for (const e of edges) {
+      if (!e.name || e.t1 - e.t0 < 20) continue;
+      const name = e.name.replace(/\s*\(.*?\)\s*/g, '').trim();
+      const mat = mats[name] || (mats[name] = new T.MeshBasicMaterial({ map: this.streetSignTex(name) }));
+      for (const [t, sd] of [[e.t0 + 2.5, e.sMax + SIDEWALK - 0.5], [e.t1 - 2.5, e.sMin - SIDEWALK + 0.5]]) {
+        const p = edgePoint(e, t, sd);
+        const pl = new T.Mesh(pole, poleMat); pl.position.set(p.x, 1.45, p.y); all.add(pl);
+        for (const side of [1, -1]) {
+          const m = new T.Mesh(plate, mat);
+          m.position.set(p.x + e.n.x * side * 0.03, 2.75, p.y + e.n.y * side * 0.03);
+          m.rotation.y = Math.atan2(side * e.n.x, side * e.n.y);
+          all.add(m);
+        }
+      }
+    }
+    this.scene.add(all);
+    Models.merge(all);
+  },
+
+  // תחנות אוטובוס עם סככה, ספסל ושלט, בצד שאין בו חניה
+  buildBusStops() {
+    const T = THREE, all = new T.Group(), rnd = seeded(808);
+    const roofMat = this.mat(0x5d6d7e), glassMat = new T.MeshLambertMaterial({ color: 0xbcd6e6, transparent: true, opacity: 0.45 });
+    const benchMat = this.mat(0x8d6e4f), poleMat = this.mat(0x9aa0a6);
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    const g = c.getContext('2d');
+    g.fillStyle = '#f5f5f5'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#1565c0'; g.fillRect(0, 0, 64, 22);
+    g.fillStyle = '#fff'; g.font = 'bold 15px Arial'; g.textAlign = 'center'; g.fillText('תחנה', 32, 16);
+    g.fillStyle = '#1565c0'; g.font = 'bold 26px Arial'; g.fillText('🚌', 32, 52);
+    const signTex = new T.CanvasTexture(c); signTex.colorSpace = T.SRGBColorSpace;
+    const signMat = new T.MeshBasicMaterial({ map: signTex });
+    let n = 0;
+    for (const e of edges) {
+      const len = e.t1 - e.t0;
+      if (len < 110 || e.school || n > 14 || rnd() < 0.35) continue;
+      for (const side of [1, -1]) {
+        if (side > 0 ? e.pf : e.pb) continue;
+        if (side < 0 && laneCount(e, -1) === 0) continue;
+        const t = side > 0 ? e.t0 + len * 0.62 : e.t1 - len * 0.62;
+        if (e.crosswalks.some(cw => Math.abs(cw.t - t) < 20)) continue;
+        const s = side > 0 ? e.sMax + SIDEWALK - 0.9 : e.sMin - SIDEWALK + 0.9;
+        const p = edgePoint(e, t, s);
+        const grp = new T.Group();
+        const roof = new T.Mesh(new T.BoxGeometry(4.2, 0.1, 1.6), roofMat); roof.position.y = 2.5; grp.add(roof);
+        const back = new T.Mesh(new T.BoxGeometry(4.0, 1.9, 0.05), glassMat); back.position.set(0, 1.4, 0.7); grp.add(back);
+        for (const x of [-2, 2]) { const pl = new T.Mesh(new T.BoxGeometry(0.08, 2.5, 0.08), poleMat); pl.position.set(x, 1.25, 0.7); grp.add(pl); }
+        const bench = new T.Mesh(new T.BoxGeometry(2.6, 0.08, 0.45), benchMat); bench.position.set(0, 0.5, 0.4); grp.add(bench);
+        const sp = new T.Mesh(new T.CylinderGeometry(0.04, 0.04, 2.8, 6), poleMat); sp.position.set(2.8, 1.4, -0.5); grp.add(sp);
+        const sg = new T.Mesh(new T.BoxGeometry(0.04, 0.6, 0.6), signMat); sg.position.set(2.8, 2.6, -0.5); grp.add(sg);
+        grp.position.set(p.x, 0.1, p.y);
+        // הגב של הסככה לכיוון הבתים
+        const ox = e.n.x * side, oy = e.n.y * side;
+        grp.rotation.y = Math.atan2(ox, oy);
+        all.add(grp); n++;
+        // מחכים בתחנה
+        for (let k = 0; k < 1 + Math.floor(rnd() * 3); k++) {
+          const h = Models.human();
+          h.group.position.set(p.x + e.d.x * (rnd() - 0.5) * 3 - ox * 0.1, 0.1, p.y + e.d.y * (rnd() - 0.5) * 3 - oy * 0.1);
+          h.group.rotation.y = -Math.atan2(-oy, -ox);
+          this.scene.add(h.group);
+        }
+      }
+    }
+    this.scene.add(all);
+    Models.merge(all);
+  },
+
   // עצי דקל: באי של כל כיכר ובחלק מהעצים שבין הבתים
   buildPalms() {
     const rnd = seeded(5150);
@@ -340,7 +516,8 @@ const View3D = {
     this.sun.castShadow = hi;
     this.renderer.setPixelRatio(hi ? Math.min(window.devicePixelRatio || 1, 1.5) : 1);
     if (this.w) this.renderer.setSize(this.w, this.h, false);
-    this.scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
+    for (const w of this.walkers || []) w.m.group.visible = hi;
+    this.scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.needsUpdate = true; }); });
   },
 
   buildTrees() {
@@ -494,7 +671,7 @@ const View3D = {
     }
   },
   updateWalkers(dt) {
-    if (!this.walkers) return;
+    if (!this.walkers || this.quality !== 'high') return;
     for (const w of this.walkers) {
       const e = w.e;
       if (w.pause > 0) { w.pause -= dt; Models.walk(w.m, 0, false); }

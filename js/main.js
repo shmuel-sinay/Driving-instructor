@@ -161,6 +161,10 @@ $('btnCam').addEventListener('click', toggleCamera);
 $('btnSteer').addEventListener('click', toggleSteer);
 $('btnInstr').addEventListener('click', toggleInstructor);
 $('btnVoice').addEventListener('click', toggleVoice);
+// איכות גרפיקה: גבוהה (צללים, הולכי רגל על המדרכות) או מהירה למחשבים חלשים
+function showQuality() { $('btnQuality').textContent = View3D.quality === 'high' ? 'גרפיקה: גבוהה' : 'גרפיקה: מהירה'; }
+$('btnQuality').addEventListener('click', () => { View3D.setQuality(View3D.quality === 'high' ? 'fast' : 'high'); showQuality(); });
+showQuality();
 $('btnReset').addEventListener('click', () => { act.reset(); $('settings').open = false; });
 $('btnLog').addEventListener('click', toggleLog);
 $('btnHelp').addEventListener('click', showHelp);
