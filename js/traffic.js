@@ -37,6 +37,8 @@ class NPC {
   constructor(edge, dir, lane, t) {
     this.len = 4.4; this.wid = 1.8;
     this.color = NPC_COLORS[Math.floor(Math.random() * NPC_COLORS.length)];
+    // בערך אחד מכל 12 רכבים הוא אוטובוס (ירוק או כחול)
+    if (Math.random() < 0.08) { this.type = 'bus'; this.len = 11.5; this.wid = 2.5; this.color = Math.random() < 0.5 ? '#2e7d32' : '#1565c0'; }
     this.v = 6; this.blinker = 0; this.braking = false;
     this.startEdge(edge, dir, lane, t);
   }
@@ -45,6 +47,8 @@ class NPC {
     const din = dirVec(edge, dir);
     let opts = node.edges.filter(e => e !== edge && canExit(node, e) && !isBanned(node, edge, turnType(din, dirVec(e, exitDirFrom(node, e)))));
     if (!opts.length) opts = [edge];
+    // אוטובוס ממשיך ישר כשאפשר (פנייה של רכב ארוך חותכת את הפינה)
+    if (this.type === 'bus') { const st = opts.filter(o => turnType(din, dirVec(o, exitDirFrom(node, o))) === 'straight'); if (st.length) opts = st; }
     const e2 = opts[Math.floor(Math.random() * opts.length)];
     const d2 = exitDirFrom(node, e2);
     const plan = { node, edge: e2, dir: d2, turn: e2 === edge ? 'uturn' : turnType(dirVec(edge, dir), dirVec(e2, d2)) };
@@ -100,7 +104,8 @@ class NPC {
     let vT;
     if (leg.kind === 'edge') {
       const e = leg.edge, node = toNodeOf(e, leg.dir);
-      const remaining = leg.path.len - this.s;
+      // רכב ארוך (אוטובוס) עוצר כשהחזית שלו בקו, לא המרכז
+      const remaining = leg.path.len - this.s - (this.len - 4.4) / 2;
       vT = e.lim * 0.9 / 3.6;
       const ctrl = this.siren ? 'none' : control(node, e);
       // רכב ביטחון: מהיר יותר, ומאט רק לפני הצומת כדי לחצות בזהירות
@@ -124,7 +129,7 @@ class NPC {
       }
       // מעברי חציה
       for (const cw of e.crosswalks) {
-        const tNow = leg.tFrom + this.s * leg.dir;
+        const tNow = leg.tFrom + (this.s + (this.len - 4.4) / 2) * leg.dir;
         const dcw = leg.dir > 0 ? cw.t - 3 - tNow : tNow - (cw.t + 3);
         if (dcw > -1 && cw.peds.some(pd => pd.state === 'cross')) stopDist = Math.min(stopDist, dcw - 0.5);
       }
@@ -146,7 +151,7 @@ class NPC {
       if (fwd <= 0 || fwd > 32) continue;
       const lat = Math.abs(-rx * hy + ry * hx);
       const sameDir = Math.cos(o.h - this.h) > 0.2;
-      if (lat < (o.isPlayer ? 2.6 : 2.0) && (sameDir || o.isPlayer)) stopDist = Math.min(stopDist, fwd - 7);
+      if (lat < (o.isPlayer ? 2.6 : 2.0) && (sameDir || o.isPlayer)) stopDist = Math.min(stopDist, fwd - 2.6 - (this.len + (o.len || 4.4)) / 2);
       // רכב רגיל שרכב ביטחון מאחוריו מאט (נותן לו לעבור)
     }
     if (!this.siren) for (const o of vehicles) {
@@ -175,7 +180,7 @@ class NPC {
 class Emergency extends NPC {
   constructor(edge, dir, lane, t, kind) {
     super(edge, dir, lane, t);
-    this.siren = kind;
+    this.siren = kind; this.type = null; this.len = 4.6; this.wid = 1.9;
     this.color = '#ffffff';
     this.off = 0; this.age = 0; this.passed = false;
   }

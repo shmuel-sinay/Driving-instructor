@@ -65,8 +65,9 @@ const Rules = {
     // התנגשויות
     for (const o of vehicles) {
       if (o === p) continue;
-      if (Math.hypot(o.x - p.x, o.y - p.y) < 6 && boxesOverlap(p, o)) {
-        this.report('crash', 'תאונה! התנגשות ברכב אחר', true, time, 3);
+      if (Math.hypot(o.x - p.x, o.y - p.y) < ((o.len || 4.4) + p.len) / 2 + 2 && boxesOverlap(p, o)) {
+        // כשאנחנו עומדים והרכב השני נכנס בנו, זו לא עבירה שלנו
+        if (Math.abs(p.v) > 0.3 || !o.v) this.report('crash', 'תאונה! התנגשות ברכב אחר', true, time, 3);
         p.x -= Math.cos(p.h) * Math.sign(p.v || 1) * 0.6; p.y -= Math.sin(p.h) * Math.sign(p.v || 1) * 0.6;
         p.v = 0; o.v = 0;
       }
@@ -211,7 +212,7 @@ const Rules = {
     }
     // 1. שמירת מרחק: לפחות שנייה לפי החוק
     if (lead && p.v > 5.5) {
-      const gap = (lead.ahead - 4.4) / p.v;
+      const gap = (lead.ahead - ((lead.o.len || 4.4) + p.len) / 2) / p.v;
       this.distTimer = gap < 1.0 ? (this.distTimer || 0) + dt : 0;
       // בגשם הבוחן מצפה לרווח גדול יותר (שתי שניות)
       const wet = typeof View3D !== 'undefined' && View3D.weather === 'rain';

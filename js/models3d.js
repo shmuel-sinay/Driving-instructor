@@ -133,6 +133,32 @@ const Models = {
     return car;
   },
 
+  // אוטובוס עירוני: גוף ארוך, פס חלונות כהה, שלט קו מואר מלפנים
+  bus(color) {
+    const T = THREE, g = new T.Group(), L = 11.5, W = 2.5;
+    const paint = this.mat(color);
+    const body = new T.Mesh(this.geo('busBody', () => new T.BoxGeometry(L, 2.6, W)), paint); body.position.y = 1.75; g.add(body);
+    const glass = this.mat(0x1c2a36, { polygonOffset: true, polygonOffsetFactor: -1 });
+    const band = new T.Mesh(this.geo('busGlass', () => new T.BoxGeometry(L - 0.6, 1.0, W + 0.02)), glass); band.position.set(0, 2.3, 0); g.add(band);
+    const wind = new T.Mesh(this.geo('busWind', () => new T.BoxGeometry(0.04, 1.6, W - 0.2)), glass); wind.position.set(L / 2 + 0.01, 2.1, 0); g.add(wind);
+    const roof = new T.Mesh(this.geo('busRoof', () => new T.BoxGeometry(L - 0.4, 0.06, W - 0.1)), this.mat(0xe8e8e8)); roof.position.y = 3.08; g.add(roof);
+    const sign = new T.Mesh(this.geo('busSign', () => new T.BoxGeometry(0.05, 0.3, 1.6)), this.basic(0xffb300)); sign.position.set(L / 2 + 0.03, 3.0, 0); g.add(sign);
+    const tire = this.geo('busTire', () => new T.CylinderGeometry(0.5, 0.5, 0.3, 16));
+    for (const [x, z] of [[3.6, W / 2 - 0.15], [3.6, -(W / 2 - 0.15)], [-3.2, W / 2 - 0.15], [-3.2, -(W / 2 - 0.15)]]) {
+      const t = new T.Mesh(tire, this.mat(0x161616)); t.rotation.x = Math.PI / 2; t.position.set(x, 0.5, z); g.add(t);
+    }
+    const lamp = this.geo('busLamp', () => new T.BoxGeometry(0.06, 0.2, 0.4));
+    for (const z of [W / 2 - 0.35, -(W / 2 - 0.35)]) { const h = new T.Mesh(lamp, this.basic(0xfff6c8)); h.position.set(L / 2 + 0.02, 0.8, z); g.add(h); }
+    const tailOff = this.mat(0x6a1a1a), tailOn = this.basic(0xff2d2d);
+    const tails = [W / 2 - 0.35, -(W / 2 - 0.35)].map(z => { const t = new T.Mesh(lamp, tailOff); t.position.set(-L / 2 - 0.02, 0.9, z); g.add(t); return t; });
+    const bgeo = this.geo('blink', () => new T.BoxGeometry(0.16, 0.1, 0.06)), blinkMat = this.basic(0xffa31a);
+    const bl = side => [L / 2 - 0.1, -L / 2 + 0.1].map(x => { const b = new T.Mesh(bgeo, blinkMat); b.position.set(x, 1.1, side * (W / 2 + 0.01)); b.visible = false; g.add(b); return b; });
+    const car = { group: g, cabin: band, body, tails, tailOn, tailOff, blink: { '1': bl(1), '-1': bl(-1) } };
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    Models.merge(g, [...tails, ...car.blink['1'], ...car.blink['-1']]);
+    return car;
+  },
+
   // רכב ביטחון: אמבולנס (לבן עם פס אדום) או ניידת (לבנה עם פס כחול), עם מתקן אורות על הגג
   emergency(kind) {
     const T = THREE, type = kind === 'police' ? 'sedan' : 'van';
