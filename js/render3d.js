@@ -235,15 +235,22 @@ const View3D = {
   // אבני שפה מוגבהות בין הכביש למדרכה
   buildCurbs() {
     const T = THREE, list = [];
-    for (const e of edges) for (const s of [e.sMax + 0.1, e.sMin - 0.1]) {
-      const len = e.t1 - e.t0;
-      if (len < 2) continue;
-      const mid = edgePoint(e, (e.t0 + e.t1) / 2, s);
-      list.push({ x: mid.x, y: mid.y, len, ang: Math.atan2(e.d.y, e.d.x) });
+    // אבני שפה צבועות בקטעים של 0.9 מ' (אדום-לבן / כחול-לבן) או אפורות
+    const white = new T.Color(0xf2f0ea), grey = new T.Color(0xd8d4cc), cols = { red: new T.Color(CURB_COL.red), blue: new T.Color(CURB_COL.blue) };
+    for (const e of edges) for (const key of ['f', 'b']) {
+      const s = key === 'f' ? e.sMax + 0.1 : e.sMin - 0.1;
+      const segs = curbSegments(e, key);
+      const colorAt = t => { const sg = segs.find(q => t >= q.t0 && t < q.t1); return sg ? (Math.floor((t - sg.t0) / 0.9) % 2 ? white : cols[sg.col]) : grey; };
+      for (let t = e.t0; t < e.t1 - 0.05; t += 0.9) {
+        const len = Math.min(0.9, e.t1 - t);
+        const mid = edgePoint(e, t + len / 2, s);
+        list.push({ x: mid.x, y: mid.y, len, ang: Math.atan2(e.d.y, e.d.x), c: colorAt(t + 0.01) });
+      }
     }
-    const mesh = new T.InstancedMesh(new T.BoxGeometry(1, 0.16, 0.22), this.mat(0xd8d4cc), list.length);
+    const mesh = new T.InstancedMesh(new T.BoxGeometry(1, 0.16, 0.22), this.mat(0xffffff), list.length);
     const m = new T.Matrix4(), q = new T.Quaternion(), up = new T.Vector3(0, 1, 0);
-    list.forEach((c, i) => { q.setFromAxisAngle(up, -c.ang); m.compose(new T.Vector3(c.x, 0.08, c.y), q, new T.Vector3(c.len, 1, 1)); mesh.setMatrixAt(i, m); });
+    list.forEach((c, i) => { q.setFromAxisAngle(up, -c.ang); m.compose(new T.Vector3(c.x, 0.08, c.y), q, new T.Vector3(c.len - 0.02, 1, 1)); mesh.setMatrixAt(i, m); mesh.setColorAt(i, c.c); });
+    mesh.receiveShadow = true;
     this.scene.add(mesh);
     // מדרכה מעט מוגבהת
     const walks = [];

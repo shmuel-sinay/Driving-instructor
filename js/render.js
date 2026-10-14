@@ -242,31 +242,39 @@ function roadText(ctx, x, y, ang, text, color, size) {
 }
 
 // אבני שפה: אדום-לבן = אסור לחנות, כחול-לבן = חניה מותרת. וגם סימון מקומות החניה
+// קטעי אבן שפה צבועה בצד אחד של הקטע: [{t0, t1, col}] (col: 'red' / 'blue')
+function curbSegments(e, key) {
+  const hasStrip = key === 'f' ? e.pf : e.pb;
+  const tdir = key === 'f' || e.oneway ? 1 : -1;
+  const out = [];
+  let segStart = e.t0, prev = null;
+  const flush = t => {
+    if (prev === null) return;
+    const col = prev ? 'red' : hasStrip ? 'blue' : null;
+    if (col) out.push({ t0: segStart, t1: t, col });
+    segStart = t;
+  };
+  for (let t = e.t0; t <= e.t1 + 0.01; t += 1) {
+    const rule = !!parkingRule(e, t, tdir) && (hasStrip || t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION || e.crosswalks.some(c => { const a = (c.t - t) * tdir; return a > -2.5 && a < NO_PARK_CROSSWALK; }));
+    if (prev !== null && rule !== prev) flush(t);
+    prev = rule;
+  }
+  flush(e.t1);
+  return out;
+}
+const CURB_COL = { red: '#d23b2f', blue: '#2f6fd2' };
+
+// אבני שפה: אדום-לבן = אסור לחנות, כחול-לבן = חניה מותרת. וגם סימון מקומות החניה
 function drawCurbsAndParking(ctx) {
   for (const e of edges) {
     for (const key of ['f', 'b']) {
       const hasStrip = key === 'f' ? e.pf : e.pb;
       const tdir = key === 'f' || e.oneway ? 1 : -1;
       const sc = key === 'f' ? e.sMax + 0.15 : e.sMin - 0.15;
-      const step = 1;
-      let segStart = e.t0, prev = null;
-      const flush = (t, rule) => {
-        if (prev === null) return;
-        let col = null;
-        if (prev) col = '#d23b2f';
-        else if (hasStrip) col = '#2f6fd2';
-        if (col) {
-          ctx.lineWidth = 0.32; ctx.setLineDash([]); ctx.strokeStyle = '#f2f0ea'; lineAlong(ctx, e, segStart, t, sc);
-          ctx.strokeStyle = col; ctx.setLineDash([0.9, 0.9]); lineAlong(ctx, e, segStart, t, sc); ctx.setLineDash([]);
-        }
-        segStart = t;
-      };
-      for (let t = e.t0; t <= e.t1 + 0.01; t += step) {
-        const rule = !!parkingRule(e, t, tdir) && (hasStrip || t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION || e.crosswalks.some(c => { const a = (c.t - t) * tdir; return a > -2.5 && a < NO_PARK_CROSSWALK; }));
-        if (prev !== null && rule !== prev) flush(t, rule);
-        prev = rule;
+      for (const sg of curbSegments(e, key)) {
+        ctx.lineWidth = 0.32; ctx.setLineDash([]); ctx.strokeStyle = '#f2f0ea'; lineAlong(ctx, e, sg.t0, sg.t1, sc);
+        ctx.strokeStyle = CURB_COL[sg.col]; ctx.setLineDash([0.9, 0.9]); lineAlong(ctx, e, sg.t0, sg.t1, sc); ctx.setLineDash([]);
       }
-      flush(e.t1, prev);
       // סימון מקומות חניה (קווים קצרים בניצב)
       if (hasStrip) {
         const sIn = key === 'f' ? e.laneR : -e.laneL, sOut = key === 'f' ? e.sMax : e.sMin;
