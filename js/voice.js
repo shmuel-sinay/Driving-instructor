@@ -60,6 +60,9 @@ const VOICE_LINES = {
   warn_stop: 'לא עצרת עצירה מוחלטת.',
   warn_yield: 'לא נתת זכות קדימה.',
   warn_lane: 'שים לב לבחירת הנתיב.',
+  warn_distance: 'שמור מרחק מהרכב שלפניך.',
+  warn_stopline: 'עוצרים לפני הקו.',
+  warn_slow: 'אתה נוסע לאט מדי, התאם את המהירות לתנועה.',
 };
 const VOICE_BY_TEXT = Object.fromEntries(Object.entries(VOICE_LINES).map(([k, v]) => [v, k]));
 // בקובץ היחיד הבנייה מחליפה את זה במפה של קבצי קול מוטמעים

@@ -377,20 +377,4 @@ DP.addRule({
   },
 });`,
   },
-  {
-    key: 'ex-fast-turn',
-    code: `// @name דוגמה: פנייה מהירה מדי
-// @description פנייה ימינה או שמאלה בצומת במהירות מעל 30 קמ"ש
-DP.addRule({
-  id: 'fast-turn',
-  name: 'פנייה מהירה מדי',
-  severity: 'minor',
-  cooldown: 4,
-  onExitJunction(s, ev) {
-    if ((ev.turn === 'left' || ev.turn === 'right') && ev.type !== 'roundabout' && ev.maxSpeedKmh > 30) {
-      return 'פנייה מהירה מדי (' + Math.round(ev.maxSpeedKmh) + ' קמ"ש). יש להאט לפני הפנייה';
-    }
-  },
-});`,
-  },
 ];

@@ -191,7 +191,9 @@ Rules.onInstr = ins => {
 // הערה קצרה בקול על עבירה (רק אם הבוחן לא באמצע הוראה)
 const REMARKS = { speed: 'warn_speed', signal: 'warn_signal', lanechg: 'warn_signal', rbsignal: 'warn_signal', parksig: 'warn_signal', unparksig: 'warn_signal',
   ped: 'warn_ped', pedhit: 'warn_ped', red: 'warn_red', stop: 'warn_stop', yield: 'warn_yield', rbcut: 'warn_yield', unparkyield: 'warn_yield',
-  fromlane: 'warn_lane', turnlane: 'warn_lane', rbentry: 'warn_lane' };
+  fromlane: 'warn_lane', turnlane: 'warn_lane', rbentry: 'warn_lane', keepright: 'back_right', distance: 'warn_distance',
+  stopline: 'warn_stopline', stopcross: 'warn_stopline', pedwait: 'warn_ped', slow: 'warn_slow', rbfast: 'warn_speed', turnfast: 'warn_speed' };
+Rules.onSay = id => { if (time - lastSpeakAt > 3) { lastSpeakAt = time; Voice.say(id); } };
 function remark(key) {
   const id = REMARKS[key];
   if (!id || time - lastSpeakAt < 3.5) return;

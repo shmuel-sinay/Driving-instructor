@@ -14,6 +14,7 @@ const Rules = {
       blinkHist: [], lastHistT: -1e9, stopped: {}, overTimer: 0, wrongTimer: 0, offTimer: 0, islandTimer: 0,
       pendingLane: null, instr: null, lastT: null, lastEdge: null, rb: null, rbStop: 0,
       parkRolled: null, unparkAt: null, parkedAt: null, didReverseTask: false,
+      distTimer: 0, keepTimer: 0, saidBackRight: false, cwStopTimer: 0, slowTimer: 0,
     });
     if (typeof Plugins !== 'undefined') Plugins.reset();
   },
@@ -151,7 +152,70 @@ const Rules = {
         if ((this.lastT - bt) * (loc.t - bt) <= 0 && this.lastT !== loc.t && kmh > 25) this.report('bump', `מעבר מהיר על פס האטה (${Math.round(kmh)} קמ"ש)`, false, time, 3);
       }
     }
+    this.moreEdgeChecks(e, loc, dir, dStop, node, dt, time, p, kmh);
     this.lastT = loc.t; this.lastEdge = e;
+  },
+
+  // ===== בדיקות נוספות בדרך: מרחק, נתיב ימני, קו עצירה, מעבר חציה, איטיות =====
+  moreEdgeChecks(e, loc, dir, dStop, node, dt, time, p, kmh) {
+    const list = typeof npcs !== 'undefined' ? npcs : [];
+    const hx = Math.cos(p.h), hy = Math.sin(p.h);
+    // הרכב שלפניי באותו נתיב
+    let lead = null;
+    for (const o of list) {
+      const dx = o.x - p.x, dy = o.y - p.y;
+      const ahead = dx * hx + dy * hy, lat = Math.abs(-dx * hy + dy * hx);
+      if (ahead > 0 && ahead < 70 && lat < 1.6 && Math.cos(o.h - p.h) > 0.7 && (!lead || ahead < lead.ahead)) lead = { o, ahead };
+    }
+    // 1. שמירת מרחק: לפחות שנייה לפי החוק
+    if (lead && p.v > 5.5) {
+      const gap = (lead.ahead - 4.4) / p.v;
+      this.distTimer = gap < 1.0 ? (this.distTimer || 0) + dt : 0;
+      if (this.distTimer > 2.5) { this.report('distance', `לא שמרת מרחק מהרכב שלפניך (${gap.toFixed(1)} שניות; החוק: לפחות שנייה, מומלץ שתיים)`, false, time, 12); this.distTimer = 0; }
+    } else this.distTimer = 0;
+
+    // 2. נסיעה בנתיב הימני (הטיימר נמשך גם מעבר לצומת, כי גושי הבניינים קצרים)
+    const L = this.lane && this.lane.key === e.id + dir ? this.lane : null;
+    if (L) {
+      const turningLeft = (assist.on && assist.intent === 'left') || (this.instr && this.instr.kind === 'turn' && this.instr.node === node && this.instr.turn === 'left');
+      if (L.n >= 2 && L.idx < L.n - 1 && kmh > 15 && dStop > 60 && !turningLeft) {
+        const sRight = laneS(e, dir, L.n - 1);
+        const rightBusy = list.some(o => {
+          const lo = edgeLocal(e, o); const ahead = (lo.t - loc.t) * dir;
+          return Math.abs(lo.s - sRight) < 1.7 && ahead > -8 && ahead < 50;
+        });
+        this.keepTimer = rightBusy ? 0 : (this.keepTimer || 0) + dt;
+      } else if (L.idx === L.n - 1 || L.n < 2 || turningLeft) { this.keepTimer = 0; this.saidBackRight = false; }
+      if (this.keepTimer > 5 && !this.saidBackRight) { this.saidBackRight = true; if (this.onSay) this.onSay('back_right'); }
+      if (this.keepTimer > 12) { this.report('keepright', 'נסיעה בנתיב השמאלי בלי סיבה: יש לנסוע בנתיב הימני הפנוי', false, time, 25); this.keepTimer = 0; }
+    }
+
+    // 3. עצירה אחרי קו העצירה (ב"עצור" או באדום)
+    const ctrl = control(node, e);
+    const mustStop = ctrl === 'stop' || (ctrl === 'light' && ['red', 'redyellow'].includes(lightState(node, axisOf(e), time)));
+    if (Math.abs(p.v) < 0.3 && mustStop && dStop - p.len / 2 < -0.7 && dStop > -3) this.report('stopline', 'עצירה אחרי קו העצירה: עוצרים לפני הקו', false, time, 15);
+
+    // 4. עצירה על מעבר חציה
+    const stoppedOnCw = Math.abs(p.v) < 0.3 && e.crosswalks.some(cw => Math.abs(loc.t - cw.t) < 1.8 + p.len / 2);
+    this.cwStopTimer = stoppedOnCw ? (this.cwStopTimer || 0) + dt : 0;
+    if (this.cwStopTimer > 1.5) { this.report('stopcross', 'עצירה על מעבר החציה', false, time, 15); this.cwStopTimer = 0; }
+
+    // 5. הולך רגל שעומד לחצות
+    if (this.lastT != null && this.lastEdge === e && kmh > 12) {
+      for (const cw of e.crosswalks) {
+        if ((this.lastT - cw.t) * (loc.t - cw.t) <= 0 && this.lastT !== loc.t && !pedOnRoad(cw) && cw.peds.some(pd => pd.state === 'wait')) {
+          this.report('pedwait', 'לא האטת להולך רגל שעמד ליד המעבר ועמד לחצות', false, time, 8);
+        }
+      }
+    }
+
+    // 6. נסיעה איטית מדי בלי סיבה
+    const clearAhead = !lead || lead.ahead > 45;
+    const nearCw = e.crosswalks.some(cw => Math.abs(cw.t - loc.t) < 30);
+    if (kmh > 3 && kmh < e.lim * 0.45 && e.lim >= 40 && !e.school && clearAhead && dStop > 70 && !nearCw && (!assist.on || (assist.st && assist.st.kind === 'edge'))) {
+      this.slowTimer = (this.slowTimer || 0) + dt;
+      if (this.slowTimer > 12) { this.report('slow', `נסיעה איטית מדי ללא סיבה (${Math.round(kmh)} קמ"ש בדרך של ${e.lim}) מעכבת את התנועה`, false, time, 40); this.slowTimer = 0; }
+    } else this.slowTimer = 0;
   },
 
   nodeChecks(node, dt, time, p, kmh) {
@@ -159,6 +223,7 @@ const Rules = {
       this.overTimer += dt;
       if (this.overTimer > 1.5) this.report('speed', `מהירות מופרזת בצומת: ${Math.round(kmh)} קמ"ש`, kmh > this.lastLim + 20, time, 10);
     } else this.overTimer = 0;
+    if (this.entry && this.entry.node === node) this.entry.maxV = Math.max(this.entry.maxV || 0, Math.abs(p.v));
     if (node.type === 'roundabout') this.trackRing(node, dt, time, p);
     if (node.type === 'roundabout' && p.v > 1) {
       const rx = p.x - node.x, ry = p.y - node.y, r = Math.hypot(rx, ry);
@@ -216,6 +281,8 @@ const Rules = {
     if (Math.cos(p.h) * dirIn.x + Math.sin(p.h) * dirIn.y < 0.4 || p.v <= 0) return;
     Object.assign(this.entry, { valid: true, dirIn, lane: this.lane && this.lane.key === edge.id + (node === edge.b ? 1 : -1) ? this.lane.idx : null, nLanes: laneCount(edge, node === edge.b ? 1 : -1) });
     const ctrl = control(node, edge);
+    this.entry.maxV = Math.abs(p.v);
+    if (ctrl === 'roundabout' && Math.abs(p.v) * 3.6 > 32) this.report('rbfast', `כניסה מהירה מדי לכיכר (${Math.round(Math.abs(p.v) * 3.6)} קמ"ש)`, false, time, 6);
     if (ctrl === 'light') {
       const st = lightState(node, axisOf(edge), time);
       if (st === 'red' || st === 'redyellow') this.report('red', 'נסיעה באור אדום ברמזור', true, time, 5);
@@ -259,6 +326,7 @@ const Rules = {
         if (turn === 'right' && en.lane !== en.nLanes - 1) this.report('fromlane', 'פנייה ימינה שלא מהנתיב הימני', false, time, 4);
         if ((turn === 'left' || turn === 'uturn') && en.lane !== 0) this.report('fromlane', 'פנייה שמאלה שלא מהנתיב השמאלי', false, time, 4);
       }
+      if ((turn === 'left' || turn === 'right') && (en.maxV || 0) * 3.6 > 32) this.report('turnfast', `פנייה מהירה מדי (${Math.round(en.maxV * 3.6)} קמ"ש): מאטים לפני הפנייה`, false, time, 5);
       const nOut = laneCount(edge, exitDirFrom(node, edge));
       if (nOut > 1 && (turn === 'right' || turn === 'left')) this.pendingLane = { edge, side: turn === 'right' ? 1 : -1 };
     }
