@@ -165,6 +165,16 @@ $('btnVoice').addEventListener('click', toggleVoice);
 function showQuality() { $('btnQuality').textContent = View3D.quality === 'high' ? 'גרפיקה: גבוהה' : 'גרפיקה: מהירה'; }
 $('btnQuality').addEventListener('click', () => { View3D.setQuality(View3D.quality === 'high' ? 'fast' : 'high'); showQuality(); });
 showQuality();
+// תנאי נהיגה: יום, גשם או לילה (משפיע על התצוגה ועל המרחק שהבוחן דורש)
+const WEATHER_NAMES = { day: 'יום', rain: 'גשם', night: 'לילה' };
+function showWeather() { $('btnWeather').textContent = 'תנאים: ' + WEATHER_NAMES[View3D.weather]; }
+$('btnWeather').addEventListener('click', () => {
+  const order = ['day', 'rain', 'night'];
+  View3D.setWeather(order[(order.indexOf(View3D.weather) + 1) % 3]);
+  showWeather();
+  Rules.onEvent('good', { text: View3D.weather === 'rain' ? 'גשם: הכביש חלקלק. האט ושמור מרחק גדול יותר (לפחות 2 שניות).' : View3D.weather === 'night' ? 'לילה: נסיעה עם אורות, האט לפני צמתים ומעברי חציה.' : 'יום בהיר.' });
+});
+showWeather();
 $('btnReset').addEventListener('click', () => { act.reset(); $('settings').open = false; });
 $('btnLog').addEventListener('click', toggleLog);
 $('btnHelp').addEventListener('click', showHelp);

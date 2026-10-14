@@ -354,6 +354,7 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
           <button id="btnVoice" type="button">קול בוחן: פועל</button>
           <button id="btnSound" type="button">צלילים: פועל</button>
           <button id="btnQuality" type="button">גרפיקה: גבוהה</button>
+          <button id="btnWeather" type="button">תנאים: יום</button>
           <button id="btnReset" type="button">חזרה לנקודת ההתחלה</button>
         </div>
       </details>
@@ -737,6 +738,8 @@ const RULEBOOK = [
   { id: 'speed-limits', cat: 'מהירות ושמירת מרחק', title: 'המהירויות המרביות', text: 'רכב פרטי, כשאין תמרור אחר: דרך עירונית 50 קמ"ש; דרך שאינה עירונית בלי שטח הפרדה בנוי 80; עם שטח הפרדה בנוי 90; דרך מהירה 110.', src: [152, 1486, 151, 150], keys: ['speed'] },
   { id: 'reasonable-speed', cat: 'מהירות ושמירת מרחק', title: 'מהירות סבירה', text: 'המהירות המותרת היא רק הגבול העליון. נוסעים במהירות שמתאימה לתנאי הדרך, התנועה והראות, ושמאפשרת שליטה מלאה.', src: [1540, 807, 803], keys: ['slow'] },
   { id: 'following-distance', cat: 'מהירות ושמירת מרחק', title: 'שמירת רווח', text: 'לפי החוק שומרים לפחות מרחק נסיעה של שנייה אחת מהרכב שלפנים; מומלץ שתי שניות. בראות לקויה, בכביש חלק או בעייפות מגדילים את הרווח.', src: [138, 821, 1598], keys: ['distance'] },
+  { id: 'wet-road', cat: 'מהירות ושמירת מרחק', title: 'כביש רטוב וגשם', text: 'בכביש רטוב סכנת ההחלקה גדלה ככל שהמהירות גבוהה יותר, ובמיוחד בגשם הראשון (אבק ושמן על הכביש). מאטים, מגדילים את הרווח מהרכב שלפנים, ובהתקרבות לצומת מאטים מוקדם כדי לא להחליק לתוכו.', src: [611, 1529, 1701, 1773, 774], keys: ['wetspeed', 'wetdist'] },
+  { id: 'night-driving', cat: 'מהירות ושמירת מרחק', title: 'נהיגה בלילה', text: 'בלילה שדה הראייה מוגבל, יש סינוור וקשה להעריך מרחקים. מתאימים את המהירות לטווח האורות. כשרכב ממול מסנוור: מאטים, נצמדים לימין ולא מביטים לתוך האורות. אור גבוה רק בדרך שאינה עירונית ובלי רכב ממול.', src: [851, 853, 852, 1564, 1698] },
   { id: 'overtake-speed', cat: 'מהירות ושמירת מרחק', title: 'בעקיפה לא עוברים את המהירות', text: 'גם בזמן עקיפה אסור לעבור את המהירות המרבית.', src: [1484, 1487] },
   { id: 'slow-hazard', cat: 'מהירות ושמירת מרחק', title: 'מתי חובה להאט', text: 'חובה להאט בכל מקרה שבו צפויה סכנה לעוברי דרך או לרכוש, למשל ליד ילדים או כשכדור מתגלגל לכביש.', src: [332, 914, 910] },
 
@@ -2639,6 +2642,12 @@ const Rules = {
         this.report('speed', `מהירות מופרזת: ${Math.round(kmh)} קמ"ש במקום שמותר ${e.lim}`, severe, time, 10);
       }
     } else this.overTimer = 0;
+    // כביש רטוב: מאטים מתחת למהירות המרבית
+    const wet = typeof View3D !== 'undefined' && View3D.weather === 'rain';
+    if (wet && kmh > e.lim * 0.85 + 2 && kmh <= e.lim + 3) {
+      this.wetTimer = (this.wetTimer || 0) + dt;
+      if (this.wetTimer > 5) { this.report('wetspeed', `בכביש רטוב צריך להאט: נסעת ${Math.round(kmh)} קמ"ש (מומלץ עד ${Math.round(e.lim * 0.85)})`, false, time, 25); this.wetTimer = 0; }
+    } else this.wetTimer = 0;
 
     if (Math.abs(hd) < 0.55) { this.lastT = loc.t; return; }
     const dir = hd > 0 ? 1 : -1;
@@ -2717,6 +2726,10 @@ const Rules = {
     if (lead && p.v > 5.5) {
       const gap = (lead.ahead - 4.4) / p.v;
       this.distTimer = gap < 1.0 ? (this.distTimer || 0) + dt : 0;
+      // בגשם הבוחן מצפה לרווח גדול יותר (שתי שניות)
+      const wet = typeof View3D !== 'undefined' && View3D.weather === 'rain';
+      this.wetDistTimer = wet && gap >= 1.0 && gap < 2.0 ? (this.wetDistTimer || 0) + dt : 0;
+      if (this.wetDistTimer > 4) { this.report('wetdist', `בכביש רטוב הגדל את הרווח: ${gap.toFixed(1)} שניות מהרכב שלפניך (בגשם לפחות שתיים)`, false, time, 20); this.wetDistTimer = 0; }
       if (this.distTimer > 2.5) { this.report('distance', `לא שמרת מרחק מהרכב שלפניך (${gap.toFixed(1)} שניות; החוק: לפחות שנייה, מומלץ שתיים)`, false, time, 12); this.distTimer = 0; }
     } else this.distTimer = 0;
 
@@ -3716,31 +3729,39 @@ function roadText(ctx, x, y, ang, text, color, size) {
 }
 
 // אבני שפה: אדום-לבן = אסור לחנות, כחול-לבן = חניה מותרת. וגם סימון מקומות החניה
+// קטעי אבן שפה צבועה בצד אחד של הקטע: [{t0, t1, col}] (col: 'red' / 'blue')
+function curbSegments(e, key) {
+  const hasStrip = key === 'f' ? e.pf : e.pb;
+  const tdir = key === 'f' || e.oneway ? 1 : -1;
+  const out = [];
+  let segStart = e.t0, prev = null;
+  const flush = t => {
+    if (prev === null) return;
+    const col = prev ? 'red' : hasStrip ? 'blue' : null;
+    if (col) out.push({ t0: segStart, t1: t, col });
+    segStart = t;
+  };
+  for (let t = e.t0; t <= e.t1 + 0.01; t += 1) {
+    const rule = !!parkingRule(e, t, tdir) && (hasStrip || t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION || e.crosswalks.some(c => { const a = (c.t - t) * tdir; return a > -2.5 && a < NO_PARK_CROSSWALK; }));
+    if (prev !== null && rule !== prev) flush(t);
+    prev = rule;
+  }
+  flush(e.t1);
+  return out;
+}
+const CURB_COL = { red: '#d23b2f', blue: '#2f6fd2' };
+
+// אבני שפה: אדום-לבן = אסור לחנות, כחול-לבן = חניה מותרת. וגם סימון מקומות החניה
 function drawCurbsAndParking(ctx) {
   for (const e of edges) {
     for (const key of ['f', 'b']) {
       const hasStrip = key === 'f' ? e.pf : e.pb;
       const tdir = key === 'f' || e.oneway ? 1 : -1;
       const sc = key === 'f' ? e.sMax + 0.15 : e.sMin - 0.15;
-      const step = 1;
-      let segStart = e.t0, prev = null;
-      const flush = (t, rule) => {
-        if (prev === null) return;
-        let col = null;
-        if (prev) col = '#d23b2f';
-        else if (hasStrip) col = '#2f6fd2';
-        if (col) {
-          ctx.lineWidth = 0.32; ctx.setLineDash([]); ctx.strokeStyle = '#f2f0ea'; lineAlong(ctx, e, segStart, t, sc);
-          ctx.strokeStyle = col; ctx.setLineDash([0.9, 0.9]); lineAlong(ctx, e, segStart, t, sc); ctx.setLineDash([]);
-        }
-        segStart = t;
-      };
-      for (let t = e.t0; t <= e.t1 + 0.01; t += step) {
-        const rule = !!parkingRule(e, t, tdir) && (hasStrip || t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION || e.crosswalks.some(c => { const a = (c.t - t) * tdir; return a > -2.5 && a < NO_PARK_CROSSWALK; }));
-        if (prev !== null && rule !== prev) flush(t, rule);
-        prev = rule;
+      for (const sg of curbSegments(e, key)) {
+        ctx.lineWidth = 0.32; ctx.setLineDash([]); ctx.strokeStyle = '#f2f0ea'; lineAlong(ctx, e, sg.t0, sg.t1, sc);
+        ctx.strokeStyle = CURB_COL[sg.col]; ctx.setLineDash([0.9, 0.9]); lineAlong(ctx, e, sg.t0, sg.t1, sc); ctx.setLineDash([]);
       }
-      flush(e.t1, prev);
       // סימון מקומות חניה (קווים קצרים בניצב)
       if (hasStrip) {
         const sIn = key === 'f' ? e.laneR : -e.laneL, sOut = key === 'f' ? e.sMax : e.sMin;
@@ -4288,7 +4309,8 @@ const View3D = {
     const scene = this.scene = new T.Scene();
     scene.background = new T.Color(0xa9cfe8);
     scene.fog = new T.Fog(0xa9cfe8, 140, 520);
-    scene.add(new T.HemisphereLight(0xeef6ff, 0x5a7040, 0.95));
+    this.hemi = new T.HemisphereLight(0xeef6ff, 0x5a7040, 0.95);
+    scene.add(this.hemi);
     const sun = this.sun = new T.DirectionalLight(0xfff4e0, 1.0);
     sun.position.set(-40, 100, 30);
     scene.add(sun, sun.target);
@@ -4347,6 +4369,7 @@ const View3D = {
     this.buildWalkers();
     this.buildPalms();
     this.applyQuality();
+    this.applyWeather();
   },
 
   dispose() {
@@ -4480,15 +4503,22 @@ const View3D = {
   // אבני שפה מוגבהות בין הכביש למדרכה
   buildCurbs() {
     const T = THREE, list = [];
-    for (const e of edges) for (const s of [e.sMax + 0.1, e.sMin - 0.1]) {
-      const len = e.t1 - e.t0;
-      if (len < 2) continue;
-      const mid = edgePoint(e, (e.t0 + e.t1) / 2, s);
-      list.push({ x: mid.x, y: mid.y, len, ang: Math.atan2(e.d.y, e.d.x) });
+    // אבני שפה צבועות בקטעים של 0.9 מ' (אדום-לבן / כחול-לבן) או אפורות
+    const white = new T.Color(0xf2f0ea), grey = new T.Color(0xd8d4cc), cols = { red: new T.Color(CURB_COL.red), blue: new T.Color(CURB_COL.blue) };
+    for (const e of edges) for (const key of ['f', 'b']) {
+      const s = key === 'f' ? e.sMax + 0.1 : e.sMin - 0.1;
+      const segs = curbSegments(e, key);
+      const colorAt = t => { const sg = segs.find(q => t >= q.t0 && t < q.t1); return sg ? (Math.floor((t - sg.t0) / 0.9) % 2 ? white : cols[sg.col]) : grey; };
+      for (let t = e.t0; t < e.t1 - 0.05; t += 0.9) {
+        const len = Math.min(0.9, e.t1 - t);
+        const mid = edgePoint(e, t + len / 2, s);
+        list.push({ x: mid.x, y: mid.y, len, ang: Math.atan2(e.d.y, e.d.x), c: colorAt(t + 0.01) });
+      }
     }
-    const mesh = new T.InstancedMesh(new T.BoxGeometry(1, 0.16, 0.22), this.mat(0xd8d4cc), list.length);
+    const mesh = new T.InstancedMesh(new T.BoxGeometry(1, 0.16, 0.22), this.mat(0xffffff), list.length);
     const m = new T.Matrix4(), q = new T.Quaternion(), up = new T.Vector3(0, 1, 0);
-    list.forEach((c, i) => { q.setFromAxisAngle(up, -c.ang); m.compose(new T.Vector3(c.x, 0.08, c.y), q, new T.Vector3(c.len, 1, 1)); mesh.setMatrixAt(i, m); });
+    list.forEach((c, i) => { q.setFromAxisAngle(up, -c.ang); m.compose(new T.Vector3(c.x, 0.08, c.y), q, new T.Vector3(c.len - 0.02, 1, 1)); mesh.setMatrixAt(i, m); mesh.setColorAt(i, c.c); });
+    mesh.receiveShadow = true;
     this.scene.add(mesh);
     // מדרכה מעט מוגבהת
     const walks = [];
@@ -4517,7 +4547,8 @@ const View3D = {
     }
     if (!list.length) return;
     const pole = new T.InstancedMesh(new T.CylinderGeometry(0.07, 0.1, 7, 6), this.mat(0x6c737a), list.length);
-    const head = new T.InstancedMesh(new T.BoxGeometry(1.4, 0.18, 0.4), this.mat(0x4a5056), list.length);
+    this.lampHeadMat = this.mat(0x4a5056);
+    const head = new T.InstancedMesh(new T.BoxGeometry(1.4, 0.18, 0.4), this.lampHeadMat, list.length);
     const m = new T.Matrix4(), q = new T.Quaternion(), one = new T.Vector3(1, 1, 1), up = new T.Vector3(0, 1, 0);
     list.forEach((l, i) => {
       m.compose(new T.Vector3(l.x, 3.5, l.y), q, one); pole.setMatrixAt(i, m);
@@ -4563,6 +4594,22 @@ const View3D = {
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = this.aniso; tex.userData.cached = true;
     return (this.texCache[key] = tex);
   },
+  // חלונות מוארים בלילה (באותם מקומות כמו בטקסטורת החזית)
+  litTex(style) {
+    const key = 'lit:' + style;
+    if (this.texCache[key]) return this.texCache[key];
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const g = c.getContext('2d'), rnd = seeded(style.length * 13 + 5);
+    g.fillStyle = '#000'; g.fillRect(0, 0, 256, 256);
+    for (let r = 0; r < 2; r++) for (let q = 0; q < 2; q++) {
+      if (rnd() < 0.45) continue;
+      g.fillStyle = rnd() < 0.75 ? '#ffd27a' : '#a9c4e6';
+      g.fillRect(28 + q * 128, 30 + r * 128 + 74 * 0.4, 72, 74 * 0.6);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.userData.cached = true;
+    return (this.texCache[key] = tex);
+  },
   shopSignTex(text, bg, fg) {
     const key = 'shop:' + text;
     if (this.texCache[key]) return this.texCache[key];
@@ -4578,7 +4625,8 @@ const View3D = {
     const T = THREE, rnd = seeded(77);
     const styles = ['stone', 'stone', 'stone2', 'plaster', 'shikun'];
     const wallMat = {};
-    for (const st of styles) wallMat[st] = wallMat[st] || new T.MeshLambertMaterial({ map: this.facadeTex(st) });
+    for (const st of styles) wallMat[st] = wallMat[st] || new T.MeshLambertMaterial({ map: this.facadeTex(st), emissiveMap: this.litTex(st), emissive: 0x000000 });
+    this.wallMats = Object.values(wallMat);
     const roofMat = this.mat(0xb9b6ae), slabMat = this.mat(0xe9e5dc), railMat = this.mat(0xf4f4f2);
     const glassMat = this.mat(0x2a3a46), heaterMat = this.mat(0xf2f2f2), panelMat = this.mat(0x1f3d66), acMat = this.mat(0xe7e7e7);
     const SHOPS = [['מכולת', '#1b5e20', '#fff'], ['פלאפל', '#f9a825', '#3e2723'], ['מספרה', '#283593', '#fff'], ['פיצה', '#c62828', '#fff'], ['קפה', '#4e342e', '#ffe0b2'],
@@ -4744,6 +4792,59 @@ const View3D = {
       }
     }
     for (const t of scenery.palms || []) { if (n++ > 60) break; const p = Models.palm(); p.position.set(t.x, 0, t.y); this.scene.add(p); }
+  },
+
+  // ===== מזג אוויר ושעה: יום, גשם, לילה =====
+  weather: (() => { try { return localStorage.getItem('driving-practice.weather') || 'day'; } catch (e) { return 'day'; } })(),
+  setWeather(w) {
+    this.weather = w;
+    try { localStorage.setItem('driving-practice.weather', w); } catch (e) { /* לא חובה */ }
+    this.applyWeather();
+  },
+  applyWeather() {
+    if (!this.ok || !this.scene) return;
+    const T = THREE, w = this.weather, sc = this.scene;
+    const P = {
+      day: { bg: 0xa9cfe8, fog: [140, 520], hemi: 0.95, sun: 1.0, sky: 0xffffff, road: 0xffffff },
+      rain: { bg: 0x8e979f, fog: [40, 260], hemi: 0.7, sun: 0.25, sky: 0x8a939b, road: 0xb4b8bd },
+      night: { bg: 0x0a1020, fog: [30, 300], hemi: 0.12, sun: 0.06, sky: 0x10182c, road: 0xffffff },
+    }[w] || {};
+    sc.background = new T.Color(P.bg);
+    sc.fog.color.setHex(P.bg); sc.fog.near = P.fog[0]; sc.fog.far = P.fog[1];
+    this.hemi.intensity = P.hemi; this.sun.intensity = P.sun;
+    this.sky.material.color.setHex(P.sky);
+    for (const c of this.sky.children) c.material.color.setHex(P.sky);
+    for (const m of [this.nearMesh.material]) m.color.setHex(P.road);
+    const night = w === 'night';
+    for (const m of this.wallMats || []) m.emissive.setHex(night ? 0xa8a8a8 : 0x000000);
+    if (this.lampHeadMat) this.lampHeadMat.emissive.setHex(night ? 0xffe6a8 : 0x000000);
+    // פנסים של הרכב שלנו
+    if (!this.headlight) {
+      const hl = this.headlight = new T.SpotLight(0xfff3d6, 0, 120, 0.5, 0.45, 1.3);
+      this.scene.add(hl, hl.target);
+    }
+    this.headlight.intensity = night ? 400 : w === 'rain' ? 60 : 0;
+    // טיפות גשם סביב המצלמה
+    if (w === 'rain' && !this.rain) {
+      const N = 2500, pos = new Float32Array(N * 6);
+      this.rainDrops = Array.from({ length: N }, () => ({ x: (Math.random() - 0.5) * 70, y: Math.random() * 22, z: (Math.random() - 0.5) * 70, v: 16 + Math.random() * 6 }));
+      const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3));
+      this.rain = new T.LineSegments(g, new T.LineBasicMaterial({ color: 0xc8d2dc, transparent: true, opacity: 0.55 }));
+      this.rain.frustumCulled = false;
+      sc.add(this.rain);
+    }
+    if (this.rain) this.rain.visible = w === 'rain';
+  },
+  updateRain(dt, cx, cz) {
+    if (!this.rain || !this.rain.visible) return;
+    const a = this.rain.geometry.attributes.position.array;
+    this.rainDrops.forEach((d, i) => {
+      d.y -= d.v * dt;
+      if (d.y < 0) { d.y = 20 + Math.random() * 2; d.x = (Math.random() - 0.5) * 70; d.z = (Math.random() - 0.5) * 70; }
+      const x = cx + d.x, z = cz + d.z, o = i * 6;
+      a[o] = x; a[o + 1] = d.y; a[o + 2] = z; a[o + 3] = x + 0.04; a[o + 4] = d.y + 0.55; a[o + 5] = z;
+    });
+    this.rain.geometry.attributes.position.needsUpdate = true;
   },
 
   // איכות גרפיקה: גבוהה = צללים וחלקות; רגילה = מהירה יותר במחשבים חלשים
@@ -4982,6 +5083,11 @@ const View3D = {
       cam.lookAt(p.x + ch * 8, 0.8, p.y + sh * 8);
     }
     cam.updateProjectionMatrix();
+    this.updateRain(dt, cam.position.x, cam.position.z);
+    if (this.headlight && this.headlight.intensity > 0) {
+      this.headlight.position.set(p.x + hx * 2.3, 0.8, p.y + hy * 2.3);
+      this.headlight.target.position.set(p.x + hx * 25, -0.5, p.y + hy * 25);
+    }
     if (this.sun) { this.sun.position.set(p.x - 40, 100, p.y + 30); this.sun.target.position.set(p.x, 0, p.y); }
     if (this.sky) { this.sky.position.x = cam.position.x; this.sky.position.z = cam.position.z; }
     const R = this.renderer;
@@ -5178,6 +5284,16 @@ $('btnVoice').addEventListener('click', toggleVoice);
 function showQuality() { $('btnQuality').textContent = View3D.quality === 'high' ? 'גרפיקה: גבוהה' : 'גרפיקה: מהירה'; }
 $('btnQuality').addEventListener('click', () => { View3D.setQuality(View3D.quality === 'high' ? 'fast' : 'high'); showQuality(); });
 showQuality();
+// תנאי נהיגה: יום, גשם או לילה (משפיע על התצוגה ועל המרחק שהבוחן דורש)
+const WEATHER_NAMES = { day: 'יום', rain: 'גשם', night: 'לילה' };
+function showWeather() { $('btnWeather').textContent = 'תנאים: ' + WEATHER_NAMES[View3D.weather]; }
+$('btnWeather').addEventListener('click', () => {
+  const order = ['day', 'rain', 'night'];
+  View3D.setWeather(order[(order.indexOf(View3D.weather) + 1) % 3]);
+  showWeather();
+  Rules.onEvent('good', { text: View3D.weather === 'rain' ? 'גשם: הכביש חלקלק. האט ושמור מרחק גדול יותר (לפחות 2 שניות).' : View3D.weather === 'night' ? 'לילה: נסיעה עם אורות, האט לפני צמתים ומעברי חציה.' : 'יום בהיר.' });
+});
+showWeather();
 $('btnReset').addEventListener('click', () => { act.reset(); $('settings').open = false; });
 $('btnLog').addEventListener('click', toggleLog);
 $('btnHelp').addEventListener('click', showHelp);

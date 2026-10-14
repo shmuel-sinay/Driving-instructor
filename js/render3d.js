@@ -43,7 +43,8 @@ const View3D = {
     const scene = this.scene = new T.Scene();
     scene.background = new T.Color(0xa9cfe8);
     scene.fog = new T.Fog(0xa9cfe8, 140, 520);
-    scene.add(new T.HemisphereLight(0xeef6ff, 0x5a7040, 0.95));
+    this.hemi = new T.HemisphereLight(0xeef6ff, 0x5a7040, 0.95);
+    scene.add(this.hemi);
     const sun = this.sun = new T.DirectionalLight(0xfff4e0, 1.0);
     sun.position.set(-40, 100, 30);
     scene.add(sun, sun.target);
@@ -102,6 +103,7 @@ const View3D = {
     this.buildWalkers();
     this.buildPalms();
     this.applyQuality();
+    this.applyWeather();
   },
 
   dispose() {
@@ -279,7 +281,8 @@ const View3D = {
     }
     if (!list.length) return;
     const pole = new T.InstancedMesh(new T.CylinderGeometry(0.07, 0.1, 7, 6), this.mat(0x6c737a), list.length);
-    const head = new T.InstancedMesh(new T.BoxGeometry(1.4, 0.18, 0.4), this.mat(0x4a5056), list.length);
+    this.lampHeadMat = this.mat(0x4a5056);
+    const head = new T.InstancedMesh(new T.BoxGeometry(1.4, 0.18, 0.4), this.lampHeadMat, list.length);
     const m = new T.Matrix4(), q = new T.Quaternion(), one = new T.Vector3(1, 1, 1), up = new T.Vector3(0, 1, 0);
     list.forEach((l, i) => {
       m.compose(new T.Vector3(l.x, 3.5, l.y), q, one); pole.setMatrixAt(i, m);
@@ -325,6 +328,22 @@ const View3D = {
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = this.aniso; tex.userData.cached = true;
     return (this.texCache[key] = tex);
   },
+  // חלונות מוארים בלילה (באותם מקומות כמו בטקסטורת החזית)
+  litTex(style) {
+    const key = 'lit:' + style;
+    if (this.texCache[key]) return this.texCache[key];
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const g = c.getContext('2d'), rnd = seeded(style.length * 13 + 5);
+    g.fillStyle = '#000'; g.fillRect(0, 0, 256, 256);
+    for (let r = 0; r < 2; r++) for (let q = 0; q < 2; q++) {
+      if (rnd() < 0.45) continue;
+      g.fillStyle = rnd() < 0.75 ? '#ffd27a' : '#a9c4e6';
+      g.fillRect(28 + q * 128, 30 + r * 128 + 74 * 0.4, 72, 74 * 0.6);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.userData.cached = true;
+    return (this.texCache[key] = tex);
+  },
   shopSignTex(text, bg, fg) {
     const key = 'shop:' + text;
     if (this.texCache[key]) return this.texCache[key];
@@ -340,7 +359,8 @@ const View3D = {
     const T = THREE, rnd = seeded(77);
     const styles = ['stone', 'stone', 'stone2', 'plaster', 'shikun'];
     const wallMat = {};
-    for (const st of styles) wallMat[st] = wallMat[st] || new T.MeshLambertMaterial({ map: this.facadeTex(st) });
+    for (const st of styles) wallMat[st] = wallMat[st] || new T.MeshLambertMaterial({ map: this.facadeTex(st), emissiveMap: this.litTex(st), emissive: 0x000000 });
+    this.wallMats = Object.values(wallMat);
     const roofMat = this.mat(0xb9b6ae), slabMat = this.mat(0xe9e5dc), railMat = this.mat(0xf4f4f2);
     const glassMat = this.mat(0x2a3a46), heaterMat = this.mat(0xf2f2f2), panelMat = this.mat(0x1f3d66), acMat = this.mat(0xe7e7e7);
     const SHOPS = [['מכולת', '#1b5e20', '#fff'], ['פלאפל', '#f9a825', '#3e2723'], ['מספרה', '#283593', '#fff'], ['פיצה', '#c62828', '#fff'], ['קפה', '#4e342e', '#ffe0b2'],
@@ -506,6 +526,59 @@ const View3D = {
       }
     }
     for (const t of scenery.palms || []) { if (n++ > 60) break; const p = Models.palm(); p.position.set(t.x, 0, t.y); this.scene.add(p); }
+  },
+
+  // ===== מזג אוויר ושעה: יום, גשם, לילה =====
+  weather: (() => { try { return localStorage.getItem('driving-practice.weather') || 'day'; } catch (e) { return 'day'; } })(),
+  setWeather(w) {
+    this.weather = w;
+    try { localStorage.setItem('driving-practice.weather', w); } catch (e) { /* לא חובה */ }
+    this.applyWeather();
+  },
+  applyWeather() {
+    if (!this.ok || !this.scene) return;
+    const T = THREE, w = this.weather, sc = this.scene;
+    const P = {
+      day: { bg: 0xa9cfe8, fog: [140, 520], hemi: 0.95, sun: 1.0, sky: 0xffffff, road: 0xffffff },
+      rain: { bg: 0x8e979f, fog: [40, 260], hemi: 0.7, sun: 0.25, sky: 0x8a939b, road: 0xb4b8bd },
+      night: { bg: 0x0a1020, fog: [30, 300], hemi: 0.12, sun: 0.06, sky: 0x10182c, road: 0xffffff },
+    }[w] || {};
+    sc.background = new T.Color(P.bg);
+    sc.fog.color.setHex(P.bg); sc.fog.near = P.fog[0]; sc.fog.far = P.fog[1];
+    this.hemi.intensity = P.hemi; this.sun.intensity = P.sun;
+    this.sky.material.color.setHex(P.sky);
+    for (const c of this.sky.children) c.material.color.setHex(P.sky);
+    for (const m of [this.nearMesh.material]) m.color.setHex(P.road);
+    const night = w === 'night';
+    for (const m of this.wallMats || []) m.emissive.setHex(night ? 0xa8a8a8 : 0x000000);
+    if (this.lampHeadMat) this.lampHeadMat.emissive.setHex(night ? 0xffe6a8 : 0x000000);
+    // פנסים של הרכב שלנו
+    if (!this.headlight) {
+      const hl = this.headlight = new T.SpotLight(0xfff3d6, 0, 120, 0.5, 0.45, 1.3);
+      this.scene.add(hl, hl.target);
+    }
+    this.headlight.intensity = night ? 400 : w === 'rain' ? 60 : 0;
+    // טיפות גשם סביב המצלמה
+    if (w === 'rain' && !this.rain) {
+      const N = 2500, pos = new Float32Array(N * 6);
+      this.rainDrops = Array.from({ length: N }, () => ({ x: (Math.random() - 0.5) * 70, y: Math.random() * 22, z: (Math.random() - 0.5) * 70, v: 16 + Math.random() * 6 }));
+      const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3));
+      this.rain = new T.LineSegments(g, new T.LineBasicMaterial({ color: 0xc8d2dc, transparent: true, opacity: 0.55 }));
+      this.rain.frustumCulled = false;
+      sc.add(this.rain);
+    }
+    if (this.rain) this.rain.visible = w === 'rain';
+  },
+  updateRain(dt, cx, cz) {
+    if (!this.rain || !this.rain.visible) return;
+    const a = this.rain.geometry.attributes.position.array;
+    this.rainDrops.forEach((d, i) => {
+      d.y -= d.v * dt;
+      if (d.y < 0) { d.y = 20 + Math.random() * 2; d.x = (Math.random() - 0.5) * 70; d.z = (Math.random() - 0.5) * 70; }
+      const x = cx + d.x, z = cz + d.z, o = i * 6;
+      a[o] = x; a[o + 1] = d.y; a[o + 2] = z; a[o + 3] = x + 0.04; a[o + 4] = d.y + 0.55; a[o + 5] = z;
+    });
+    this.rain.geometry.attributes.position.needsUpdate = true;
   },
 
   // איכות גרפיקה: גבוהה = צללים וחלקות; רגילה = מהירה יותר במחשבים חלשים
@@ -744,6 +817,11 @@ const View3D = {
       cam.lookAt(p.x + ch * 8, 0.8, p.y + sh * 8);
     }
     cam.updateProjectionMatrix();
+    this.updateRain(dt, cam.position.x, cam.position.z);
+    if (this.headlight && this.headlight.intensity > 0) {
+      this.headlight.position.set(p.x + hx * 2.3, 0.8, p.y + hy * 2.3);
+      this.headlight.target.position.set(p.x + hx * 25, -0.5, p.y + hy * 25);
+    }
     if (this.sun) { this.sun.position.set(p.x - 40, 100, p.y + 30); this.sun.target.position.set(p.x, 0, p.y); }
     if (this.sky) { this.sky.position.x = cam.position.x; this.sky.position.z = cam.position.z; }
     const R = this.renderer;

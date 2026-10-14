@@ -93,6 +93,12 @@ const Rules = {
         this.report('speed', `מהירות מופרזת: ${Math.round(kmh)} קמ"ש במקום שמותר ${e.lim}`, severe, time, 10);
       }
     } else this.overTimer = 0;
+    // כביש רטוב: מאטים מתחת למהירות המרבית
+    const wet = typeof View3D !== 'undefined' && View3D.weather === 'rain';
+    if (wet && kmh > e.lim * 0.85 + 2 && kmh <= e.lim + 3) {
+      this.wetTimer = (this.wetTimer || 0) + dt;
+      if (this.wetTimer > 5) { this.report('wetspeed', `בכביש רטוב צריך להאט: נסעת ${Math.round(kmh)} קמ"ש (מומלץ עד ${Math.round(e.lim * 0.85)})`, false, time, 25); this.wetTimer = 0; }
+    } else this.wetTimer = 0;
 
     if (Math.abs(hd) < 0.55) { this.lastT = loc.t; return; }
     const dir = hd > 0 ? 1 : -1;
@@ -171,6 +177,10 @@ const Rules = {
     if (lead && p.v > 5.5) {
       const gap = (lead.ahead - 4.4) / p.v;
       this.distTimer = gap < 1.0 ? (this.distTimer || 0) + dt : 0;
+      // בגשם הבוחן מצפה לרווח גדול יותר (שתי שניות)
+      const wet = typeof View3D !== 'undefined' && View3D.weather === 'rain';
+      this.wetDistTimer = wet && gap >= 1.0 && gap < 2.0 ? (this.wetDistTimer || 0) + dt : 0;
+      if (this.wetDistTimer > 4) { this.report('wetdist', `בכביש רטוב הגדל את הרווח: ${gap.toFixed(1)} שניות מהרכב שלפניך (בגשם לפחות שתיים)`, false, time, 20); this.wetDistTimer = 0; }
       if (this.distTimer > 2.5) { this.report('distance', `לא שמרת מרחק מהרכב שלפניך (${gap.toFixed(1)} שניות; החוק: לפחות שנייה, מומלץ שתיים)`, false, time, 12); this.distTimer = 0; }
     } else this.distTimer = 0;
 
