@@ -48,6 +48,7 @@ const Rules = {
     if (loc) this.loc = loc;
 
     const kmh = Math.abs(p.v) * 3.6;
+    this.emergencyChecks(dt, time, p, vehicles, loc);
     if (loc && loc.kind === 'edge') this.edgeChecks(loc, dt, time, p, kmh);
     else this.overTimer = 0;
     if (loc && loc.kind === 'node') this.nodeChecks(loc.node, dt, time, p, kmh);
@@ -79,6 +80,41 @@ const Rules = {
     this.checkReverseTask(time, p);
     this.updateInstructor(time, p);
     Plugins.tick(time, dt, p, vehicles);
+  },
+
+  // רכב ביטחון עם סירנה: מפנים את הדרך (סוטים ימינה ומאטים/עוצרים), ואחריו שומרים 100 מ'
+  emergencyChecks(dt, time, p, vehicles, loc) {
+    const em = vehicles.find(o => o.siren);
+    if (!em) { this.emTimer = 0; this.emYielded = false; this.emWarned = false; this.emFollow = 0; return; }
+    const hx = Math.cos(p.h), hy = Math.sin(p.h);
+    const rx = em.x - p.x, ry = em.y - p.y;
+    const fwd = rx * hx + ry * hy, sameDir = Math.cos(em.h - p.h) > 0.6;
+    if (!sameDir) return;
+    if (fwd < -3 && fwd > -90 && !em.passed) {
+      if (!this.emWarned) {
+        this.emWarned = true;
+        if (this.onSay) this.onSay('emergency');
+        if (typeof apHint === 'function') apHint('רכב ביטחון מאחוריך! סטה ימינה והאט', 6);
+      }
+      // פינוי דרך: בנתיב הימני ביותר (או בנתיב יחיד) ובמהירות נמוכה
+      let right = true;
+      if (loc && loc.kind === 'edge') {
+        const e = loc.edge, dir = hx * e.d.x + hy * e.d.y > 0 ? 1 : -1;
+        const { s } = edgeLocal(e, p), L = laneFromST(e, dir, s * dir);
+        right = L.idx === L.n - 1;
+      }
+      if (right && Math.abs(p.v) < 4) {
+        if (!this.emYielded) { this.emYielded = true; this.praise('פינית את הדרך לרכב הביטחון. יפה!'); }
+      } else if (!this.emYielded) {
+        this.emTimer = (this.emTimer || 0) + dt;
+        if (this.emTimer > 10) { this.report('emergency', 'לא פינית את הדרך לרכב ביטחון: סוטים ימינה ככל האפשר, מאטים ועוצרים אם צריך', true, time, 60); this.emTimer = 0; this.emYielded = true; }
+      }
+    }
+    // אחרי שעבר: לא נצמדים אליו
+    if (em.passed && fwd > 5 && fwd < 100 && Math.abs(-rx * hy + ry * hx) < 4 && p.v > 6) {
+      this.emFollow = (this.emFollow || 0) + dt;
+      if (this.emFollow > 5) { this.report('emergencyfollow', `נסעת קרוב מדי אחרי רכב ביטחון (${Math.round(fwd)} מ'; צריך לפחות 100)`, false, time, 30); this.emFollow = 0; }
+    } else this.emFollow = 0;
   },
 
   edgeChecks(loc, dt, time, p, kmh) {

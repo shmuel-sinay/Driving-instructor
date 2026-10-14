@@ -91,6 +91,8 @@ class NPC {
     // החלקת כיוון
     if (this.h == null) this.h = p.h;
     else this.h += angNorm(p.h - this.h) * 0.35;
+    // היסט הצידה (רכב ביטחון שעוקף משמאל)
+    if (this.off) { this.x += Math.sin(this.h) * this.off; this.y -= Math.cos(this.h) * this.off; }
   }
   update(dt, time, vehicles) {
     const leg = this.leg;
@@ -100,7 +102,9 @@ class NPC {
       const e = leg.edge, node = toNodeOf(e, leg.dir);
       const remaining = leg.path.len - this.s;
       vT = e.lim * 0.9 / 3.6;
-      const ctrl = control(node, e);
+      const ctrl = this.siren ? 'none' : control(node, e);
+      // רכב ביטחון: מהיר יותר, ומאט רק לפני הצומת כדי לחצות בזהירות
+      if (this.siren) vT = Math.min((e.lim + 20) / 3.6, Math.sqrt(64 + 2 * 3 * Math.max(0, remaining)));
       if (ctrl === 'light' && !this.committed) {
         const st = lightState(node, axisOf(e), time);
         if (st === 'green') { if (remaining < 3) this.committed = true; }
@@ -143,6 +147,12 @@ class NPC {
       const lat = Math.abs(-rx * hy + ry * hx);
       const sameDir = Math.cos(o.h - this.h) > 0.2;
       if (lat < (o.isPlayer ? 2.6 : 2.0) && (sameDir || o.isPlayer)) stopDist = Math.min(stopDist, fwd - 7);
+      // רכב רגיל שרכב ביטחון מאחוריו מאט (נותן לו לעבור)
+    }
+    if (!this.siren) for (const o of vehicles) {
+      if (!o.siren) continue;
+      const rx = o.x - this.x, ry = o.y - this.y, back = -(rx * hx + ry * hy);
+      if (back > 0 && back < 40 && Math.cos(o.h - this.h) > 0.5) vT = Math.min(vT, 3);
     }
     let vDes = Math.min(vT, Math.sqrt(Math.max(0, 2 * 3.2 * stopDist)));
     if (stopDist < 0.4) vDes = 0;
@@ -158,6 +168,50 @@ class NPC {
     }
     this.place();
   }
+}
+
+// ===== רכב ביטחון (אמבולנס / משטרה) עם סירנה =====
+// מגיע מאחורי הנהג באותו כיוון. כשהנהג מאט ומפנה את הדרך, עוקף אותו משמאל וממשיך.
+class Emergency extends NPC {
+  constructor(edge, dir, lane, t, kind) {
+    super(edge, dir, lane, t);
+    this.siren = kind;
+    this.color = '#ffffff';
+    this.off = 0; this.age = 0; this.passed = false;
+  }
+  update(dt, time, vehicles) {
+    this.age += dt;
+    const pl = vehicles.find(o => o.isPlayer);
+    let want = 0;
+    if (pl) {
+      const hx = Math.cos(this.h), hy = Math.sin(this.h);
+      const rx = pl.x - this.x, ry = pl.y - this.y;
+      const fwd = rx * hx + ry * hy, lat = -rx * hy + ry * hx - this.off;
+      // הנהג מלפנים באותו נתיב: עוקפים משמאל אחרי שהוא האט
+      if (fwd > -6 && fwd < 30 && Math.abs(lat) < 2.6 && Math.abs(pl.v) < 4 && this.leg.kind === 'edge') want = 3.4;
+      if (fwd < -14) this.passed = true;
+      if (this.off > 0.5 && fwd > -12 && fwd < 30) want = 3.4;
+    }
+    this.off += Math.max(-dt * 1.6, Math.min(dt * 1.6, want - this.off));
+    super.update(dt, time, vehicles);
+  }
+}
+function emergencyDone(em, player) {
+  return em.age > 120 || (em.passed && Math.hypot(em.x - player.x, em.y - player.y) > 220);
+}
+// יוצר רכב ביטחון 80 מ' מאחורי הנהג באותו נתיב, אם אפשר
+function spawnEmergency(player) {
+  const loc = locate(player);
+  if (!loc || loc.kind !== 'edge' || player.v < 4) return null;
+  const e = loc.edge, { t, s } = edgeLocal(e, player);
+  const dir = Math.cos(player.h) * e.d.x + Math.sin(player.h) * e.d.y > 0 ? 1 : -1;
+  if (laneCount(e, dir) === 0) return null;
+  const tb = t - dir * 80;
+  if (tb < e.t0 + 5 || tb > e.t1 - 5) return null;
+  const lane = laneFromST(e, dir, s * dir).idx;
+  const em = new Emergency(e, dir, lane, dir > 0 ? tb - e.t0 : e.t1 - tb, Math.random() < 0.6 ? 'ambulance' : 'police');
+  em.v = player.v + 4;
+  return em;
 }
 
 function spawnNPCs(count, player) {

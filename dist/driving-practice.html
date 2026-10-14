@@ -355,6 +355,7 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
           <button id="btnSound" type="button">צלילים: פועל</button>
           <button id="btnQuality" type="button">גרפיקה: גבוהה</button>
           <button id="btnWeather" type="button">תנאים: יום</button>
+          <button id="btnEmergency" type="button">רכבי ביטחון: מופיעים</button>
           <button id="btnReset" type="button">חזרה לנקודת ההתחלה</button>
         </div>
       </details>
@@ -688,7 +689,7 @@ const RULEBOOK = [
   { id: 'blocked-junction', cat: 'זכות קדימה וצמתים', title: 'לא נכנסים לצומת חסום', text: 'גם באור ירוק, אין להיכנס לצומת כשהוא חסום בכלי רכב ולא תוכל לצאת ממנו.', src: [1751] },
   { id: 'dirt-road', cat: 'זכות קדימה וצמתים', title: 'יציאה מדרך עפר', text: 'מי שיוצא מדרך עפר לדרך סלולה נותן זכות קדימה לכל כלי הרכב בדרך הסלולה.', src: [881] },
   { id: 'driveway', cat: 'זכות קדימה וצמתים', title: 'יציאה מחצרים או מתחנת דלק', text: 'ביציאה מחצר, מתחנת דלק או מדרך גישה לבית נותנים זכות קדימה לכל רכב שמתקרב בכביש, מכל כיוון.', src: [178, 1764] },
-  { id: 'emergency-vehicle', cat: 'זכות קדימה וצמתים', title: 'רכב ביטחון', text: 'כשמתקרב רכב ביטחון עם סירנה ואורות מהבהבים: מטים את הרכב קרוב ככל האפשר לשפת הכביש הימנית, נותנים לו זכות קדימה ועוצרים אם צריך, רחוק מהצומת. גם אז אסור להיכנס לצומת באור אדום.', src: [248, 767, 747] },
+  { id: 'emergency-vehicle', cat: 'זכות קדימה וצמתים', title: 'רכב ביטחון', text: 'כשמתקרב רכב ביטחון עם סירנה ואורות מהבהבים: מטים את הרכב קרוב ככל האפשר לשפת הכביש הימנית, נותנים לו זכות קדימה ועוצרים אם צריך, רחוק מהצומת. גם אז אסור להיכנס לצומת באור אדום.', src: [248, 767, 747], keys: ['emergency'] },
   { id: 'banned-turn', cat: 'זכות קדימה וצמתים', title: 'תמרור איסור פנייה', text: 'אסור לבצע פנייה שתמרור אוסר אותה. פניית פרסה מותרת מכל נתיב, כל עוד אין תמרור שאוסר אותה ואין הפרעה לתנועה.', src: [494, 891, 117], keys: ['ban'] },
 
   // ----- פניות ונתיבי פנייה -----
@@ -821,7 +822,7 @@ const RULEBOOK = [
   { id: 'narrow-road', cat: 'זכות קדימה וצמתים', title: 'דרך צרה ומורד', text: 'בדרך צרה כשבא רכב ממול מאטים וסוטים ימינה, ואם צריך עוצרים. במורד צר שאין בו מקום לשניים, היורד נותן זכות קדימה לעולה.', src: [1528, 744] },
   { id: 'hit-parked', cat: 'מצבי חירום', title: 'פגיעה ברכב חונה', text: 'מי שפגע ברכב חונה ובעליו לא במקום, משאיר הודעה בכתב עם פרטיו.', src: [1496] },
   { id: 'cargo', cat: 'חובות הנהג ובטיחות', title: 'מטען שנפל', text: 'נהג שמרגיש שחלק מהמטען נפל לכביש עוצר מיד ודואג לסלק אותו.', src: [1546] },
-  { id: 'emergency-follow', cat: 'זכות קדימה וצמתים', title: 'נסיעה אחרי רכב ביטחון', text: 'כשנוסעים אחרי רכב ביטחון שומרים מרחק של 100 מטרים לפחות.', src: [249] },
+  { id: 'emergency-follow', cat: 'זכות קדימה וצמתים', title: 'נסיעה אחרי רכב ביטחון', text: 'כשנוסעים אחרי רכב ביטחון שומרים מרחק של 100 מטרים לפחות.', src: [249], keys: ['emergencyfollow'] },
 ];
 
 // חיפוש החוק שמסביר עבירה מסוימת
@@ -896,6 +897,8 @@ const VOICE_LINES = {
   warn_distance: 'שמור מרחק מהרכב שלפניך.',
   warn_stopline: 'עוצרים לפני הקו.',
   warn_slow: 'אתה נוסע לאט מדי, התאם את המהירות לתנועה.',
+  emergency: 'רכב ביטחון מאחוריך. סטה ימינה ותן לו לעבור.',
+  warn_wet: 'הכביש רטוב, האט.',
 };
 const VOICE_BY_TEXT = Object.fromEntries(Object.entries(VOICE_LINES).map(([k, v]) => [v, k]));
 // בקובץ היחיד הבנייה מחליפה את זה במפה של קבצי קול מוטמעים
@@ -1985,6 +1988,8 @@ class NPC {
     // החלקת כיוון
     if (this.h == null) this.h = p.h;
     else this.h += angNorm(p.h - this.h) * 0.35;
+    // היסט הצידה (רכב ביטחון שעוקף משמאל)
+    if (this.off) { this.x += Math.sin(this.h) * this.off; this.y -= Math.cos(this.h) * this.off; }
   }
   update(dt, time, vehicles) {
     const leg = this.leg;
@@ -1994,7 +1999,9 @@ class NPC {
       const e = leg.edge, node = toNodeOf(e, leg.dir);
       const remaining = leg.path.len - this.s;
       vT = e.lim * 0.9 / 3.6;
-      const ctrl = control(node, e);
+      const ctrl = this.siren ? 'none' : control(node, e);
+      // רכב ביטחון: מהיר יותר, ומאט רק לפני הצומת כדי לחצות בזהירות
+      if (this.siren) vT = Math.min((e.lim + 20) / 3.6, Math.sqrt(64 + 2 * 3 * Math.max(0, remaining)));
       if (ctrl === 'light' && !this.committed) {
         const st = lightState(node, axisOf(e), time);
         if (st === 'green') { if (remaining < 3) this.committed = true; }
@@ -2037,6 +2044,12 @@ class NPC {
       const lat = Math.abs(-rx * hy + ry * hx);
       const sameDir = Math.cos(o.h - this.h) > 0.2;
       if (lat < (o.isPlayer ? 2.6 : 2.0) && (sameDir || o.isPlayer)) stopDist = Math.min(stopDist, fwd - 7);
+      // רכב רגיל שרכב ביטחון מאחוריו מאט (נותן לו לעבור)
+    }
+    if (!this.siren) for (const o of vehicles) {
+      if (!o.siren) continue;
+      const rx = o.x - this.x, ry = o.y - this.y, back = -(rx * hx + ry * hy);
+      if (back > 0 && back < 40 && Math.cos(o.h - this.h) > 0.5) vT = Math.min(vT, 3);
     }
     let vDes = Math.min(vT, Math.sqrt(Math.max(0, 2 * 3.2 * stopDist)));
     if (stopDist < 0.4) vDes = 0;
@@ -2052,6 +2065,50 @@ class NPC {
     }
     this.place();
   }
+}
+
+// ===== רכב ביטחון (אמבולנס / משטרה) עם סירנה =====
+// מגיע מאחורי הנהג באותו כיוון. כשהנהג מאט ומפנה את הדרך, עוקף אותו משמאל וממשיך.
+class Emergency extends NPC {
+  constructor(edge, dir, lane, t, kind) {
+    super(edge, dir, lane, t);
+    this.siren = kind;
+    this.color = '#ffffff';
+    this.off = 0; this.age = 0; this.passed = false;
+  }
+  update(dt, time, vehicles) {
+    this.age += dt;
+    const pl = vehicles.find(o => o.isPlayer);
+    let want = 0;
+    if (pl) {
+      const hx = Math.cos(this.h), hy = Math.sin(this.h);
+      const rx = pl.x - this.x, ry = pl.y - this.y;
+      const fwd = rx * hx + ry * hy, lat = -rx * hy + ry * hx - this.off;
+      // הנהג מלפנים באותו נתיב: עוקפים משמאל אחרי שהוא האט
+      if (fwd > -6 && fwd < 30 && Math.abs(lat) < 2.6 && Math.abs(pl.v) < 4 && this.leg.kind === 'edge') want = 3.4;
+      if (fwd < -14) this.passed = true;
+      if (this.off > 0.5 && fwd > -12 && fwd < 30) want = 3.4;
+    }
+    this.off += Math.max(-dt * 1.6, Math.min(dt * 1.6, want - this.off));
+    super.update(dt, time, vehicles);
+  }
+}
+function emergencyDone(em, player) {
+  return em.age > 120 || (em.passed && Math.hypot(em.x - player.x, em.y - player.y) > 220);
+}
+// יוצר רכב ביטחון 80 מ' מאחורי הנהג באותו נתיב, אם אפשר
+function spawnEmergency(player) {
+  const loc = locate(player);
+  if (!loc || loc.kind !== 'edge' || player.v < 4) return null;
+  const e = loc.edge, { t, s } = edgeLocal(e, player);
+  const dir = Math.cos(player.h) * e.d.x + Math.sin(player.h) * e.d.y > 0 ? 1 : -1;
+  if (laneCount(e, dir) === 0) return null;
+  const tb = t - dir * 80;
+  if (tb < e.t0 + 5 || tb > e.t1 - 5) return null;
+  const lane = laneFromST(e, dir, s * dir).idx;
+  const em = new Emergency(e, dir, lane, dir > 0 ? tb - e.t0 : e.t1 - tb, Math.random() < 0.6 ? 'ambulance' : 'police');
+  em.v = player.v + 4;
+  return em;
 }
 
 function spawnNPCs(count, player) {
@@ -2597,6 +2654,7 @@ const Rules = {
     if (loc) this.loc = loc;
 
     const kmh = Math.abs(p.v) * 3.6;
+    this.emergencyChecks(dt, time, p, vehicles, loc);
     if (loc && loc.kind === 'edge') this.edgeChecks(loc, dt, time, p, kmh);
     else this.overTimer = 0;
     if (loc && loc.kind === 'node') this.nodeChecks(loc.node, dt, time, p, kmh);
@@ -2628,6 +2686,41 @@ const Rules = {
     this.checkReverseTask(time, p);
     this.updateInstructor(time, p);
     Plugins.tick(time, dt, p, vehicles);
+  },
+
+  // רכב ביטחון עם סירנה: מפנים את הדרך (סוטים ימינה ומאטים/עוצרים), ואחריו שומרים 100 מ'
+  emergencyChecks(dt, time, p, vehicles, loc) {
+    const em = vehicles.find(o => o.siren);
+    if (!em) { this.emTimer = 0; this.emYielded = false; this.emWarned = false; this.emFollow = 0; return; }
+    const hx = Math.cos(p.h), hy = Math.sin(p.h);
+    const rx = em.x - p.x, ry = em.y - p.y;
+    const fwd = rx * hx + ry * hy, sameDir = Math.cos(em.h - p.h) > 0.6;
+    if (!sameDir) return;
+    if (fwd < -3 && fwd > -90 && !em.passed) {
+      if (!this.emWarned) {
+        this.emWarned = true;
+        if (this.onSay) this.onSay('emergency');
+        if (typeof apHint === 'function') apHint('רכב ביטחון מאחוריך! סטה ימינה והאט', 6);
+      }
+      // פינוי דרך: בנתיב הימני ביותר (או בנתיב יחיד) ובמהירות נמוכה
+      let right = true;
+      if (loc && loc.kind === 'edge') {
+        const e = loc.edge, dir = hx * e.d.x + hy * e.d.y > 0 ? 1 : -1;
+        const { s } = edgeLocal(e, p), L = laneFromST(e, dir, s * dir);
+        right = L.idx === L.n - 1;
+      }
+      if (right && Math.abs(p.v) < 4) {
+        if (!this.emYielded) { this.emYielded = true; this.praise('פינית את הדרך לרכב הביטחון. יפה!'); }
+      } else if (!this.emYielded) {
+        this.emTimer = (this.emTimer || 0) + dt;
+        if (this.emTimer > 10) { this.report('emergency', 'לא פינית את הדרך לרכב ביטחון: סוטים ימינה ככל האפשר, מאטים ועוצרים אם צריך', true, time, 60); this.emTimer = 0; this.emYielded = true; }
+      }
+    }
+    // אחרי שעבר: לא נצמדים אליו
+    if (em.passed && fwd > 5 && fwd < 100 && Math.abs(-rx * hy + ry * hx) < 4 && p.v > 6) {
+      this.emFollow = (this.emFollow || 0) + dt;
+      if (this.emFollow > 5) { this.report('emergencyfollow', `נסעת קרוב מדי אחרי רכב ביטחון (${Math.round(fwd)} מ'; צריך לפחות 100)`, false, time, 30); this.emFollow = 0; }
+    } else this.emFollow = 0;
   },
 
   edgeChecks(loc, dt, time, p, kmh) {
@@ -3987,6 +4080,16 @@ function drawCar(ctx, v, color, opts = {}) {
   ctx.fillRect(-L / 2 + 0.02, -Wd / 2 + 0.15, 0.16, 0.42); ctx.fillRect(-L / 2 + 0.02, Wd / 2 - 0.57, 0.16, 0.42);
   ctx.shadowBlur = 0;
   if (opts.reverse) { ctx.fillStyle = '#ffffff'; ctx.fillRect(-L / 2 + 0.02, -0.25, 0.14, 0.5); }
+  // רכב ביטחון: פס אדום/כחול ואורות מהבהבים
+  if (v.siren) {
+    ctx.fillStyle = v.siren === 'police' ? '#1e4fa8' : '#d32f2f';
+    ctx.fillRect(-L / 2 + 0.3, -0.12, L - 0.6, 0.24);
+    const on = (opts.time || 0) % 0.5 < 0.25;
+    ctx.shadowBlur = 16;
+    ctx.fillStyle = ctx.shadowColor = on ? '#2f7bff' : '#ff2d2d'; ctx.fillRect(-0.1, -Wd / 2 + 0.2, 0.4, 0.6);
+    ctx.fillStyle = ctx.shadowColor = on ? '#ff2d2d' : '#2f7bff'; ctx.fillRect(-0.1, Wd / 2 - 0.8, 0.4, 0.6);
+    ctx.shadowBlur = 0;
+  }
   // וינקרים
   if (opts.blinker && opts.blinkOn) {
     ctx.fillStyle = '#ffa31a'; ctx.shadowColor = '#ffa31a'; ctx.shadowBlur = 14;
@@ -4031,7 +4134,7 @@ function renderWorld(ctx, W, H, time, npcs) {
   drawPeds(ctx);
   for (const e of edges) for (const c of e.parked) drawCar(ctx, c, c.color, {});
   const blinkOn = (time % 0.8) < 0.45;
-  for (const n of npcs) drawCar(ctx, n, n.color, { braking: n.braking, blinker: n.blinker, blinkOn });
+  for (const n of npcs) drawCar(ctx, n, n.color, { braking: n.braking, blinker: n.blinker, blinkOn, time });
   drawCar(ctx, player, '#f4f1e8', { braking: player.braking || (player.v === 0 && !input.up), blinker: player.blinker, blinkOn, reverse: player.gear === 'R' });
   // פס זיהוי לרכב שלך
   ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.h);
@@ -4210,6 +4313,23 @@ const Models = {
       g.add(dash);
       car.dash = dash;
     }
+    return car;
+  },
+
+  // רכב ביטחון: אמבולנס (לבן עם פס אדום) או ניידת (לבנה עם פס כחול), עם מתקן אורות על הגג
+  emergency(kind) {
+    const T = THREE, type = kind === 'police' ? 'sedan' : 'van';
+    const car = this.car(0xffffff, type, false), P = this.CAR_TYPES[type], g = car.group;
+    const stripe = new T.Mesh(new T.BoxGeometry(P.L - 0.4, 0.16, P.W + 0.03), this.mat(kind === 'police' ? 0x1e4fa8 : 0xd32f2f));
+    stripe.position.set(0, P.low[2][1] - 0.12, 0); g.add(stripe);
+    const top = P.cab[1][1];
+    const red = this.basic(0xff2a2a), blue = this.basic(0x2f7bff), dim = this.mat(0x553333), dimB = this.mat(0x333355);
+    const lg = new T.BoxGeometry(0.3, 0.14, 0.55);
+    const a = new T.Mesh(lg, red), b = new T.Mesh(lg, blue);
+    const bx = (P.cab[1][0] + P.cab[2][0]) / 2 + 0.3;
+    a.position.set(bx, top + 0.12, -0.3); b.position.set(bx, top + 0.12, 0.3);
+    g.add(a, b);
+    car.bar = [{ m: a, on: kind === 'police' ? blue : red, off: kind === 'police' ? dimB : dim }, { m: b, on: blue, off: dimB }];
     return car;
   },
 
@@ -5038,7 +5158,8 @@ const View3D = {
     for (const n of list) {
       seen.add(n);
       let car = this.npcMeshes.get(n);
-      if (!car) { car = this.makeCar(new THREE.Color(n.color), false, n.type); this.scene.add(car.group); this.npcMeshes.set(n, car); }
+      if (!car) { car = n.siren ? Models.emergency(n.siren) : this.makeCar(new THREE.Color(n.color), false, n.type); this.scene.add(car.group); this.npcMeshes.set(n, car); }
+      if (car.bar) { const ph = (performance.now() / 250 | 0) % 2; car.bar.forEach((L, i) => { L.m.material = (i === ph) ? L.on : L.off; }); }
       this.syncCar(car, n, { braking: n.braking, blinker: n.blinker, blinkOn });
     }
     for (const [n, car] of this.npcMeshes) if (!seen.has(n)) { this.scene.remove(car.group); this.npcMeshes.delete(n); }
@@ -5145,6 +5266,7 @@ window.addEventListener('resize', resize);
 resize();
 
 let npcs = [];
+let emergencyOn = (() => { try { return localStorage.getItem('driving-practice.emergency') !== 'off'; } catch (e) { return true; } })();
 let parkedList = [];
 // מיקום המראה האחורית על המסך (לפי האלמנט #mirror)
 function mirrorRect() {
@@ -5294,6 +5416,13 @@ $('btnWeather').addEventListener('click', () => {
   Rules.onEvent('good', { text: View3D.weather === 'rain' ? 'גשם: הכביש חלקלק. האט ושמור מרחק גדול יותר (לפחות 2 שניות).' : View3D.weather === 'night' ? 'לילה: נסיעה עם אורות, האט לפני צמתים ומעברי חציה.' : 'יום בהיר.' });
 });
 showWeather();
+function showEmergency() { $('btnEmergency').textContent = emergencyOn ? 'רכבי ביטחון: מופיעים' : 'רכבי ביטחון: לא'; }
+$('btnEmergency').addEventListener('click', () => {
+  emergencyOn = !emergencyOn;
+  try { localStorage.setItem('driving-practice.emergency', emergencyOn ? 'on' : 'off'); } catch (e) { /* לא חובה */ }
+  showEmergency();
+});
+showEmergency();
 $('btnReset').addEventListener('click', () => { act.reset(); $('settings').open = false; });
 $('btnLog').addEventListener('click', toggleLog);
 $('btnHelp').addEventListener('click', showHelp);
@@ -5325,7 +5454,8 @@ Rules.onInstr = ins => {
 const REMARKS = { speed: 'warn_speed', signal: 'warn_signal', lanechg: 'warn_signal', rbsignal: 'warn_signal', parksig: 'warn_signal', unparksig: 'warn_signal',
   ped: 'warn_ped', pedhit: 'warn_ped', red: 'warn_red', stop: 'warn_stop', yield: 'warn_yield', rbcut: 'warn_yield', unparkyield: 'warn_yield',
   fromlane: 'warn_lane', turnlane: 'warn_lane', rbentry: 'warn_lane', keepright: 'back_right', distance: 'warn_distance',
-  stopline: 'warn_stopline', stopcross: 'warn_stopline', pedwait: 'warn_ped', slow: 'warn_slow', rbfast: 'warn_speed', turnfast: 'warn_speed' };
+  stopline: 'warn_stopline', stopcross: 'warn_stopline', pedwait: 'warn_ped', slow: 'warn_slow', rbfast: 'warn_speed', turnfast: 'warn_speed',
+  wetspeed: 'warn_wet', wetdist: 'warn_distance', emergencyfollow: 'warn_distance' };
 Rules.onSay = id => { if (time - lastSpeakAt > 3) { lastSpeakAt = time; Voice.say(id); } };
 function remark(key) {
   const id = REMARKS[key];
@@ -5617,6 +5747,34 @@ function updateHUD(dt) {
   else ins.hidden = true;
 }
 
+// ===== רכב ביטחון: מופיע מדי פעם מאחור עם סירנה =====
+let nextEmergency = 100 + Math.random() * 120, sirenNode = null;
+function emergencyTick(dt) {
+  const em = npcs.find(n => n.siren);
+  if (em && emergencyDone(em, player)) npcs.splice(npcs.indexOf(em), 1);
+  if (!em && emergencyOn && time > nextEmergency && !Rules.lesson && assist.st && assist.st.kind === 'edge') {
+    const n = spawnEmergency(player);
+    if (n) { npcs.push(n); nextEmergency = time + 200 + Math.random() * 160; }
+    else nextEmergency = time + 5;
+  }
+}
+// צליל סירנה מתחלף, חזק יותר ככל שהרכב קרוב
+function updateSiren() {
+  const em = npcs.find(n => n.siren);
+  const want = em && soundOn && actx && !paused;
+  if (!want) { if (sirenNode) { sirenNode.g.gain.value = 0; } return; }
+  if (!sirenNode) {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sawtooth'; g.gain.value = 0;
+    o.connect(g).connect(actx.destination); o.start();
+    sirenNode = { o, g };
+  }
+  const d = Math.hypot(em.x - player.x, em.y - player.y);
+  const f = em.siren === 'police' ? 700 + 500 * (0.5 + 0.5 * Math.sin(time * 9)) : ((time % 1.2) < 0.6 ? 960 : 770);
+  sirenNode.o.frequency.setTargetAtTime(f, actx.currentTime, 0.02);
+  sirenNode.g.gain.setTargetAtTime(Math.max(0, 0.045 * (1 - d / 260)), actx.currentTime, 0.1);
+}
+
 // ===== לולאה =====
 let last = performance.now();
 function frame(now) {
@@ -5629,6 +5787,7 @@ function frame(now) {
       updatePlayer(h);
       const vehicles = [player, ...npcs, ...parkedList];
       for (const n of npcs) n.update(h, time, vehicles);
+      emergencyTick(h);
       updatePeds(h, player);
       Rules.update(h, time, player, vehicles);
     }
@@ -5642,6 +5801,7 @@ function frame(now) {
   mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   renderMinimap(mctx, mini.clientWidth, mini.clientHeight, npcs);
   updateHUD(dt);
+  updateSiren();
   requestAnimationFrame(frame);
 }
 // ===== מסך תוספים =====

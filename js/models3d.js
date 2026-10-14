@@ -133,6 +133,23 @@ const Models = {
     return car;
   },
 
+  // רכב ביטחון: אמבולנס (לבן עם פס אדום) או ניידת (לבנה עם פס כחול), עם מתקן אורות על הגג
+  emergency(kind) {
+    const T = THREE, type = kind === 'police' ? 'sedan' : 'van';
+    const car = this.car(0xffffff, type, false), P = this.CAR_TYPES[type], g = car.group;
+    const stripe = new T.Mesh(new T.BoxGeometry(P.L - 0.4, 0.16, P.W + 0.03), this.mat(kind === 'police' ? 0x1e4fa8 : 0xd32f2f));
+    stripe.position.set(0, P.low[2][1] - 0.12, 0); g.add(stripe);
+    const top = P.cab[1][1];
+    const red = this.basic(0xff2a2a), blue = this.basic(0x2f7bff), dim = this.mat(0x553333), dimB = this.mat(0x333355);
+    const lg = new T.BoxGeometry(0.3, 0.14, 0.55);
+    const a = new T.Mesh(lg, red), b = new T.Mesh(lg, blue);
+    const bx = (P.cab[1][0] + P.cab[2][0]) / 2 + 0.3;
+    a.position.set(bx, top + 0.12, -0.3); b.position.set(bx, top + 0.12, 0.3);
+    g.add(a, b);
+    car.bar = [{ m: a, on: kind === 'police' ? blue : red, off: kind === 'police' ? dimB : dim }, { m: b, on: blue, off: dimB }];
+    return car;
+  },
+
   // ===== אנשים =====
   SKIN: [0xf1c9a5, 0xe0ac69, 0xc68642, 0x8d5524, 0xffdbac, 0xd1a17a],
   HAIR: [0x1b1410, 0x3b2a1e, 0x6b4a2b, 0xb38b5d, 0x111111, 0x8c8c8c],

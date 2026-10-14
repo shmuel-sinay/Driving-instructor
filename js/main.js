@@ -26,6 +26,7 @@ window.addEventListener('resize', resize);
 resize();
 
 let npcs = [];
+let emergencyOn = (() => { try { return localStorage.getItem('driving-practice.emergency') !== 'off'; } catch (e) { return true; } })();
 let parkedList = [];
 // מיקום המראה האחורית על המסך (לפי האלמנט #mirror)
 function mirrorRect() {
@@ -175,6 +176,13 @@ $('btnWeather').addEventListener('click', () => {
   Rules.onEvent('good', { text: View3D.weather === 'rain' ? 'גשם: הכביש חלקלק. האט ושמור מרחק גדול יותר (לפחות 2 שניות).' : View3D.weather === 'night' ? 'לילה: נסיעה עם אורות, האט לפני צמתים ומעברי חציה.' : 'יום בהיר.' });
 });
 showWeather();
+function showEmergency() { $('btnEmergency').textContent = emergencyOn ? 'רכבי ביטחון: מופיעים' : 'רכבי ביטחון: לא'; }
+$('btnEmergency').addEventListener('click', () => {
+  emergencyOn = !emergencyOn;
+  try { localStorage.setItem('driving-practice.emergency', emergencyOn ? 'on' : 'off'); } catch (e) { /* לא חובה */ }
+  showEmergency();
+});
+showEmergency();
 $('btnReset').addEventListener('click', () => { act.reset(); $('settings').open = false; });
 $('btnLog').addEventListener('click', toggleLog);
 $('btnHelp').addEventListener('click', showHelp);
@@ -206,7 +214,8 @@ Rules.onInstr = ins => {
 const REMARKS = { speed: 'warn_speed', signal: 'warn_signal', lanechg: 'warn_signal', rbsignal: 'warn_signal', parksig: 'warn_signal', unparksig: 'warn_signal',
   ped: 'warn_ped', pedhit: 'warn_ped', red: 'warn_red', stop: 'warn_stop', yield: 'warn_yield', rbcut: 'warn_yield', unparkyield: 'warn_yield',
   fromlane: 'warn_lane', turnlane: 'warn_lane', rbentry: 'warn_lane', keepright: 'back_right', distance: 'warn_distance',
-  stopline: 'warn_stopline', stopcross: 'warn_stopline', pedwait: 'warn_ped', slow: 'warn_slow', rbfast: 'warn_speed', turnfast: 'warn_speed' };
+  stopline: 'warn_stopline', stopcross: 'warn_stopline', pedwait: 'warn_ped', slow: 'warn_slow', rbfast: 'warn_speed', turnfast: 'warn_speed',
+  wetspeed: 'warn_wet', wetdist: 'warn_distance', emergencyfollow: 'warn_distance' };
 Rules.onSay = id => { if (time - lastSpeakAt > 3) { lastSpeakAt = time; Voice.say(id); } };
 function remark(key) {
   const id = REMARKS[key];
@@ -498,6 +507,34 @@ function updateHUD(dt) {
   else ins.hidden = true;
 }
 
+// ===== רכב ביטחון: מופיע מדי פעם מאחור עם סירנה =====
+let nextEmergency = 100 + Math.random() * 120, sirenNode = null;
+function emergencyTick(dt) {
+  const em = npcs.find(n => n.siren);
+  if (em && emergencyDone(em, player)) npcs.splice(npcs.indexOf(em), 1);
+  if (!em && emergencyOn && time > nextEmergency && !Rules.lesson && assist.st && assist.st.kind === 'edge') {
+    const n = spawnEmergency(player);
+    if (n) { npcs.push(n); nextEmergency = time + 200 + Math.random() * 160; }
+    else nextEmergency = time + 5;
+  }
+}
+// צליל סירנה מתחלף, חזק יותר ככל שהרכב קרוב
+function updateSiren() {
+  const em = npcs.find(n => n.siren);
+  const want = em && soundOn && actx && !paused;
+  if (!want) { if (sirenNode) { sirenNode.g.gain.value = 0; } return; }
+  if (!sirenNode) {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sawtooth'; g.gain.value = 0;
+    o.connect(g).connect(actx.destination); o.start();
+    sirenNode = { o, g };
+  }
+  const d = Math.hypot(em.x - player.x, em.y - player.y);
+  const f = em.siren === 'police' ? 700 + 500 * (0.5 + 0.5 * Math.sin(time * 9)) : ((time % 1.2) < 0.6 ? 960 : 770);
+  sirenNode.o.frequency.setTargetAtTime(f, actx.currentTime, 0.02);
+  sirenNode.g.gain.setTargetAtTime(Math.max(0, 0.045 * (1 - d / 260)), actx.currentTime, 0.1);
+}
+
 // ===== לולאה =====
 let last = performance.now();
 function frame(now) {
@@ -510,6 +547,7 @@ function frame(now) {
       updatePlayer(h);
       const vehicles = [player, ...npcs, ...parkedList];
       for (const n of npcs) n.update(h, time, vehicles);
+      emergencyTick(h);
       updatePeds(h, player);
       Rules.update(h, time, player, vehicles);
     }
@@ -523,6 +561,7 @@ function frame(now) {
   mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   renderMinimap(mctx, mini.clientWidth, mini.clientHeight, npcs);
   updateHUD(dt);
+  updateSiren();
   requestAnimationFrame(frame);
 }
 // ===== מסך תוספים =====

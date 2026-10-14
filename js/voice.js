@@ -63,6 +63,8 @@ const VOICE_LINES = {
   warn_distance: 'שמור מרחק מהרכב שלפניך.',
   warn_stopline: 'עוצרים לפני הקו.',
   warn_slow: 'אתה נוסע לאט מדי, התאם את המהירות לתנועה.',
+  emergency: 'רכב ביטחון מאחוריך. סטה ימינה ותן לו לעבור.',
+  warn_wet: 'הכביש רטוב, האט.',
 };
 const VOICE_BY_TEXT = Object.fromEntries(Object.entries(VOICE_LINES).map(([k, v]) => [v, k]));
 // בקובץ היחיד הבנייה מחליפה את זה במפה של קבצי קול מוטמעים

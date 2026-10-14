@@ -500,6 +500,16 @@ function drawCar(ctx, v, color, opts = {}) {
   ctx.fillRect(-L / 2 + 0.02, -Wd / 2 + 0.15, 0.16, 0.42); ctx.fillRect(-L / 2 + 0.02, Wd / 2 - 0.57, 0.16, 0.42);
   ctx.shadowBlur = 0;
   if (opts.reverse) { ctx.fillStyle = '#ffffff'; ctx.fillRect(-L / 2 + 0.02, -0.25, 0.14, 0.5); }
+  // רכב ביטחון: פס אדום/כחול ואורות מהבהבים
+  if (v.siren) {
+    ctx.fillStyle = v.siren === 'police' ? '#1e4fa8' : '#d32f2f';
+    ctx.fillRect(-L / 2 + 0.3, -0.12, L - 0.6, 0.24);
+    const on = (opts.time || 0) % 0.5 < 0.25;
+    ctx.shadowBlur = 16;
+    ctx.fillStyle = ctx.shadowColor = on ? '#2f7bff' : '#ff2d2d'; ctx.fillRect(-0.1, -Wd / 2 + 0.2, 0.4, 0.6);
+    ctx.fillStyle = ctx.shadowColor = on ? '#ff2d2d' : '#2f7bff'; ctx.fillRect(-0.1, Wd / 2 - 0.8, 0.4, 0.6);
+    ctx.shadowBlur = 0;
+  }
   // וינקרים
   if (opts.blinker && opts.blinkOn) {
     ctx.fillStyle = '#ffa31a'; ctx.shadowColor = '#ffa31a'; ctx.shadowBlur = 14;
@@ -544,7 +554,7 @@ function renderWorld(ctx, W, H, time, npcs) {
   drawPeds(ctx);
   for (const e of edges) for (const c of e.parked) drawCar(ctx, c, c.color, {});
   const blinkOn = (time % 0.8) < 0.45;
-  for (const n of npcs) drawCar(ctx, n, n.color, { braking: n.braking, blinker: n.blinker, blinkOn });
+  for (const n of npcs) drawCar(ctx, n, n.color, { braking: n.braking, blinker: n.blinker, blinkOn, time });
   drawCar(ctx, player, '#f4f1e8', { braking: player.braking || (player.v === 0 && !input.up), blinker: player.blinker, blinkOn, reverse: player.gear === 'R' });
   // פס זיהוי לרכב שלך
   ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.h);
