@@ -32,8 +32,8 @@ function buildScenery() {
       const hTop = 12 + rnd() * 14, hBot = 12 + rnd() * 14;
       const c1 = roofs[Math.floor(rnd() * roofs.length)], c2 = roofs[Math.floor(rnd() * roofs.length)];
       if (y1 - y0 > 2 * m + hTop + hBot + 6) {
-        if (!nearRb(x, y0 + m, w, hTop)) scenery.buildings.push({ x, y: y0 + m, w, h: hTop, c: c1 });
-        if (!nearRb(x, y1 - m - hBot, w, hBot)) scenery.buildings.push({ x, y: y1 - m - hBot, w, h: hBot, c: c2 });
+        if (!nearRb(x, y0 + m, w, hTop)) scenery.buildings.push({ x, y: y0 + m, w, h: hTop, c: c1, f: -1 });
+        if (!nearRb(x, y1 - m - hBot, w, hBot)) scenery.buildings.push({ x, y: y1 - m - hBot, w, h: hBot, c: c2, f: 1 });
       }
       x += w + 4 + rnd() * 8;
     }

@@ -44,13 +44,18 @@ const View3D = {
     scene.background = new T.Color(0xa9cfe8);
     scene.fog = new T.Fog(0xa9cfe8, 140, 520);
     scene.add(new T.HemisphereLight(0xeef6ff, 0x5a7040, 0.95));
-    const sun = new T.DirectionalLight(0xffffff, 0.9);
-    sun.position.set(-0.4, 1, 0.3);
-    scene.add(sun);
+    const sun = this.sun = new T.DirectionalLight(0xfff4e0, 1.0);
+    sun.position.set(-40, 100, 30);
+    scene.add(sun, sun.target);
+    // צללים: מצלמת צל קטנה שעוקבת אחרי הרכב
+    const sc = sun.shadow.camera;
+    sc.left = sc.bottom = -70; sc.right = sc.top = 70; sc.near = 10; sc.far = 260;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0006;
 
     // קרקע ודשא
     const ground = new T.Mesh(new T.PlaneGeometry(6000, 6000), this.mat(0x6f9a4a));
-    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05;
+    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05; ground.receiveShadow = true;
     scene.add(ground);
 
     // טקסטורת הכביש של כל המפה (רזולוציה בינונית, לנוף הרחוק)
@@ -64,6 +69,7 @@ const View3D = {
     const farMesh = new T.Mesh(new T.PlaneGeometry(wx, wy), new T.MeshLambertMaterial({ map: farTex }));
     farMesh.rotation.x = -Math.PI / 2;
     farMesh.position.set(WORLD.minX + wx / 2, 0, WORLD.minY + wy / 2);
+    farMesh.receiveShadow = true;
     scene.add(farMesh);
 
     // טקסטורה חדה סביב הרכב (מתעדכנת כשנוסעים)
@@ -76,6 +82,7 @@ const View3D = {
       new T.MeshLambertMaterial({ map: this.nearTex, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
     this.nearMesh.rotation.x = -Math.PI / 2;
     this.nearMesh.position.y = 0.01;
+    this.nearMesh.receiveShadow = true;
     scene.add(this.nearMesh);
     this.nearAt = null;
 
@@ -90,12 +97,15 @@ const View3D = {
     this.pedMeshes = new Map();
     this.player = this.makeCar(0xf4f1e8, true);
     scene.add(this.player.group);
+    this.buildWalkers();
+    this.buildPalms();
+    this.applyQuality();
   },
 
   dispose() {
     this.scene.traverse(o => {
-      if (o.geometry) o.geometry.dispose();
-      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map && !m.map.userData.cached) m.map.dispose(); m.dispose(); });
+      if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
+      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.userData.shared) return; if (m.map && !m.map.userData.cached) m.map.dispose(); m.dispose(); });
     });
   },
 
@@ -154,6 +164,7 @@ const View3D = {
     }
     const wm = new T.InstancedMesh(new T.BoxGeometry(1, 0.1, 1), this.mat(0xc9c4b8), walks.length);
     walks.forEach((c, i) => { q.setFromAxisAngle(up, -c.ang); m.compose(new T.Vector3(c.x, 0.05, c.y), q, new T.Vector3(c.len, 1, c.w)); wm.setMatrixAt(i, m); });
+    wm.receiveShadow = true;
     this.scene.add(wm);
   },
 
@@ -181,40 +192,162 @@ const View3D = {
     this.scene.add(pole, head);
   },
 
-  buildBuildings() {
-    const T = THREE;
-    const win = document.createElement('canvas'); win.width = win.height = 64;
-    const g = win.getContext('2d');
-    g.fillStyle = '#ffffff'; g.fillRect(0, 0, 64, 64);
-    g.fillStyle = '#7d8a96';
-    for (let r = 0; r < 4; r++) for (let q = 0; q < 4; q++) g.fillRect(4 + q * 16, 4 + r * 16, 8, 9);
-    const wtex = new T.CanvasTexture(win); wtex.wrapS = wtex.wrapT = T.RepeatWrapping; wtex.colorSpace = T.SRGBColorSpace;
-    const mats = {};
-    const rnd = seeded(77);
-    for (const b of scenery.buildings) {
-      const hgt = 6 + Math.floor(rnd() * 6) * 3;
-      let m = mats[b.c];
-      if (!m) {
-        const side = new T.MeshLambertMaterial({ color: b.c, map: wtex });
-        const top = this.mat(new T.Color(b.c).multiplyScalar(0.8));
-        m = mats[b.c] = [side, side, top, top, side, side];
+  // בניינים בסגנון ישראלי: אבן ירושלמית או טיח, תריסים, מרפסות, חנויות עם סוככים ושלטים,
+  // ודודי שמש וקולטים על הגג
+  facadeTex(style) {
+    const key = 'facade:' + style;
+    if (this.texCache[key]) return this.texCache[key];
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const g = c.getContext('2d'), rnd = seeded(style.length * 97 + 3);
+    const base = { stone: '#dccaa2', stone2: '#e6d9bc', plaster: '#ece8df', shikun: '#cfc9bb' }[style];
+    g.fillStyle = base; g.fillRect(0, 0, 256, 256);
+    if (style.startsWith('stone')) {
+      // אבנים בגדלים שונים עם גוונים
+      for (let y = 0; y < 256; y += 16) for (let x = -(y / 16 % 2) * 20; x < 256; x += 40) {
+        const v = (rnd() - 0.5) * 26;
+        g.fillStyle = `rgb(${220 + v},${202 + v},${162 + v * 0.8})`;
+        if (style === 'stone2') g.fillStyle = `rgb(${232 + v},${218 + v},${188 + v * 0.8})`;
+        g.fillRect(x + 1, y + 1, 38, 14);
       }
-      const geo = new T.BoxGeometry(b.w, hgt, b.h);
-      // חלונות בקנה מידה קבוע (כ-4 מטר לחלון)
+    } else {
+      for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(0,0,0,${rnd() * 0.04})`; g.fillRect(rnd() * 256, rnd() * 256, 3, 3); }
+    }
+    // שתי קומות × שני חלונות; לכל חלון תריס שמוגף בחלקו
+    for (let r = 0; r < 2; r++) for (let q = 0; q < 2; q++) {
+      const x = 28 + q * 128, y = 30 + r * 128, w = 72, h = 74;
+      g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x - 3, y - 3, w + 6, h + 8);
+      g.fillStyle = '#5d7385'; g.fillRect(x, y, w, h);
+      g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(x + 4, y + 4, w / 2 - 6, h - 8);
+      const sh = h * (0.15 + rnd() * 0.75);
+      g.fillStyle = style === 'shikun' ? '#9aa39c' : '#e9e6df'; g.fillRect(x, y, w, sh);
+      g.fillStyle = 'rgba(0,0,0,0.12)';
+      for (let k = 0; k < sh; k += 5) g.fillRect(x, y + k, w, 1);
+      g.fillStyle = style.startsWith('stone') ? '#c9b48a' : '#d8d3c8'; g.fillRect(x - 5, y + h + 2, w + 10, 6);   // אדן
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = this.aniso; tex.userData.cached = true;
+    return (this.texCache[key] = tex);
+  },
+  shopSignTex(text, bg, fg) {
+    const key = 'shop:' + text;
+    if (this.texCache[key]) return this.texCache[key];
+    const c = document.createElement('canvas'); c.width = 256; c.height = 48;
+    const g = c.getContext('2d');
+    g.fillStyle = bg; g.fillRect(0, 0, 256, 48);
+    g.fillStyle = fg; g.font = 'bold 32px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'rtl';
+    g.fillText(text, 128, 26);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = this.aniso; tex.userData.cached = true;
+    return (this.texCache[key] = tex);
+  },
+  buildBuildings() {
+    const T = THREE, rnd = seeded(77);
+    const styles = ['stone', 'stone', 'stone2', 'plaster', 'shikun'];
+    const wallMat = {};
+    for (const st of styles) wallMat[st] = wallMat[st] || new T.MeshLambertMaterial({ map: this.facadeTex(st) });
+    const roofMat = this.mat(0xb9b6ae), slabMat = this.mat(0xe9e5dc), railMat = this.mat(0xf4f4f2);
+    const glassMat = this.mat(0x2a3a46), heaterMat = this.mat(0xf2f2f2), panelMat = this.mat(0x1f3d66), acMat = this.mat(0xe7e7e7);
+    const SHOPS = [['מכולת', '#1b5e20', '#fff'], ['פלאפל', '#f9a825', '#3e2723'], ['מספרה', '#283593', '#fff'], ['פיצה', '#c62828', '#fff'], ['קפה', '#4e342e', '#ffe0b2'],
+      ['בית מרקחת', '#00695c', '#fff'], ['סופר', '#e65100', '#fff'], ['שווארמה', '#6a1b9a', '#fff'], ['פרחים', '#ad1457', '#fff'], ['חומרי בניין', '#37474f', '#ffeb3b'],
+      ['מאפייה', '#795548', '#fff'], ['סלולר', '#0d47a1', '#fff'], ['ירקות ופירות', '#2e7d32', '#fff'], ['קיוסק', '#f57f17', '#000']];
+    const awnCols = [0xc62828, 0x1565c0, 0x2e7d32, 0xf9a825, 0x6d4c41].map(c => this.mat(c));
+    const signMats = SHOPS.map(([t, bg, fg]) => new T.MeshBasicMaterial({ map: this.shopSignTex(t, bg, fg) }));
+    const box = (w, h, d) => new T.BoxGeometry(w, h, d);
+    const cyl = new T.CylinderGeometry(0.32, 0.32, 1.5, 10);
+    const chunks = new Map();
+    for (const b of scenery.buildings) {
+      const floors = 2 + Math.floor(rnd() * 5), hgt = floors * 3 + 0.4;
+      const st = styles[Math.floor(rnd() * styles.length)];
+      const grp = new T.Group();
+      const geo = box(b.w, hgt, b.h);
       const uv = geo.attributes.uv;
       for (let i = 0; i < uv.count; i++) {
         const face = Math.floor(i / 4);
         const sx = face < 2 ? b.h : b.w;
-        uv.setXY(i, uv.getX(i) * sx / 16, uv.getY(i) * hgt / 12);
+        uv.setXY(i, uv.getX(i) * sx / 8, uv.getY(i) * hgt / 6);
       }
-      const mesh = new T.Mesh(geo, m);
-      mesh.position.set(b.x + b.w / 2, hgt / 2, b.y + b.h / 2);
-      this.scene.add(mesh);
+      const walls = new T.Mesh(geo, wallMat[st]); walls.position.y = hgt / 2; grp.add(walls);
+      const roof = new T.Mesh(box(b.w + 0.3, 0.35, b.h + 0.3), roofMat); roof.position.y = hgt + 0.1; grp.add(roof);
+      const f = b.f || 1, fz = f * (b.h / 2);
+      // חנויות בקומת הקרקע בצד הרחוב
+      const shop = rnd() < 0.7;
+      if (shop) {
+        const front = new T.Mesh(box(b.w - 1.2, 2.6, 0.12), glassMat); front.position.set(0, 1.35, fz + f * 0.04); grp.add(front);
+        const awn = new T.Mesh(box(b.w - 0.6, 0.12, 1.6), awnCols[Math.floor(rnd() * awnCols.length)]);
+        awn.position.set(0, 3.05, fz + f * 0.8); awn.rotation.x = f * 0.22; grp.add(awn);
+        const sw = Math.min(b.w - 2, 7);
+        const sign = new T.Mesh(new T.PlaneGeometry(sw, sw * 48 / 256), signMats[Math.floor(rnd() * signMats.length)]);
+        sign.position.set(0, 3.75, fz + f * 0.08); if (f < 0) sign.rotation.y = Math.PI; grp.add(sign);
+      }
+      // מרפסות בחזית
+      const cols = Math.max(1, Math.floor(b.w / 8));
+      if (rnd() < 0.8) for (let fl = 1; fl < floors; fl++) for (let q = 0; q < cols; q++) {
+        if (rnd() < 0.25) continue;
+        const x = -b.w / 2 + (q + 0.5) * (b.w / cols);
+        const slab = new T.Mesh(box(3.2, 0.18, 1.3), slabMat); slab.position.set(x, fl * 3 + 0.1, fz + f * 0.65); grp.add(slab);
+        const rail = new T.Mesh(box(3.2, 1.0, 0.06), railMat); rail.position.set(x, fl * 3 + 0.65, fz + f * 1.28); grp.add(rail);
+      }
+      // מזגנים על הקירות
+      for (let k = 0; k < floors; k++) if (rnd() < 0.45) {
+        const ac = new T.Mesh(box(0.8, 0.55, 0.3), acMat);
+        ac.position.set((rnd() - 0.5) * (b.w - 2), k * 3 + 1.6, -f * (b.h / 2 + 0.15)); grp.add(ac);
+      }
+      // דודי שמש וקולטים על הגג
+      const nh = 1 + Math.floor(rnd() * Math.min(6, b.w / 4));
+      for (let k = 0; k < nh; k++) {
+        const hx = -b.w / 2 + 2 + k * ((b.w - 4) / Math.max(1, nh - 1 || 1)), hz = -f * (b.h / 2 - 3);
+        const tank = new T.Mesh(cyl, heaterMat); tank.rotation.x = Math.PI / 2; tank.position.set(hx, hgt + 1.25, hz - f * 0.6); grp.add(tank);
+        const panel = new T.Mesh(box(1.0, 0.06, 1.9), panelMat); panel.position.set(hx, hgt + 0.85, hz + f * 0.7); panel.rotation.x = f * 0.6; grp.add(panel);
+      }
+      grp.position.set(b.x + b.w / 2, 0, b.y + b.h / 2);
+      const ck = Math.floor(b.x / 180) + ':' + Math.floor(b.y / 180);
+      if (!chunks.has(ck)) chunks.set(ck, new T.Group());
+      chunks.get(ck).add(grp);
+    }
+    // איחוד לפי אזורים: מעט קריאות ציור, ועדיין מסתירים אזורים שלא בתמונה
+    for (const g of chunks.values()) {
+      this.scene.add(g);
+      for (const m of Models.merge(g)) m.receiveShadow = true;
     }
   },
 
+  // עצי דקל: באי של כל כיכר ובחלק מהעצים שבין הבתים
+  buildPalms() {
+    const rnd = seeded(5150);
+    let n = 0;
+    for (const id in nodes) {
+      const nd = nodes[id];
+      if (nd.type !== 'roundabout') continue;
+      for (let i = 0; i < 3; i++) {
+        const a = i / 3 * Math.PI * 2 + rnd(), r = i ? RB_IN * 0.45 : 0;
+        const p = Models.palm(); p.position.set(nd.x + Math.cos(a) * r, 0, nd.y + Math.sin(a) * r); this.scene.add(p); n++;
+      }
+    }
+    for (const t of scenery.palms || []) { if (n++ > 60) break; const p = Models.palm(); p.position.set(t.x, 0, t.y); this.scene.add(p); }
+  },
+
+  // איכות גרפיקה: גבוהה = צללים וחלקות; רגילה = מהירה יותר במחשבים חלשים
+  quality: (() => { try { return localStorage.getItem('driving-practice.quality') || 'high'; } catch (e) { return 'high'; } })(),
+  setQuality(q) {
+    this.quality = q;
+    try { localStorage.setItem('driving-practice.quality', q); } catch (e) { /* לא חובה */ }
+    this.applyQuality();
+  },
+  applyQuality() {
+    if (!this.ok || !this.scene) return;
+    const hi = this.quality === 'high';
+    this.renderer.shadowMap.enabled = hi;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.sun.castShadow = hi;
+    this.renderer.setPixelRatio(hi ? Math.min(window.devicePixelRatio || 1, 1.5) : 1);
+    if (this.w) this.renderer.setSize(this.w, this.h, false);
+    this.scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
+  },
+
   buildTrees() {
-    const T = THREE, list = scenery.trees;
+    const T = THREE, rndp = seeded(31);
+    scenery.palms = [];
+    const list = [];
+    for (const t of scenery.trees) (rndp() < 0.25 ? scenery.palms : list).push(t);
     if (!list.length) return;
     const trunk = new T.InstancedMesh(new T.CylinderGeometry(0.18, 0.25, 2.2, 6), this.mat(0x6b4f35), list.length);
     const crown = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), this.mat(0x447a2e), list.length);
@@ -223,6 +356,7 @@ const View3D = {
       m.compose(new T.Vector3(t.x, 1.1, t.y), q, sc.set(1, 1, 1)); trunk.setMatrixAt(i, m);
       m.compose(new T.Vector3(t.x, 2.2 + t.r * 0.7, t.y), q, sc.set(t.r * 0.9, t.r, t.r * 0.9)); crown.setMatrixAt(i, m);
     });
+    trunk.castShadow = crown.castShadow = true;
     this.scene.add(trunk, crown);
   },
 
@@ -243,20 +377,24 @@ const View3D = {
     const poleGeo = new T.CylinderGeometry(0.05, 0.05, 2.7, 6), poleMat = this.mat(0x8f969c);
     const plateGeo = new T.PlaneGeometry(0.95, 0.95), backMat = this.mat(0x9aa0a6);
     this.lights = [];
+    const all = new T.Group(), faceMats = {};
     for (const s of signs) {
       const v = s.edge ? dirVec(s.edge, s.dir || 1) : { x: 1, y: 0 };
       const face = Math.atan2(-v.x, -v.y);
       if (s.kind === 'light') { this.buildLight(s, face); continue; }
       const pole = new T.Mesh(poleGeo, poleMat);
       pole.position.set(s.x, 1.35, s.y);
-      const front = new T.Mesh(plateGeo, new T.MeshBasicMaterial({ map: this.signTexture(s.kind, s.val), transparent: true, alphaTest: 0.2, fog: true }));
+      const fk = s.kind + ':' + s.val;
+      const front = new T.Mesh(plateGeo, faceMats[fk] || (faceMats[fk] = new T.MeshBasicMaterial({ map: this.signTexture(s.kind, s.val), transparent: true, alphaTest: 0.2, fog: true })));
       front.position.set(s.x, 2.35, s.y); front.rotation.y = face;
       front.translateZ(0.06);
       const back = new T.Mesh(plateGeo, backMat);
       back.position.set(s.x, 2.35, s.y); back.rotation.y = face + Math.PI;
       back.translateZ(-0.04);
-      this.scene.add(pole, front, back);
+      all.add(pole, front, back);
     }
+    this.scene.add(all);
+    Models.merge(all);
   },
 
   buildLight(s, face) {
@@ -280,31 +418,19 @@ const View3D = {
     this.lights.push({ node: s.node, edge: s.edge, lamps });
   },
 
-  makeCar(color, isPlayer) {
-    const T = THREE, g = new T.Group();
-    const body = new T.Mesh(new T.BoxGeometry(4.4, 0.75, 1.8), this.mat(color));
-    body.position.y = 0.58; g.add(body);
-    const cabin = new T.Mesh(new T.BoxGeometry(2.3, 0.62, 1.64), [this.mat(0x22303d), this.mat(0x22303d), this.mat(color), this.mat(color), this.mat(0x22303d), this.mat(0x22303d)]);
-    cabin.position.set(-0.3, 1.26, 0); g.add(cabin);
-    const wheelGeo = new T.CylinderGeometry(0.34, 0.34, 0.24, 12), wheelMat = this.mat(0x1b1b1b);
-    for (const [x, z] of [[1.35, 0.85], [1.35, -0.85], [-1.35, 0.85], [-1.35, -0.85]]) {
-      const w = new T.Mesh(wheelGeo, wheelMat); w.rotation.x = Math.PI / 2; w.position.set(x, 0.34, z); g.add(w);
-    }
-    const lampGeo = new T.BoxGeometry(0.06, 0.16, 0.38);
-    const head = new T.MeshBasicMaterial({ color: 0xfff6c8 });
-    for (const z of [0.6, -0.6]) { const h = new T.Mesh(lampGeo, head); h.position.set(2.21, 0.7, z); g.add(h); }
-    const tailOff = this.mat(0x6a1a1a), tailOn = new T.MeshBasicMaterial({ color: 0xff2d2d });
-    const tails = [0.6, -0.6].map(z => { const t = new T.Mesh(lampGeo, tailOff); t.position.set(-2.21, 0.72, z); g.add(t); return t; });
-    const blinkMat = new T.MeshBasicMaterial({ color: 0xffa31a });
-    const bl = (side) => [2.15, -2.15].map(x => { const b = new T.Mesh(new T.BoxGeometry(0.2, 0.12, 0.08), blinkMat); b.position.set(x, 0.72, side * 0.93); b.visible = false; g.add(b); return b; });
-    // צד ימין של הרכב: z חיובי (כמו y חיובי בעולם הדו-ממדי)
-    const car = { group: g, cabin, tails, tailOn, tailOff, blink: { '1': bl(1), '-1': bl(-1) } };
-    car.body = body;
+  makeCar(color, isPlayer, type) {
+    const car = Models.car(color, type || (isPlayer ? 'hatch' : Models.randomCarType()), isPlayer);
     if (isPlayer) {
-      // במבט נהג רואים רק מכסה מנוע כהה ונמוך, כדי שהכביש יישאר גלוי
-      const hood = new T.Mesh(new T.BoxGeometry(1.5, 0.08, 1.7), this.mat(0x2c3640));
-      hood.position.set(1.45, 0.9, 0); g.add(hood);
-      car.dash = hood;
+      // שלט "ל" על הגג של רכב לימוד
+      const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+      const g = c.getContext('2d');
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, 64, 64); g.strokeStyle = '#c62828'; g.lineWidth = 5; g.strokeRect(3, 3, 58, 58);
+      g.fillStyle = '#c62828'; g.font = 'bold 50px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ל', 32, 35);
+      const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+      const sign = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.36, 0.5), [new THREE.MeshLambertMaterial({ map: tex }), new THREE.MeshLambertMaterial({ map: tex }), this.mat(0xffffff), this.mat(0xffffff), this.mat(0xffffff), this.mat(0xffffff)]);
+      const top = Models.CAR_TYPES.hatch.cab[1][1];
+      sign.position.set(-0.6, top + 0.24, 0);
+      car.cabin.add(sign);
     }
     return car;
   },
@@ -317,32 +443,71 @@ const View3D = {
     for (const side of ['1', '-1']) for (const b of car.blink[side]) b.visible = opts.blinker === +side && opts.blinkOn;
   },
 
+  // רכבים חונים לא זזים: מאחדים את כולם לכמה רשתות בודדות
   buildParked() {
+    const all = new THREE.Group();
     for (const c of parkedCars()) {
       const car = this.makeCar(new THREE.Color(c.color), false);
+      for (const side of ['1', '-1']) for (const b of car.blink[side]) b.parent.remove(b);
       this.syncCar(car, c, {});
-      this.scene.add(car.group);
+      all.add(car.group);
     }
+    this.scene.add(all);
+    Models.merge(all);
   },
 
   syncPeds() {
-    const T = THREE, seen = new Set();
+    const seen = new Set();
     for (const cw of crosswalks) for (const pd of cw.peds) {
       seen.add(pd);
       let m = this.pedMeshes.get(pd);
       if (!m) {
-        m = new T.Group();
-        const body = new T.Mesh(new T.CylinderGeometry(0.22, 0.25, 1.1, 8), this.mat(new T.Color(pd.color)));
-        body.position.y = 0.95; m.add(body);
-        const head = new T.Mesh(new T.SphereGeometry(0.15, 10, 8), this.mat(0xe9c39b));
-        head.position.y = 1.65; m.add(head);
-        const legs = new T.Mesh(new T.BoxGeometry(0.3, 0.45, 0.2), this.mat(0x2d3640));
-        legs.position.y = 0.22; m.add(legs);
-        this.scene.add(m); this.pedMeshes.set(pd, m);
+        m = Models.human({ shirt: new THREE.Color(pd.color).getHex() });
+        this.scene.add(m.group); this.pedMeshes.set(pd, m);
       }
-      m.position.set(pd.x, Math.abs(Math.sin(pd.phase || 0)) * 0.05, pd.y);
+      m.group.position.set(pd.x, 0.1, pd.y);
+      // פונה לכיוון החצייה
+      const n = cw.edge.n;
+      m.group.rotation.y = -Math.atan2(-pd.side * n.y, -pd.side * n.x);
+      Models.walk(m, pd.phase || 0, pd.state === 'cross');
     }
-    for (const [pd, m] of this.pedMeshes) if (!seen.has(pd)) { this.scene.remove(m); this.pedMeshes.delete(pd); }
+    for (const [pd, m] of this.pedMeshes) if (!seen.has(pd)) { this.scene.remove(m.group); this.pedMeshes.delete(pd); }
+  },
+
+  // הולכי רגל על המדרכות (רק לנוף, לא חוצים את הכביש)
+  buildWalkers() {
+    this.walkers = [];
+    const rnd = seeded(913);
+    for (const e of edges) {
+      const len = e.t1 - e.t0;
+      if (len < 25) continue;
+      const n = Math.min(4, Math.floor(len / 45) + (rnd() < 0.5 ? 1 : 0));
+      for (let i = 0; i < n; i++) {
+        const side = rnd() < 0.5 ? 1 : -1;
+        const w = Models.human();
+        const wk = { e, side, s: side > 0 ? e.sMax + 0.9 + rnd() * 1.2 : e.sMin - 0.9 - rnd() * 1.2,
+          t: e.t0 + 6 + rnd() * (len - 12), dir: rnd() < 0.5 ? 1 : -1, speed: 0.9 + rnd() * 0.6, phase: rnd() * 6, m: w,
+          pause: 0 };
+        this.scene.add(w.group);
+        this.walkers.push(wk);
+      }
+    }
+  },
+  updateWalkers(dt) {
+    if (!this.walkers) return;
+    for (const w of this.walkers) {
+      const e = w.e;
+      if (w.pause > 0) { w.pause -= dt; Models.walk(w.m, 0, false); }
+      else {
+        w.t += w.dir * w.speed * dt; w.phase += dt * w.speed * 6;
+        if (w.t > e.t1 - 5 || w.t < e.t0 + 5) { w.dir = -w.dir; w.pause = 1 + Math.random() * 3; }
+        else if (Math.random() < dt * 0.02) w.pause = 2 + Math.random() * 4;   // עוצר לרגע (מסתכל בחלון ראווה...)
+        Models.walk(w.m, w.phase, true);
+      }
+      const p = edgePoint(e, w.t, w.s);
+      w.m.group.position.set(p.x, 0.1, p.y);
+      w.m.group.rotation.y = -Math.atan2(e.d.y * w.dir, e.d.x * w.dir);
+    }
   },
 
   syncNPCs(list, blinkOn) {
@@ -350,7 +515,7 @@ const View3D = {
     for (const n of list) {
       seen.add(n);
       let car = this.npcMeshes.get(n);
-      if (!car) { car = this.makeCar(new THREE.Color(n.color), false); this.scene.add(car.group); this.npcMeshes.set(n, car); }
+      if (!car) { car = this.makeCar(new THREE.Color(n.color), false, n.type); this.scene.add(car.group); this.npcMeshes.set(n, car); }
       this.syncCar(car, n, { braking: n.braking, blinker: n.blinker, blinkOn });
     }
     for (const [n, car] of this.npcMeshes) if (!seen.has(n)) { this.scene.remove(car.group); this.npcMeshes.delete(n); }
@@ -364,11 +529,14 @@ const View3D = {
     const blinkOn = (time % 0.8) < 0.45;
     this.syncNPCs(list, blinkOn);
     this.syncPeds();
+    this.updateWalkers(dt);
     this.syncCar(this.player, p, { braking: p.braking || (p.v === 0 && !input.up), blinker: p.blinker, blinkOn });
     const driver = mode === 'driver';
-    this.player.cabin.visible = !driver;
-    this.player.body.visible = !driver;
-    this.player.dash.visible = driver;
+    // במבט נהג מסתירים את גוף הרכב ומשאירים רק את מכסה המנוע
+    if (this.player.driverView !== driver) {
+      this.player.driverView = driver;
+      for (const o of this.player.group.children) o.visible = driver ? o === this.player.dash : o !== this.player.dash;
+    }
     for (const L of this.lights) {
       const st = lightState(L.node, axisOf(L.edge), time);
       const on = [st === 'red' || st === 'redyellow', st === 'yellow' || st === 'redyellow', st === 'green'];
@@ -392,6 +560,7 @@ const View3D = {
       cam.lookAt(p.x + ch * 8, 0.8, p.y + sh * 8);
     }
     cam.updateProjectionMatrix();
+    if (this.sun) { this.sun.position.set(p.x - 40, 100, p.y + 30); this.sun.target.position.set(p.x, 0, p.y); }
     if (this.sky) { this.sky.position.x = cam.position.x; this.sky.position.z = cam.position.z; }
     const R = this.renderer;
     R.setScissorTest(false);
