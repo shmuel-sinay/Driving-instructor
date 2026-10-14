@@ -186,6 +186,23 @@ body.view3d.drivercam .toasts { top: calc(var(--top) + 72px + var(--mirror-w) / 
 .feedback.good { color: var(--green); } .feedback.bad { color: var(--red); }
 #quizCats button, #quizStart .row button { padding: 9px 14px; }
 
+/* ===== שיעורים ===== */
+.tools button.accent { border-color: var(--sky); color: var(--sky); font-weight: 700; }
+#lessonListItems { display: grid; gap: 8px; margin-top: 12px; max-height: 52vh; overflow-y: auto; }
+.lesson { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; text-align: start; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); background: #1a2025; }
+.lesson:hover { border-color: var(--sky); }
+.lesson .num { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #2a3238; font-family: var(--f-num); font-weight: 700; }
+.lesson.passed .num { background: var(--green); color: #0b1a0f; }
+.lesson .info { display: grid; gap: 2px; min-width: 0; }
+.lesson .info strong { font-size: 16px; }
+.lesson .info small { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lesson .state { font-family: var(--f-num); color: var(--green); font-weight: 700; }
+.lessonbar { position: absolute; top: calc(var(--top) + 8px); right: 16px; display: flex; gap: 10px; align-items: center; background: var(--glass); border: 1px solid var(--sky); border-radius: 12px; padding: 8px 12px; max-width: calc(100% - 32px); }
+.lessonbar .k { font-size: 12px; color: var(--sky); font-weight: 700; }
+.lessonbar strong { font-size: 15px; }
+.lessonbar button { padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; font-size: 13px; }
+@media (max-width: 900px) { .lessonbar { top: auto; bottom: calc(260px + env(safe-area-inset-bottom, 0px)); } }
+
 /* ===== מסך מפות ===== */
 .maplist { display: grid; gap: 8px; margin: 14px 0 8px; }
 .mapcard { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: #1a2025; }
@@ -253,3 +270,4 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
   .minimap { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; transition: none; } }
+#lessonPoints { margin-bottom: 18px; }

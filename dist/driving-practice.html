@@ -196,6 +196,23 @@ body.view3d.drivercam .toasts { top: calc(var(--top) + 72px + var(--mirror-w) / 
 .feedback.good { color: var(--green); } .feedback.bad { color: var(--red); }
 #quizCats button, #quizStart .row button { padding: 9px 14px; }
 
+/* ===== שיעורים ===== */
+.tools button.accent { border-color: var(--sky); color: var(--sky); font-weight: 700; }
+#lessonListItems { display: grid; gap: 8px; margin-top: 12px; max-height: 52vh; overflow-y: auto; }
+.lesson { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; text-align: start; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); background: #1a2025; }
+.lesson:hover { border-color: var(--sky); }
+.lesson .num { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #2a3238; font-family: var(--f-num); font-weight: 700; }
+.lesson.passed .num { background: var(--green); color: #0b1a0f; }
+.lesson .info { display: grid; gap: 2px; min-width: 0; }
+.lesson .info strong { font-size: 16px; }
+.lesson .info small { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lesson .state { font-family: var(--f-num); color: var(--green); font-weight: 700; }
+.lessonbar { position: absolute; top: calc(var(--top) + 8px); right: 16px; display: flex; gap: 10px; align-items: center; background: var(--glass); border: 1px solid var(--sky); border-radius: 12px; padding: 8px 12px; max-width: calc(100% - 32px); }
+.lessonbar .k { font-size: 12px; color: var(--sky); font-weight: 700; }
+.lessonbar strong { font-size: 15px; }
+.lessonbar button { padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; font-size: 13px; }
+@media (max-width: 900px) { .lessonbar { top: auto; bottom: calc(260px + env(safe-area-inset-bottom, 0px)); } }
+
 /* ===== מסך מפות ===== */
 .maplist { display: grid; gap: 8px; margin: 14px 0 8px; }
 .mapcard { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: #1a2025; }
@@ -263,6 +280,7 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
   .minimap { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; transition: none; } }
+#lessonPoints { margin-bottom: 18px; }
 
 </style>
 </head>
@@ -286,6 +304,7 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
     </div>
     <nav class="tools" aria-label="תפריט">
       <button id="btnCam" type="button">מבט: מכיסא הנהג</button>
+      <button id="btnLessons" type="button" class="accent">שיעורים</button>
       <button id="btnBook" type="button">ספר חוקים</button>
       <button id="btnQuiz" type="button">מבחן תיאוריה</button>
       <button id="btnMaps" type="button">מפות</button>
@@ -311,6 +330,10 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
     <span id="instrText"></span>
   </div>
   <div id="toasts" class="toasts" aria-live="polite"></div>
+  <div id="lessonBar" class="lessonbar" hidden>
+    <span class="k">שיעור</span><strong id="lessonBarTitle"></strong><span id="lessonBarStep" class="fine"></span>
+    <button id="btnLessonQuit" type="button">צא מהשיעור</button>
+  </div>
 
   <aside id="log" class="log" hidden>
     <h2>יומן עבירות</h2>
@@ -454,6 +477,46 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
         <button id="btnClosePlugins" type="button">סגור</button>
       </div>
       <div id="pluginMsg" class="msgs" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="lessons" class="modal" hidden>
+    <div class="card">
+      <p class="eyebrow">המורה הווירטואלי</p>
+      <div id="lessonList">
+        <h2>שיעורים מודרכים</h2>
+        <p class="lead">כל שיעור מתמקד בנושא אחד מהטסט. לפני השיעור המורה מסביר מה חשוב, ובסופו מקבלים ציון והסבר על כל טעות.</p>
+        <p id="lessonCount" class="fine"></p>
+        <div id="lessonListItems"></div>
+      </div>
+      <div id="lessonBrief" hidden>
+        <h2 id="lessonTitle"></h2>
+        <h3 class="sec">מה המורה רוצה שתזכור</h3>
+        <ul id="lessonPoints" class="rules"></ul>
+        <h3 class="sec">החוקים בשיעור (לחיצה פותחת את ספר החוקים)</h3>
+        <div id="lessonRules" class="chips"></div>
+        <div class="row">
+          <button id="btnLessonGo" type="button" class="primary big">התחל שיעור</button>
+          <button id="btnLessonBack" type="button">לכל השיעורים</button>
+        </div>
+      </div>
+      <div class="row"><button id="btnCloseLessons" type="button">סגור</button></div>
+    </div>
+  </section>
+
+  <section id="lessonResult" class="modal" hidden>
+    <div class="card">
+      <p class="eyebrow">סיכום השיעור</p>
+      <div class="sumhead">
+        <div class="bigscore"><span id="lessonResScore">100</span><small>/100</small></div>
+        <div><p id="lessonResVerdict" class="verdict"></p><p id="lessonResMeta" class="fine"></p></div>
+      </div>
+      <ul id="lessonResList" class="sumlist"></ul>
+      <div class="row">
+        <button id="btnLessonNext" type="button" class="primary">לשיעור הבא</button>
+        <button id="btnLessonRetry" type="button">נסה שוב</button>
+        <button id="btnLessonResClose" type="button">המשך לנסוע חופשי</button>
+      </div>
     </div>
   </section>
 
@@ -2428,7 +2491,7 @@ const Rules = {
       blinkHist: [], lastHistT: -1e9, stopped: {}, overTimer: 0, wrongTimer: 0, offTimer: 0, islandTimer: 0,
       pendingLane: null, instr: null, lastT: null, lastEdge: null, rb: null, rbStop: 0,
       parkRolled: null, unparkAt: null, parkedAt: null, didReverseTask: false,
-      distTimer: 0, keepTimer: 0, saidBackRight: false, cwStopTimer: 0, slowTimer: 0,
+      distTimer: 0, keepTimer: 0, saidBackRight: false, cwStopTimer: 0, slowTimer: 0, lesson: null,
     });
     if (typeof Plugins !== 'undefined') Plugins.reset();
   },
@@ -2688,7 +2751,7 @@ const Rules = {
     this.entry = { node, edge, time, valid: false };
     Plugins.enterJunction(node, edge, time, p);
     if (this.instr && this.instr.kind === 'turn' && this.instr.node !== node) this.instr = null;
-    if (this.instr && this.instr.kind === 'park') { this.report('instr', 'לא ביצעת את הוראת הבוחן לחנות', false, time, 3); this.instr = null; }
+    if (this.instr && this.instr.kind === 'park') { const ins = this.instr; this.report('instr', 'לא ביצעת את הוראת הבוחן לחנות', false, time, 3); this.instr = null; this.stepDone(ins, false, time); }
     this.rb = node.type === 'roundabout' ? { node, edge, time, angle: 0, lastAng: Math.atan2(p.y - node.y, p.x - node.x), passed: new Set(), passTimes: {}, lane: null } : null;
     if (!edge) return;
     const dirIn = node === edge.b ? edge.d : { x: -edge.d.x, y: -edge.d.y };
@@ -2748,6 +2811,7 @@ const Rules = {
     if (instr && instr.kind === 'turn' && instr.node === node) {
       if (instr.edge !== edge) this.report('instr', 'לא ביצעת את הוראת הבוחן', false, time, 3);
       else this.praise('יפה! ביצעת את ההוראה');
+      this.stepDone(instr, instr.edge === edge, time);
     }
   },
 
@@ -2796,10 +2860,12 @@ const Rules = {
   onParked(e, dir, side, t, time) {
     this.parkedAt = time;
     if (this.instr && this.instr.kind === 'park') {
-      if (this.instr.side === side) this.praise('חנית יפה');
+      const ins = this.instr;
+      if (ins.side === side) this.praise('חנית יפה');
       else this.report('instr', 'חנית בצד הלא נכון', false, time, 3);
       this.instr = null;
       this.unparkAt = time + 4;
+      this.stepDone(ins, ins.side === side, time);
     }
   },
   onUnpark(e, dir, side, time) {
@@ -2813,9 +2879,87 @@ const Rules = {
       return ahead < 2 && ahead > -40 && sideOff < 5.5 && Math.cos(n.h - player.h) > 0.7 && n.v > 3;
     });
     if (near) this.report('unparkyield', 'יציאה מחניה בלי לתת זכות קדימה לרכב שמתקרב', true, time, 5);
-    if (this.instr && this.instr.kind === 'unpark') { this.praise('יצאת מהחניה'); this.instr = null; }
+    if (this.instr && this.instr.kind === 'unpark') { const ins = this.instr; this.praise('יצאת מהחניה'); this.instr = null; this.stepDone(ins, true, time); }
     this.unparkAt = null;
   },
+  // הוראת פנייה (משותף להוראות אקראיות ולשיעורים)
+  issueTurn(node, e, dir, pick, time, lessonStep) {
+    const din0 = dirVec(e, dir);
+    const opts = node.edges.filter(x => x !== e && canExit(node, x) && !isBanned(node, e, turnType(din0, dirVec(x, exitDirFrom(node, x)))));
+    const din = din0, dout = dirVec(pick, exitDirFrom(node, pick));
+    const turn = pick === e ? 'uturn' : turnType(din, dout);
+    let voice, text;
+    const word = { right: 'ימינה', left: 'שמאלה', straight: 'ישר', uturn: 'פרסה' }[turn];
+    if (node.type === 'roundabout') {
+      const k = rbExitNumber(node, e, pick);
+      voice = `rb_${k}_${turn}`;
+      const ord = ['', 'הראשונה', 'השנייה', 'השלישית', 'הרביעית', 'החמישית'][k] || k;
+      text = VOICE_LINES[voice] || `במעגל התנועה, צא ביציאה ${ord} (${word}).`;
+    } else {
+      // צומת T: אין דרך ישר
+      const hasStraight = opts.some(x => turnType(din0, dirVec(x, exitDirFrom(node, x))) === 'straight');
+      voice = node.type === 'light' ? `light_${turn}` : (!hasStraight && turn !== 'straight' ? `t_${turn}` : `junc_${turn}`);
+      text = VOICE_LINES[voice] || `בצומת הקרוב, ${turn === 'straight' ? 'המשך ישר' : 'פנה ' + word}.`;
+    }
+    if (!VOICE_LINES[voice]) voice = null;
+    this.newInstr({ kind: 'turn', node, edge: pick, text, turn, time, voice, fromEdge: e, dir, lessonStep });
+  },
+
+  // ===== שיעורים מודרכים =====
+  stepDone(ins, ok, time) {
+    const ls = this.lesson;
+    if (!ls || !ins || !ins.lessonStep) return;
+    ls.results.push(ok);
+    ls.i++;
+    if (this.onLessonStep) this.onLessonStep();
+    if (ls.i >= ls.def.steps.length) ls.doneAt = time + 3;
+  },
+  lessonInstructor(time, p) {
+    const ls = this.lesson;
+    if (ls.doneAt != null) { if (time > ls.doneAt && this.onLessonDone) this.onLessonDone(); return; }
+    const step = ls.def.steps[ls.i];
+    if (this.instr) return;
+    const st = assist.st;
+    if (step.unpark || step.reverse) {
+      if (!st || st.kind !== 'parked' || (this.parkedAt != null && time - this.parkedAt < 2.5)) return;
+      if (step.reverse) this.newInstr({ kind: 'reverse', voice: 'reverse_line', text: VOICE_LINES.reverse_line, time, startT: st.t, lessonStep: true });
+      else this.newInstr({ kind: 'unpark', voice: 'ready', text: VOICE_LINES.ready, time, lessonStep: true });
+      return;
+    }
+    const loc = this.loc;
+    if (!loc || loc.kind !== 'edge') return;
+    const e = loc.edge;
+    const hd = Math.cos(p.h) * e.d.x + Math.sin(p.h) * e.d.y;
+    if (Math.abs(hd) < 0.7) return;
+    const dir = hd > 0 ? 1 : -1;
+    const node = toNodeOf(e, dir);
+    const dist = dir > 0 ? e.t1 - loc.t : loc.t - e.t0;
+    const fromStart = dir > 0 ? loc.t - e.t0 : e.t1 - loc.t;
+    if (step.park) {
+      if (parkStripOf(e, dir, step.park) && dist > 50 && fromStart > 3) {
+        const right = step.park === 'right';
+        this.newInstr({ kind: 'park', side: step.park, voice: right ? 'stop_side' : 'park_left', text: right ? VOICE_LINES.stop_side : VOICE_LINES.park_left, time, lessonStep: true });
+      }
+      return;
+    }
+    if (node.edges.length < 3 || dist > 170 || dist < 25) return;
+    const din = dirVec(e, dir);
+    const opts = node.edges.filter(x => x !== e && canExit(node, x) && !isBanned(node, e, turnType(din, dirVec(x, exitDirFrom(node, x)))));
+    if (!opts.length) return;
+    let pick = null, counted = false;
+    if (step.rb && node.type === 'roundabout') {
+      const all = node.edges.filter(x => x !== e);
+      pick = all.find(x => rbExitNumber(node, e, x) === step.rb) || null;
+      if (step.rb > all.length) pick = e;   // פרסה: היציאה אחרי כל היציאות
+      counted = !!pick;
+    } else if (step.turn && node.type !== 'roundabout') {
+      pick = opts.find(x => turnType(din, dirVec(x, exitDirFrom(node, x))) === step.turn) || null;
+      counted = !!pick;
+    }
+    if (!pick) pick = opts.find(x => turnType(din, dirVec(x, exitDirFrom(node, x))) === 'straight') || opts[0];
+    this.issueTurn(node, e, dir, pick, time, counted);
+  },
+
   // משימת נסיעה לאחור לאורך המדרכה: לפחות 6 מטר, בלי לפגוע ברכב חונה
   checkReverseTask(time, p) {
     const ins = this.instr;
@@ -2825,6 +2969,7 @@ const Rules = {
       this.praise('נסיעה לאחור בקו ישר: בוצע');
       this.instr = null;
       this.unparkAt = time + 2;
+      this.stepDone(ins, true, time);
     }
   },
   newInstr(ins) { this.instr = ins; if (this.onInstr) this.onInstr(ins); },
@@ -2832,6 +2977,7 @@ const Rules = {
   // ===== הוראות הבוחן =====
   instructorOn: true,
   updateInstructor(time, p) {
+    if (this.lesson) { this.lessonInstructor(time, p); return; }
     if (!this.instructorOn) { this.instr = null; return; }
     // אחרי חניה: הוראה לצאת
     if (this.unparkAt && time > this.unparkAt && !this.instr && assist.on && assist.st && assist.st.kind === 'parked') {
@@ -2870,23 +3016,7 @@ const Rules = {
     const opts = node.edges.filter(x => x !== e && canExit(node, x) && !isBanned(node, e, turnType(din0, dirVec(x, exitDirFrom(node, x)))));
     if (!opts.length) return;
     const pick = opts[Math.floor(Math.random() * opts.length)];
-    const din = dirVec(e, dir), dout = dirVec(pick, exitDirFrom(node, pick));
-    const turn = turnType(din, dout);
-    let voice, text;
-    const word = { right: 'ימינה', left: 'שמאלה', straight: 'ישר', uturn: 'פרסה' }[turn];
-    if (node.type === 'roundabout') {
-      const k = rbExitNumber(node, e, pick);
-      voice = `rb_${k}_${turn}`;
-      const ord = ['', 'הראשונה', 'השנייה', 'השלישית', 'הרביעית', 'החמישית'][k] || k;
-      text = VOICE_LINES[voice] || `במעגל התנועה, צא ביציאה ${ord} (${word}).`;
-    } else {
-      // צומת T: אין דרך ישר
-      const hasStraight = opts.some(x => turnType(din0, dirVec(x, exitDirFrom(node, x))) === 'straight');
-      voice = node.type === 'light' ? `light_${turn}` : (!hasStraight && turn !== 'straight' ? `t_${turn}` : `junc_${turn}`);
-      text = VOICE_LINES[voice] || `בצומת הקרוב, ${turn === 'straight' ? 'המשך ישר' : 'פנה ' + word}.`;
-    }
-    if (!VOICE_LINES[voice]) voice = null;
-    this.newInstr({ kind: 'turn', node, edge: pick, text, turn, time, voice, fromEdge: e, dir });
+    this.issueTurn(node, e, dir, pick, time, false);
   },
 };
 
@@ -4503,6 +4633,7 @@ function loadMap(map) {
   lastLimit = null; time = 0;
   $('toasts').innerHTML = '';
   $('mapTitle').textContent = map.name;
+  $('lessonBar').hidden = true;
   renderLog();
 }
 
@@ -5071,7 +5202,7 @@ function nextQuestion() {
 }
 
 function resumeIfIdle() {
-  const open = ['help', 'summary', 'maps', 'plugins', 'book', 'quiz'].some(id => $(id) && !$(id).hidden);
+  const open = ['help', 'summary', 'maps', 'plugins', 'book', 'quiz', 'lessons', 'lessonResult'].some(id => $(id) && !$(id).hidden);
   if (!open) paused = false;
 }
 
@@ -5089,6 +5220,266 @@ window.addEventListener('keydown', e => {
   if (/^Digit[1-4]$/.test(e.code) && !Quiz.answered) { const b = $('quizAnswers').children[+e.code.slice(5) - 1]; if (b) b.click(); }
   else if (e.code === 'Enter' && Quiz.answered) nextQuestion();
 });
+
+// ---- js/lessons.js ----
+'use strict';
+// ===== שיעורים מודרכים של המורה הווירטואלי =====
+// כל שיעור: מפה, נקודת התחלה, הסבר קצר של המורה, רצף משימות לבוחן ומפתחות העבירות שבמוקד השיעור.
+// סוגי משימות (steps):
+//   { turn: 'left' | 'right' | 'straight' }  פנייה בצומת הבא שבו הכיוון קיים
+//   { rb: 1..4 }                               יציאה מספר k בכיכר הבאה
+//   { park: 'right' | 'left' }                 חניה במקום הפנוי הבא
+//   { reverse: true }                          נסיעה לאחור לאורך המדרכה (מתוך חניה)
+//   { unpark: true }                           יציאה מהחניה
+
+const LESSONS = [
+  {
+    id: 'l1-start', title: 'יציאה לדרך ושמירה על ימין', map: 'מסלול טסט',
+    start: { road: 'A-B', dir: 1, lane: 1, from: 30 },
+    brief: [
+      'נוסעים בנתיב הימני הפנוי. הנתיב השמאלי רק לעקיפה או לפנייה שמאלה.',
+      'ברמזור: עוצרים לפני הקו באדום ובאדום-צהוב.',
+      'בכיכר הדו-נתיבית ממשיכים ישר (יציאה שנייה): נכנסים מהנתיב הימני ונשארים בחיצוני.',
+    ],
+    steps: [{ turn: 'straight' }, { rb: 2 }],
+    focus: ['keepright', 'speed', 'red', 'stopline', 'rbentry', 'rbsignal'],
+  },
+  {
+    id: 'l2-right-light', title: 'פנייה ימינה ברמזור', map: 'מסלול טסט',
+    start: { road: 'A-B', dir: 1, lane: 0, from: 40 },
+    brief: [
+      'אתה מתחיל בנתיב השמאלי. עבור לנתיב הימני עם איתות ימינה (E, ואז החץ →).',
+      'מאותתים לפני הצומת, מאטים מתחת ל-30 קמ"ש ופונים מהנתיב הימני לנתיב הימני.',
+      'ברמזור אדום עוצרים לפני הקו, וממשיכים רק בירוק.',
+    ],
+    steps: [{ turn: 'right' }],
+    focus: ['signal', 'lanechg', 'fromlane', 'turnlane', 'turnfast', 'red', 'stopline'],
+  },
+  {
+    id: 'l3-rb-straight', title: 'כיכר דו-נתיבית: ממשיכים ישר', map: 'מסלול טסט',
+    start: { road: 'B-C', dir: 1, lane: 0, from: 30 },
+    brief: [
+      'ליציאה הראשונה או השנייה נכנסים מהנתיב הימני ונשארים בנתיב החיצוני של הכיכר.',
+      'נותנים זכות קדימה לרכבים שכבר בתוך הכיכר.',
+      'מאותתים ימינה רק אחרי שעוברים את היציאה הראשונה, ממש לפני היציאה שלך.',
+    ],
+    steps: [{ rb: 2 }],
+    focus: ['rbentry', 'rbsignal', 'rbearly', 'yield', 'rbfast'],
+  },
+  {
+    id: 'l4-rb-uturn', title: 'כיכר דו-נתיבית: פרסה מהנתיב הפנימי', map: 'מסלול טסט',
+    start: { road: 'B-C', dir: 1, lane: 1, from: 30 },
+    brief: [
+      'ליציאה השלישית ומעלה (שמאלה או פרסה) נכנסים מהנתיב השמאלי ונוסעים בנתיב הפנימי. עבור לנתיב השמאלי לפני הכיכר (Q ואז ←).',
+      'לפני היציאה: מאותתים ימינה, עוברים לנתיב החיצוני בזהירות (→) ויוצאים (→ שוב).',
+      'אסור לחתוך רכב שנוסע בנתיב החיצוני.',
+    ],
+    steps: [{ rb: 3 }],
+    focus: ['rbentry', 'rblane', 'rbcut', 'rbsignal', 'rbearly', 'lanechg'],
+  },
+  {
+    id: 'l5-double-rb', title: 'שתי כיכרות צמודות', map: 'מסלול טסט',
+    start: { road: 'E-F', dir: 1, lane: 0, from: 25 },
+    brief: [
+      'ביציאה מרחוב הרימון יש תמרור "עצור": עוצרים עצירה מוחלטת לפני הקו.',
+      'בכיכר הראשונה ממשיכים ישר, ומיד אחריה מגיעה כיכר נוספת.',
+      'בכיכר השנייה היציאה הראשונה היא רחוב חד-סטרי עם "אין כניסה". סופרים יציאות ויוצאים בשנייה.',
+    ],
+    steps: [{ rb: 2 }, { rb: 2 }],
+    focus: ['stop', 'yield', 'rbsignal', 'rbearly', 'noentry', 'rbfast'],
+  },
+  {
+    id: 'l6-stop-ban', title: '"עצור" ותמרור איסור פנייה', map: 'מסלול טסט',
+    start: { road: 'H-I', dir: 1, lane: 1, from: 40 },
+    brief: [
+      'בסוף השדרה יש תמרור "עצור" ותמרור "אסור לפנות שמאלה".',
+      'עוצרים עצירה מוחלטת לפני הקו, נותנים זכות קדימה לתנועה בדרך הראשית, ופונים ימינה.',
+      'מאותתים ימינה לפני הצומת.',
+    ],
+    steps: [{ turn: 'right' }],
+    focus: ['stop', 'stopline', 'yield', 'ban', 'signal'],
+  },
+  {
+    id: 'l7-left-multi', title: 'פנייה שמאלה מכביש עם שני נתיבים', map: 'מסלול טסט',
+    start: { road: 'C-H', dir: 1, lane: 1, from: 30 },
+    brief: [
+      'פונים שמאלה מהנתיב השמאלי: מאותתים שמאלה (Q), בודקים ועוברים נתיב (←).',
+      'הפונה שמאלה נותן זכות קדימה לבאים ממול.',
+      'אחרי הפנייה נכנסים לנתיב השמאלי, וכשאפשר חוזרים ימינה.',
+    ],
+    steps: [{ turn: 'left' }],
+    focus: ['fromlane', 'turnlane', 'signal', 'lanechg', 'red', 'turnfast'],
+  },
+  {
+    id: 'l8-park-right', title: 'חניה בצד ימין ויציאה מחניה', map: 'מסלול טסט',
+    start: { road: 'A-B', dir: 1, lane: 1, from: 20 },
+    brief: [
+      'כשהבוחן אומר "עצור בבטחה בצד הדרך": מאותתים ימינה (E), מאטים מתחת ל-30 ולוחצים P.',
+      'שים לב לאבני השפה: אדום-לבן אסור (12 מטר מצומת ולפני מעבר חציה), כחול-לבן מותר.',
+      'ביציאה מהחניה: מאותתים שמאלה, מוודאים שאין רכב שמתקרב, ורק אז לוחצים גז.',
+    ],
+    steps: [{ park: 'right' }, { unpark: true }],
+    focus: ['parksig', 'parkspot', 'unparksig', 'unparkyield'],
+  },
+  {
+    id: 'l9-park-left', title: 'חניה בצד שמאל ונסיעה לאחור', map: 'מסלול טסט',
+    start: { road: 'N-G', dir: 1, lane: 0, from: 15 },
+    brief: [
+      'ברחוב חד-סטרי מותר לחנות גם בצד שמאל. מאותתים שמאלה (Q) ולוחצים O.',
+      'נסיעה לאחור לאורך המדרכה: עוברים להילוך R, נוסעים לאט לפחות 6 מטר ועוצרים. בסוף חוזרים ל-D.',
+      'יציאה מחניה בצד שמאל: מאותתים ימינה.',
+    ],
+    steps: [{ park: 'left' }, { reverse: true }, { unpark: true }],
+    focus: ['parksig', 'parkspot', 'unparksig', 'unparkyield', 'crash'],
+  },
+  {
+    id: 'l10-school', title: 'אזור בית ספר, פסי האטה והולכי רגל', map: 'מסלול טסט',
+    start: { road: 'F-K', dir: 1, lane: 0, from: 10 },
+    brief: [
+      'מהירות 30. לפני מעברי חציה מאטים, ועוצרים להולך רגל שחוצה או שעומד לחצות.',
+      'עוברים את פס ההאטה לאט (פחות מ-25 קמ"ש).',
+      'בסוף הרחוב: "תן זכות קדימה" מימין לרחוב, ופונים שמאלה.',
+    ],
+    steps: [{ turn: 'left' }],
+    focus: ['ped', 'pedwait', 'bump', 'speed', 'stopcross', 'signal'],
+  },
+  {
+    id: 'l11-fast-road', title: 'מכביש מחולק לכיכר דו-נתיבית', map: 'כביש בין-עירוני',
+    start: { road: 'D-F', dir: 1, lane: 1, from: 60 },
+    brief: [
+      'בכביש מחולק מותר 90 קמ"ש. מאטים בזמן לפני הכיכר.',
+      'פנייה שמאלה בכיכר (יציאה שלישית): נכנסים מהנתיב השמאלי ונוסעים בפנימי.',
+      'כניסה לכיכר מעל 30 קמ"ש היא עבירה.',
+    ],
+    steps: [{ rb: 3 }],
+    focus: ['speed', 'rbfast', 'rbentry', 'rbsignal', 'rbcut', 'keepright'],
+  },
+];
+
+// ===== התקדמות בשיעורים (נשמרת בדפדפן) =====
+const LESSON_STORE = 'driving-practice.lessons';
+function lessonProgress() { try { return JSON.parse(localStorage.getItem(LESSON_STORE) || '{}') || {}; } catch (e) { return {}; } }
+function saveLessonResult(id, res) {
+  const all = lessonProgress();
+  const prev = all[id];
+  all[id] = { tries: (prev ? prev.tries : 0) + 1, best: Math.max(prev ? prev.best : 0, res.score), passed: (prev && prev.passed) || res.passed, last: res.score };
+  try { localStorage.setItem(LESSON_STORE, JSON.stringify(all)); } catch (e) { /* לא חובה */ }
+}
+
+// ===== מסכים =====
+let activeLesson = null;
+
+function openLessons() { paused = true; renderLessonList(); $('lessons').hidden = false; $('lessonBrief').hidden = true; $('lessonList').hidden = false; }
+function closeLessons() { $('lessons').hidden = true; resumeIfIdle(); }
+
+function renderLessonList() {
+  const box = $('lessonListItems'); box.innerHTML = '';
+  const prog = lessonProgress();
+  LESSONS.forEach((L, i) => {
+    const p = prog[L.id];
+    const el = document.createElement('button'); el.type = 'button'; el.className = 'lesson' + (p && p.passed ? ' passed' : '');
+    el.innerHTML = '<span class="num"></span><span class="info"><strong></strong><small></small></span><span class="state"></span>';
+    el.querySelector('.num').textContent = i + 1;
+    el.querySelector('strong').textContent = L.title;
+    el.querySelector('small').textContent = L.brief[0];
+    el.querySelector('.state').textContent = p ? (p.passed ? `✓ ${p.best}` : `${p.best}`) : '';
+    el.addEventListener('click', () => showLessonBrief(L));
+    box.appendChild(el);
+  });
+  const done = LESSONS.filter(L => prog[L.id] && prog[L.id].passed).length;
+  $('lessonCount').textContent = `השלמת ${done} מתוך ${LESSONS.length} שיעורים`;
+}
+
+function showLessonBrief(L) {
+  $('lessonList').hidden = true; $('lessonBrief').hidden = false;
+  $('lessonTitle').textContent = L.title;
+  const ul = $('lessonPoints'); ul.innerHTML = '';
+  for (const t of L.brief) { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); }
+  const rules = $('lessonRules'); rules.innerHTML = '';
+  const seen = new Set();
+  for (const k of L.focus) {
+    const r = ruleForKey(k);
+    if (!r || seen.has(r.id)) continue;
+    seen.add(r.id);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = r.title;
+    b.addEventListener('click', () => { closeLessons(); openBook(r.id); });
+    rules.appendChild(b);
+  }
+  $('btnLessonGo').onclick = () => startLesson(L);
+}
+
+function startLesson(L) {
+  const map = BUILTIN_MAPS.find(m => m.name === L.map) || BUILTIN_MAPS[0];
+  loadMap(validateMap(map).map);
+  const e = edgeById[L.start.road];
+  if (e) {
+    if (!assist.on) toggleSteer();
+    const t = L.start.dir > 0 ? e.t0 + L.start.from : e.t1 - L.start.from;
+    apStartEdge(e, L.start.dir, L.start.lane, t);
+    apPlace(Math.atan2(e.d.y * L.start.dir, e.d.x * L.start.dir), true);
+    player.v = 0; player.gear = 'D'; player.blinker = 0;
+    cam.x = player.x; cam.y = player.y; cam.rot = -Math.PI / 2 - player.h;
+  }
+  Rules.reset(); Rules.lastLim = e ? e.lim : 50;
+  Rules.lesson = { def: L, i: 0, results: [], startTime: time, doneAt: null };
+  activeLesson = L;
+  $('lessons').hidden = true;
+  $('lessonBar').hidden = false;
+  updateLessonBar();
+  paused = false;
+  Voice.say('ready');
+}
+
+function updateLessonBar() {
+  const ls = Rules.lesson;
+  if (!ls) { $('lessonBar').hidden = true; return; }
+  $('lessonBarTitle').textContent = ls.def.title;
+  $('lessonBarStep').textContent = `משימה ${Math.min(ls.i + 1, ls.def.steps.length)} מתוך ${ls.def.steps.length}`;
+}
+
+function finishLesson() {
+  const ls = Rules.lesson;
+  if (!ls) return;
+  Rules.lesson = null;
+  activeLesson = null;
+  $('lessonBar').hidden = true;
+  paused = true;
+  const log = Rules.log.filter(x => x.time >= ls.startTime);
+  const focusHits = log.filter(x => ls.def.focus.includes(x.key));
+  const severe = log.filter(x => x.severe);
+  const stepsOk = ls.results.filter(Boolean).length;
+  const score = Math.max(0, 100 - log.reduce((s, x) => s + x.pts, 0) - (ls.def.steps.length - stepsOk) * 10);
+  const passed = !severe.length && !focusHits.length && stepsOk === ls.def.steps.length;
+  saveLessonResult(ls.def.id, { score, passed });
+  Voice.say(passed ? 'good' : 'warn_lane');
+  $('lessonResScore').textContent = score;
+  $('lessonResVerdict').textContent = passed ? 'עברת את השיעור!' : 'כדאי לנסות שוב';
+  $('lessonResVerdict').className = 'verdict ' + (passed ? 'good' : 'bad');
+  $('lessonResMeta').textContent = `משימות שבוצעו נכון: ${stepsOk} מתוך ${ls.def.steps.length} · עבירות: ${log.length}`;
+  const ul = $('lessonResList'); ul.innerHTML = '';
+  if (!log.length) ul.innerHTML = '<li class="empty">בלי עבירות. מצוין!</li>';
+  for (const it of log) {
+    const li = document.createElement('li'); li.className = it.severe ? 'severe' : 'minor';
+    const r = ruleForKey(it.key);
+    li.innerHTML = '<span class="what"></span><span class="pts"></span>';
+    li.querySelector('.what').textContent = it.text + (r ? ' · המורה: ' + r.text : '');
+    li.querySelector('.pts').textContent = '−' + it.pts;
+    ul.appendChild(li);
+  }
+  const idx = LESSONS.indexOf(ls.def);
+  $('btnLessonRetry').onclick = () => { $('lessonResult').hidden = true; startLesson(ls.def); };
+  $('btnLessonNext').hidden = idx >= LESSONS.length - 1;
+  $('btnLessonNext').onclick = () => { $('lessonResult').hidden = true; openLessons(); showLessonBrief(LESSONS[idx + 1]); };
+  $('lessonResult').hidden = false;
+}
+
+$('btnLessons').addEventListener('click', openLessons);
+$('btnCloseLessons').addEventListener('click', closeLessons);
+$('btnLessonBack').addEventListener('click', () => { $('lessonBrief').hidden = true; $('lessonList').hidden = false; renderLessonList(); });
+$('btnLessonQuit').addEventListener('click', () => { Rules.lesson = null; activeLesson = null; $('lessonBar').hidden = true; });
+$('btnLessonResClose').addEventListener('click', () => { $('lessonResult').hidden = true; resumeIfIdle(); });
+Rules.onLessonDone = () => finishLesson();
+Rules.onLessonStep = () => updateLessonBar();
 
 </script>
 </body>

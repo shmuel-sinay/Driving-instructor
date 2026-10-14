@@ -221,6 +221,7 @@ function loadMap(map) {
   lastLimit = null; time = 0;
   $('toasts').innerHTML = '';
   $('mapTitle').textContent = map.name;
+  $('lessonBar').hidden = true;
   renderLog();
 }
 

@@ -29,6 +29,7 @@
     </div>
     <nav class="tools" aria-label="תפריט">
       <button id="btnCam" type="button">מבט: מכיסא הנהג</button>
+      <button id="btnLessons" type="button" class="accent">שיעורים</button>
       <button id="btnBook" type="button">ספר חוקים</button>
       <button id="btnQuiz" type="button">מבחן תיאוריה</button>
       <button id="btnMaps" type="button">מפות</button>
@@ -54,6 +55,10 @@
     <span id="instrText"></span>
   </div>
   <div id="toasts" class="toasts" aria-live="polite"></div>
+  <div id="lessonBar" class="lessonbar" hidden>
+    <span class="k">שיעור</span><strong id="lessonBarTitle"></strong><span id="lessonBarStep" class="fine"></span>
+    <button id="btnLessonQuit" type="button">צא מהשיעור</button>
+  </div>
 
   <aside id="log" class="log" hidden>
     <h2>יומן עבירות</h2>
@@ -200,6 +205,46 @@
     </div>
   </section>
 
+  <section id="lessons" class="modal" hidden>
+    <div class="card">
+      <p class="eyebrow">המורה הווירטואלי</p>
+      <div id="lessonList">
+        <h2>שיעורים מודרכים</h2>
+        <p class="lead">כל שיעור מתמקד בנושא אחד מהטסט. לפני השיעור המורה מסביר מה חשוב, ובסופו מקבלים ציון והסבר על כל טעות.</p>
+        <p id="lessonCount" class="fine"></p>
+        <div id="lessonListItems"></div>
+      </div>
+      <div id="lessonBrief" hidden>
+        <h2 id="lessonTitle"></h2>
+        <h3 class="sec">מה המורה רוצה שתזכור</h3>
+        <ul id="lessonPoints" class="rules"></ul>
+        <h3 class="sec">החוקים בשיעור (לחיצה פותחת את ספר החוקים)</h3>
+        <div id="lessonRules" class="chips"></div>
+        <div class="row">
+          <button id="btnLessonGo" type="button" class="primary big">התחל שיעור</button>
+          <button id="btnLessonBack" type="button">לכל השיעורים</button>
+        </div>
+      </div>
+      <div class="row"><button id="btnCloseLessons" type="button">סגור</button></div>
+    </div>
+  </section>
+
+  <section id="lessonResult" class="modal" hidden>
+    <div class="card">
+      <p class="eyebrow">סיכום השיעור</p>
+      <div class="sumhead">
+        <div class="bigscore"><span id="lessonResScore">100</span><small>/100</small></div>
+        <div><p id="lessonResVerdict" class="verdict"></p><p id="lessonResMeta" class="fine"></p></div>
+      </div>
+      <ul id="lessonResList" class="sumlist"></ul>
+      <div class="row">
+        <button id="btnLessonNext" type="button" class="primary">לשיעור הבא</button>
+        <button id="btnLessonRetry" type="button">נסה שוב</button>
+        <button id="btnLessonResClose" type="button">המשך לנסוע חופשי</button>
+      </div>
+    </div>
+  </section>
+
   <section id="book" class="modal" hidden>
     <div class="card wide">
       <p class="eyebrow">ספר החוקים של המורה</p>
@@ -282,5 +327,6 @@
 <script src="js/render3d.js"></script>
 <script src="js/main.js"></script>
 <script src="js/learn.js"></script>
+<script src="js/lessons.js"></script>
 </body>
 </html>

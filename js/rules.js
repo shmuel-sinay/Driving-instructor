@@ -14,7 +14,7 @@ const Rules = {
       blinkHist: [], lastHistT: -1e9, stopped: {}, overTimer: 0, wrongTimer: 0, offTimer: 0, islandTimer: 0,
       pendingLane: null, instr: null, lastT: null, lastEdge: null, rb: null, rbStop: 0,
       parkRolled: null, unparkAt: null, parkedAt: null, didReverseTask: false,
-      distTimer: 0, keepTimer: 0, saidBackRight: false, cwStopTimer: 0, slowTimer: 0,
+      distTimer: 0, keepTimer: 0, saidBackRight: false, cwStopTimer: 0, slowTimer: 0, lesson: null,
     });
     if (typeof Plugins !== 'undefined') Plugins.reset();
   },
@@ -274,7 +274,7 @@ const Rules = {
     this.entry = { node, edge, time, valid: false };
     Plugins.enterJunction(node, edge, time, p);
     if (this.instr && this.instr.kind === 'turn' && this.instr.node !== node) this.instr = null;
-    if (this.instr && this.instr.kind === 'park') { this.report('instr', 'לא ביצעת את הוראת הבוחן לחנות', false, time, 3); this.instr = null; }
+    if (this.instr && this.instr.kind === 'park') { const ins = this.instr; this.report('instr', 'לא ביצעת את הוראת הבוחן לחנות', false, time, 3); this.instr = null; this.stepDone(ins, false, time); }
     this.rb = node.type === 'roundabout' ? { node, edge, time, angle: 0, lastAng: Math.atan2(p.y - node.y, p.x - node.x), passed: new Set(), passTimes: {}, lane: null } : null;
     if (!edge) return;
     const dirIn = node === edge.b ? edge.d : { x: -edge.d.x, y: -edge.d.y };
@@ -334,6 +334,7 @@ const Rules = {
     if (instr && instr.kind === 'turn' && instr.node === node) {
       if (instr.edge !== edge) this.report('instr', 'לא ביצעת את הוראת הבוחן', false, time, 3);
       else this.praise('יפה! ביצעת את ההוראה');
+      this.stepDone(instr, instr.edge === edge, time);
     }
   },
 
@@ -382,10 +383,12 @@ const Rules = {
   onParked(e, dir, side, t, time) {
     this.parkedAt = time;
     if (this.instr && this.instr.kind === 'park') {
-      if (this.instr.side === side) this.praise('חנית יפה');
+      const ins = this.instr;
+      if (ins.side === side) this.praise('חנית יפה');
       else this.report('instr', 'חנית בצד הלא נכון', false, time, 3);
       this.instr = null;
       this.unparkAt = time + 4;
+      this.stepDone(ins, ins.side === side, time);
     }
   },
   onUnpark(e, dir, side, time) {
@@ -399,9 +402,87 @@ const Rules = {
       return ahead < 2 && ahead > -40 && sideOff < 5.5 && Math.cos(n.h - player.h) > 0.7 && n.v > 3;
     });
     if (near) this.report('unparkyield', 'יציאה מחניה בלי לתת זכות קדימה לרכב שמתקרב', true, time, 5);
-    if (this.instr && this.instr.kind === 'unpark') { this.praise('יצאת מהחניה'); this.instr = null; }
+    if (this.instr && this.instr.kind === 'unpark') { const ins = this.instr; this.praise('יצאת מהחניה'); this.instr = null; this.stepDone(ins, true, time); }
     this.unparkAt = null;
   },
+  // הוראת פנייה (משותף להוראות אקראיות ולשיעורים)
+  issueTurn(node, e, dir, pick, time, lessonStep) {
+    const din0 = dirVec(e, dir);
+    const opts = node.edges.filter(x => x !== e && canExit(node, x) && !isBanned(node, e, turnType(din0, dirVec(x, exitDirFrom(node, x)))));
+    const din = din0, dout = dirVec(pick, exitDirFrom(node, pick));
+    const turn = pick === e ? 'uturn' : turnType(din, dout);
+    let voice, text;
+    const word = { right: 'ימינה', left: 'שמאלה', straight: 'ישר', uturn: 'פרסה' }[turn];
+    if (node.type === 'roundabout') {
+      const k = rbExitNumber(node, e, pick);
+      voice = `rb_${k}_${turn}`;
+      const ord = ['', 'הראשונה', 'השנייה', 'השלישית', 'הרביעית', 'החמישית'][k] || k;
+      text = VOICE_LINES[voice] || `במעגל התנועה, צא ביציאה ${ord} (${word}).`;
+    } else {
+      // צומת T: אין דרך ישר
+      const hasStraight = opts.some(x => turnType(din0, dirVec(x, exitDirFrom(node, x))) === 'straight');
+      voice = node.type === 'light' ? `light_${turn}` : (!hasStraight && turn !== 'straight' ? `t_${turn}` : `junc_${turn}`);
+      text = VOICE_LINES[voice] || `בצומת הקרוב, ${turn === 'straight' ? 'המשך ישר' : 'פנה ' + word}.`;
+    }
+    if (!VOICE_LINES[voice]) voice = null;
+    this.newInstr({ kind: 'turn', node, edge: pick, text, turn, time, voice, fromEdge: e, dir, lessonStep });
+  },
+
+  // ===== שיעורים מודרכים =====
+  stepDone(ins, ok, time) {
+    const ls = this.lesson;
+    if (!ls || !ins || !ins.lessonStep) return;
+    ls.results.push(ok);
+    ls.i++;
+    if (this.onLessonStep) this.onLessonStep();
+    if (ls.i >= ls.def.steps.length) ls.doneAt = time + 3;
+  },
+  lessonInstructor(time, p) {
+    const ls = this.lesson;
+    if (ls.doneAt != null) { if (time > ls.doneAt && this.onLessonDone) this.onLessonDone(); return; }
+    const step = ls.def.steps[ls.i];
+    if (this.instr) return;
+    const st = assist.st;
+    if (step.unpark || step.reverse) {
+      if (!st || st.kind !== 'parked' || (this.parkedAt != null && time - this.parkedAt < 2.5)) return;
+      if (step.reverse) this.newInstr({ kind: 'reverse', voice: 'reverse_line', text: VOICE_LINES.reverse_line, time, startT: st.t, lessonStep: true });
+      else this.newInstr({ kind: 'unpark', voice: 'ready', text: VOICE_LINES.ready, time, lessonStep: true });
+      return;
+    }
+    const loc = this.loc;
+    if (!loc || loc.kind !== 'edge') return;
+    const e = loc.edge;
+    const hd = Math.cos(p.h) * e.d.x + Math.sin(p.h) * e.d.y;
+    if (Math.abs(hd) < 0.7) return;
+    const dir = hd > 0 ? 1 : -1;
+    const node = toNodeOf(e, dir);
+    const dist = dir > 0 ? e.t1 - loc.t : loc.t - e.t0;
+    const fromStart = dir > 0 ? loc.t - e.t0 : e.t1 - loc.t;
+    if (step.park) {
+      if (parkStripOf(e, dir, step.park) && dist > 50 && fromStart > 3) {
+        const right = step.park === 'right';
+        this.newInstr({ kind: 'park', side: step.park, voice: right ? 'stop_side' : 'park_left', text: right ? VOICE_LINES.stop_side : VOICE_LINES.park_left, time, lessonStep: true });
+      }
+      return;
+    }
+    if (node.edges.length < 3 || dist > 170 || dist < 25) return;
+    const din = dirVec(e, dir);
+    const opts = node.edges.filter(x => x !== e && canExit(node, x) && !isBanned(node, e, turnType(din, dirVec(x, exitDirFrom(node, x)))));
+    if (!opts.length) return;
+    let pick = null, counted = false;
+    if (step.rb && node.type === 'roundabout') {
+      const all = node.edges.filter(x => x !== e);
+      pick = all.find(x => rbExitNumber(node, e, x) === step.rb) || null;
+      if (step.rb > all.length) pick = e;   // פרסה: היציאה אחרי כל היציאות
+      counted = !!pick;
+    } else if (step.turn && node.type !== 'roundabout') {
+      pick = opts.find(x => turnType(din, dirVec(x, exitDirFrom(node, x))) === step.turn) || null;
+      counted = !!pick;
+    }
+    if (!pick) pick = opts.find(x => turnType(din, dirVec(x, exitDirFrom(node, x))) === 'straight') || opts[0];
+    this.issueTurn(node, e, dir, pick, time, counted);
+  },
+
   // משימת נסיעה לאחור לאורך המדרכה: לפחות 6 מטר, בלי לפגוע ברכב חונה
   checkReverseTask(time, p) {
     const ins = this.instr;
@@ -411,6 +492,7 @@ const Rules = {
       this.praise('נסיעה לאחור בקו ישר: בוצע');
       this.instr = null;
       this.unparkAt = time + 2;
+      this.stepDone(ins, true, time);
     }
   },
   newInstr(ins) { this.instr = ins; if (this.onInstr) this.onInstr(ins); },
@@ -418,6 +500,7 @@ const Rules = {
   // ===== הוראות הבוחן =====
   instructorOn: true,
   updateInstructor(time, p) {
+    if (this.lesson) { this.lessonInstructor(time, p); return; }
     if (!this.instructorOn) { this.instr = null; return; }
     // אחרי חניה: הוראה לצאת
     if (this.unparkAt && time > this.unparkAt && !this.instr && assist.on && assist.st && assist.st.kind === 'parked') {
@@ -456,22 +539,6 @@ const Rules = {
     const opts = node.edges.filter(x => x !== e && canExit(node, x) && !isBanned(node, e, turnType(din0, dirVec(x, exitDirFrom(node, x)))));
     if (!opts.length) return;
     const pick = opts[Math.floor(Math.random() * opts.length)];
-    const din = dirVec(e, dir), dout = dirVec(pick, exitDirFrom(node, pick));
-    const turn = turnType(din, dout);
-    let voice, text;
-    const word = { right: 'ימינה', left: 'שמאלה', straight: 'ישר', uturn: 'פרסה' }[turn];
-    if (node.type === 'roundabout') {
-      const k = rbExitNumber(node, e, pick);
-      voice = `rb_${k}_${turn}`;
-      const ord = ['', 'הראשונה', 'השנייה', 'השלישית', 'הרביעית', 'החמישית'][k] || k;
-      text = VOICE_LINES[voice] || `במעגל התנועה, צא ביציאה ${ord} (${word}).`;
-    } else {
-      // צומת T: אין דרך ישר
-      const hasStraight = opts.some(x => turnType(din0, dirVec(x, exitDirFrom(node, x))) === 'straight');
-      voice = node.type === 'light' ? `light_${turn}` : (!hasStraight && turn !== 'straight' ? `t_${turn}` : `junc_${turn}`);
-      text = VOICE_LINES[voice] || `בצומת הקרוב, ${turn === 'straight' ? 'המשך ישר' : 'פנה ' + word}.`;
-    }
-    if (!VOICE_LINES[voice]) voice = null;
-    this.newInstr({ kind: 'turn', node, edge: pick, text, turn, time, voice, fromEdge: e, dir });
+    this.issueTurn(node, e, dir, pick, time, false);
   },
 };

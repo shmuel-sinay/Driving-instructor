@@ -205,7 +205,7 @@ function nextQuestion() {
 }
 
 function resumeIfIdle() {
-  const open = ['help', 'summary', 'maps', 'plugins', 'book', 'quiz'].some(id => $(id) && !$(id).hidden);
+  const open = ['help', 'summary', 'maps', 'plugins', 'book', 'quiz', 'lessons', 'lessonResult'].some(id => $(id) && !$(id).hidden);
   if (!open) paused = false;
 }
 
