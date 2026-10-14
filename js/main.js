@@ -386,6 +386,7 @@ renderLog();
 
 function showSummary() {
   paused = true;
+  if (typeof recordTest === 'function') recordTest();
   Voice.say(assist.on && assist.st && assist.st.kind === 'parked' ? 'end_full' : 'end_here');
   const sc = Rules.score;
   let verdict, cls;

@@ -31,6 +31,7 @@
       <button id="btnCam" type="button">מבט: מכיסא הנהג</button>
       <button id="btnLessons" type="button" class="accent">שיעורים</button>
       <button id="btnBook" type="button">ספר חוקים</button>
+      <button id="btnProgress" type="button">ההתקדמות שלי</button>
       <button id="btnQuiz" type="button">מבחן תיאוריה</button>
       <button id="btnMaps" type="button">מפות</button>
       <button id="btnPlugins" type="button">תוספים</button>
@@ -245,6 +246,38 @@
     </div>
   </section>
 
+  <section id="progress" class="modal" hidden>
+    <div class="card wide">
+      <p class="eyebrow">ההתקדמות שלי</p>
+      <h2>כמה אתה מוכן לטסט?</h2>
+      <p id="pReady" class="ready"></p>
+      <div class="tiles">
+        <div class="tile"><span class="tv" id="pTests">0</span><span class="tl">מבחני נהיגה</span></div>
+        <div class="tile"><span class="tv" id="pAvg">—</span><span class="tl">ממוצע 5 אחרונים</span></div>
+        <div class="tile"><span class="tv" id="pLessons">0</span><span class="tl">שיעורים שעברת</span></div>
+        <div class="tile"><span class="tv" id="pTheory">—</span><span class="tl">תיאוריה (30 יום)</span></div>
+      </div>
+      <h3 class="sec">ציוני המבחנים האחרונים</h3>
+      <div id="pChart" class="chart"></div>
+      <div class="cols2">
+        <div>
+          <h3 class="sec">על מה לעבוד</h3>
+          <div id="pWeak" class="weaklist"></div>
+        </div>
+        <div>
+          <h3 class="sec">תיאוריה לפי נושא</h3>
+          <div id="pTheoryCats"></div>
+          <h3 class="sec">פעילות אחרונה</h3>
+          <ul id="pHistory" class="sumlist"></ul>
+        </div>
+      </div>
+      <div class="row">
+        <button id="btnCloseProgress" type="button">סגור</button>
+        <button id="btnClearHistory" type="button">מחק היסטוריה</button>
+      </div>
+    </div>
+  </section>
+
   <section id="book" class="modal" hidden>
     <div class="card wide">
       <p class="eyebrow">ספר החוקים של המורה</p>
@@ -328,5 +361,6 @@
 <script src="js/main.js"></script>
 <script src="js/learn.js"></script>
 <script src="js/lessons.js"></script>
+<script src="js/progress.js"></script>
 </body>
 </html>

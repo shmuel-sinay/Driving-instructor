@@ -196,6 +196,11 @@ function nextQuestion() {
   $('quizScore').textContent = `${r}/${n}`;
   $('quizVerdict').textContent = Quiz.mode === 'exam' ? (pass ? 'עברת! (צריך 26 תשובות נכונות מתוך 30)' : 'לא עברת. במבחן האמיתי צריך 26 תשובות נכונות מתוך 30.') : (pass ? 'מצוין!' : 'כדאי לתרגל עוד את הנושא הזה.');
   $('quizVerdict').className = 'verdict ' + (pass ? 'good' : 'bad');
+  const cats = {};
+  for (const t of Quiz.list) { cats[t.cat] = cats[t.cat] || [0, 0]; cats[t.cat][1]++; }
+  for (const w of Quiz.wrong) cats[w.t.cat][0]--;
+  for (const c in cats) cats[c][0] += cats[c][1];
+  addHistory({ type: 'quiz', name: Quiz.mode === 'exam' ? 'מבחן מלא' : (Quiz.cat || 'תרגול'), right: r, total: n, passed: pass, cats });
   if (Quiz.mode === 'exam') { try { const best = +localStorage.getItem('driving-practice.quizBest') || 0; if (r > best) localStorage.setItem('driving-practice.quizBest', r); } catch (e) { /* לא חובה */ } }
   const box = $('quizWrong'); box.innerHTML = '';
   if (Quiz.wrong.length) {
@@ -205,7 +210,7 @@ function nextQuestion() {
 }
 
 function resumeIfIdle() {
-  const open = ['help', 'summary', 'maps', 'plugins', 'book', 'quiz', 'lessons', 'lessonResult'].some(id => $(id) && !$(id).hidden);
+  const open = ['help', 'summary', 'maps', 'plugins', 'book', 'quiz', 'lessons', 'lessonResult', 'progress'].some(id => $(id) && !$(id).hidden);
   if (!open) paused = false;
 }
 

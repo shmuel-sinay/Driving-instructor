@@ -14,7 +14,7 @@ const Rules = {
       blinkHist: [], lastHistT: -1e9, stopped: {}, overTimer: 0, wrongTimer: 0, offTimer: 0, islandTimer: 0,
       pendingLane: null, instr: null, lastT: null, lastEdge: null, rb: null, rbStop: 0,
       parkRolled: null, unparkAt: null, parkedAt: null, didReverseTask: false,
-      distTimer: 0, keepTimer: 0, saidBackRight: false, cwStopTimer: 0, slowTimer: 0, lesson: null,
+      distTimer: 0, keepTimer: 0, saidBackRight: false, cwStopTimer: 0, slowTimer: 0, lesson: null, recorded: false,
     });
     if (typeof Plugins !== 'undefined') Plugins.reset();
   },

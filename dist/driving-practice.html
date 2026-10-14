@@ -282,6 +282,41 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; transition: none; } }
 #lessonPoints { margin-bottom: 18px; }
 
+/* ===== ההתקדמות שלי ===== */
+.ready { margin: 6px 0 14px; padding: 10px 14px; border-radius: 10px; font-size: 16px; line-height: 1.45; border: 1px solid var(--line); }
+.ready.good { border-color: var(--green); } .ready.warn { border-color: var(--amber); } .ready.bad { border-color: var(--red); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.tile { display: grid; gap: 2px; padding: 12px 14px; border-radius: 12px; background: #1a2025; border: 1px solid var(--line); }
+.tile .tv { font-family: var(--f-num); font-weight: 700; font-size: 28px; font-variant-numeric: tabular-nums; }
+.tile .tl { font-size: 13px; color: var(--muted); }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart .legend { margin: 4px 0 0; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.chart .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.chart .sw.pass { background: var(--sky); } .chart .sw.fail { background: var(--amber); margin-inline-start: 10px; }
+.chart .sw.line { height: 0; border-top: 2px dashed var(--green); border-radius: 0; margin-inline-start: 10px; }
+.chart .passlbl { fill: var(--green); font-weight: 700; }
+.chart .grid { stroke: rgba(255,255,255,.08); stroke-width: 1; }
+.chart .base { stroke: rgba(255,255,255,.3); stroke-width: 1; }
+.chart .pass { stroke: var(--green); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.chart .axis { fill: var(--muted); font-size: 11px; font-family: var(--f-num); }
+.chart .val { fill: var(--paper); font-size: 12px; font-weight: 700; font-family: var(--f-num); }
+.chart .bar path { fill: var(--sky); }
+.chart .bar.fail path { fill: var(--amber); }
+.chart .bar .hit { fill: transparent; }
+.chart .bar:hover path { opacity: .8; }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+@media (max-width: 760px) { .cols2 { grid-template-columns: 1fr; } }
+.weaklist { display: grid; gap: 8px; }
+.weak { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 10px; background: #1a2025; border: 1px solid var(--line); }
+.weak .winfo { display: grid; gap: 2px; min-width: 0; }
+.weak .winfo span { font-size: 13px; color: var(--muted); }
+.tcat { display: grid; grid-template-columns: 88px 1fr auto auto; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 14px; }
+.tbar { height: 8px; border-radius: 4px; background: #2a3238; overflow: hidden; }
+.tbar span { display: block; height: 100%; border-radius: 4px; }
+.tbar span.ok { background: var(--green); } .tbar span.low { background: var(--amber); }
+.tpct { font-family: var(--f-num); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tcat button { padding: 3px 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; font-size: 13px; }
+
 </style>
 </head>
 <body>
@@ -306,6 +341,7 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
       <button id="btnCam" type="button">מבט: מכיסא הנהג</button>
       <button id="btnLessons" type="button" class="accent">שיעורים</button>
       <button id="btnBook" type="button">ספר חוקים</button>
+      <button id="btnProgress" type="button">ההתקדמות שלי</button>
       <button id="btnQuiz" type="button">מבחן תיאוריה</button>
       <button id="btnMaps" type="button">מפות</button>
       <button id="btnPlugins" type="button">תוספים</button>
@@ -516,6 +552,38 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
         <button id="btnLessonNext" type="button" class="primary">לשיעור הבא</button>
         <button id="btnLessonRetry" type="button">נסה שוב</button>
         <button id="btnLessonResClose" type="button">המשך לנסוע חופשי</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="progress" class="modal" hidden>
+    <div class="card wide">
+      <p class="eyebrow">ההתקדמות שלי</p>
+      <h2>כמה אתה מוכן לטסט?</h2>
+      <p id="pReady" class="ready"></p>
+      <div class="tiles">
+        <div class="tile"><span class="tv" id="pTests">0</span><span class="tl">מבחני נהיגה</span></div>
+        <div class="tile"><span class="tv" id="pAvg">—</span><span class="tl">ממוצע 5 אחרונים</span></div>
+        <div class="tile"><span class="tv" id="pLessons">0</span><span class="tl">שיעורים שעברת</span></div>
+        <div class="tile"><span class="tv" id="pTheory">—</span><span class="tl">תיאוריה (30 יום)</span></div>
+      </div>
+      <h3 class="sec">ציוני המבחנים האחרונים</h3>
+      <div id="pChart" class="chart"></div>
+      <div class="cols2">
+        <div>
+          <h3 class="sec">על מה לעבוד</h3>
+          <div id="pWeak" class="weaklist"></div>
+        </div>
+        <div>
+          <h3 class="sec">תיאוריה לפי נושא</h3>
+          <div id="pTheoryCats"></div>
+          <h3 class="sec">פעילות אחרונה</h3>
+          <ul id="pHistory" class="sumlist"></ul>
+        </div>
+      </div>
+      <div class="row">
+        <button id="btnCloseProgress" type="button">סגור</button>
+        <button id="btnClearHistory" type="button">מחק היסטוריה</button>
       </div>
     </div>
   </section>
@@ -2491,7 +2559,7 @@ const Rules = {
       blinkHist: [], lastHistT: -1e9, stopped: {}, overTimer: 0, wrongTimer: 0, offTimer: 0, islandTimer: 0,
       pendingLane: null, instr: null, lastT: null, lastEdge: null, rb: null, rbStop: 0,
       parkRolled: null, unparkAt: null, parkedAt: null, didReverseTask: false,
-      distTimer: 0, keepTimer: 0, saidBackRight: false, cwStopTimer: 0, slowTimer: 0, lesson: null,
+      distTimer: 0, keepTimer: 0, saidBackRight: false, cwStopTimer: 0, slowTimer: 0, lesson: null, recorded: false,
     });
     if (typeof Plugins !== 'undefined') Plugins.reset();
   },
@@ -4798,6 +4866,7 @@ renderLog();
 
 function showSummary() {
   paused = true;
+  if (typeof recordTest === 'function') recordTest();
   Voice.say(assist.on && assist.st && assist.st.kind === 'parked' ? 'end_full' : 'end_here');
   const sc = Rules.score;
   let verdict, cls;
@@ -5193,6 +5262,11 @@ function nextQuestion() {
   $('quizScore').textContent = `${r}/${n}`;
   $('quizVerdict').textContent = Quiz.mode === 'exam' ? (pass ? 'עברת! (צריך 26 תשובות נכונות מתוך 30)' : 'לא עברת. במבחן האמיתי צריך 26 תשובות נכונות מתוך 30.') : (pass ? 'מצוין!' : 'כדאי לתרגל עוד את הנושא הזה.');
   $('quizVerdict').className = 'verdict ' + (pass ? 'good' : 'bad');
+  const cats = {};
+  for (const t of Quiz.list) { cats[t.cat] = cats[t.cat] || [0, 0]; cats[t.cat][1]++; }
+  for (const w of Quiz.wrong) cats[w.t.cat][0]--;
+  for (const c in cats) cats[c][0] += cats[c][1];
+  addHistory({ type: 'quiz', name: Quiz.mode === 'exam' ? 'מבחן מלא' : (Quiz.cat || 'תרגול'), right: r, total: n, passed: pass, cats });
   if (Quiz.mode === 'exam') { try { const best = +localStorage.getItem('driving-practice.quizBest') || 0; if (r > best) localStorage.setItem('driving-practice.quizBest', r); } catch (e) { /* לא חובה */ } }
   const box = $('quizWrong'); box.innerHTML = '';
   if (Quiz.wrong.length) {
@@ -5202,7 +5276,7 @@ function nextQuestion() {
 }
 
 function resumeIfIdle() {
-  const open = ['help', 'summary', 'maps', 'plugins', 'book', 'quiz', 'lessons', 'lessonResult'].some(id => $(id) && !$(id).hidden);
+  const open = ['help', 'summary', 'maps', 'plugins', 'book', 'quiz', 'lessons', 'lessonResult', 'progress'].some(id => $(id) && !$(id).hidden);
   if (!open) paused = false;
 }
 
@@ -5451,6 +5525,7 @@ function finishLesson() {
   const score = Math.max(0, 100 - log.reduce((s, x) => s + x.pts, 0) - (ls.def.steps.length - stepsOk) * 10);
   const passed = !severe.length && !focusHits.length && stepsOk === ls.def.steps.length;
   saveLessonResult(ls.def.id, { score, passed });
+  addHistory({ type: 'lesson', name: ls.def.title, score, passed, keys: countKeys(log) });
   Voice.say(passed ? 'good' : 'warn_lane');
   $('lessonResScore').textContent = score;
   $('lessonResVerdict').textContent = passed ? 'עברת את השיעור!' : 'כדאי לנסות שוב';
@@ -5480,6 +5555,153 @@ $('btnLessonQuit').addEventListener('click', () => { Rules.lesson = null; active
 $('btnLessonResClose').addEventListener('click', () => { $('lessonResult').hidden = true; resumeIfIdle(); });
 Rules.onLessonDone = () => finishLesson();
 Rules.onLessonStep = () => updateLessonBar();
+
+// ---- js/progress.js ----
+'use strict';
+// ===== ההתקדמות שלי: היסטוריה, נושאים חלשים והמלצות =====
+// נשמר בדפדפן בלבד (localStorage). רשומה: { type: 'test'|'lesson'|'quiz', date, name, score, passed, keys: {key: n}, cats: {cat: [נכון, סה"כ]} }
+
+const HISTORY_KEY = 'driving-practice.history';
+function loadHistory() { try { const v = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function addHistory(rec) {
+  const h = loadHistory();
+  h.push(Object.assign({ date: Date.now() }, rec));
+  while (h.length > 300) h.shift();
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch (e) { /* לא חובה */ }
+}
+function countKeys(log) { const k = {}; for (const it of log) if (it.key) k[it.key] = (k[it.key] || 0) + 1; return k; }
+
+function recordTest() {
+  if (Rules.recorded || !Rules.log) return;
+  const minutes = time / 60;
+  if (minutes < 0.5 && !Rules.log.length) return;   // נסיעה קצרה מדי
+  Rules.recorded = true;
+  addHistory({ type: 'test', name: currentMap ? currentMap.name : '', score: Rules.score, passed: !Rules.failed && Rules.score >= 85, keys: countKeys(Rules.log), minutes: Math.round(minutes * 10) / 10 });
+}
+
+// ===== מסך =====
+function openProgress() { paused = true; renderProgress(); $('progress').hidden = false; }
+function closeProgress() { $('progress').hidden = true; resumeIfIdle(); }
+
+function renderProgress() {
+  const h = loadHistory();
+  const tests = h.filter(r => r.type === 'test');
+  const lessons = h.filter(r => r.type === 'lesson');
+  const quizzes = h.filter(r => r.type === 'quiz');
+  const last5 = tests.slice(-5);
+  const avg = last5.length ? Math.round(last5.reduce((s, r) => s + r.score, 0) / last5.length) : null;
+  // תשובות נכונות בתיאוריה (30 הימים האחרונים)
+  const recentQ = quizzes.filter(r => Date.now() - r.date < 30 * 864e5);
+  const qTot = recentQ.reduce((s, r) => s + r.total, 0), qOk = recentQ.reduce((s, r) => s + r.right, 0);
+  const qPct = qTot ? Math.round(qOk / qTot * 100) : null;
+
+  $('pTests').textContent = tests.length;
+  $('pAvg').textContent = avg == null ? '—' : avg;
+  $('pLessons').textContent = `${new Set(lessons.filter(r => r.passed).map(r => r.name)).size}/${LESSONS.length}`;
+  $('pTheory').textContent = qPct == null ? '—' : qPct + '%';
+
+  // מוכנות לטסט
+  const lastSevere = last5.some(r => !r.passed);
+  let ready, cls;
+  if (tests.length < 3) { ready = 'עוד מוקדם לדעת: סיים לפחות 3 מבחני נהיגה.'; cls = 'warn'; }
+  else if (avg >= 90 && !lastSevere && (qPct == null || qPct >= 87)) { ready = 'נראה שאתה מוכן לטסט! ממוצע גבוה בלי כישלונות במבחנים האחרונים.'; cls = 'good'; }
+  else if (avg >= 80) { ready = 'קרוב. תתרגל את הנושאים החלשים למטה.'; cls = 'warn'; }
+  else { ready = 'עוד לא. כדאי לעבור על השיעורים ולתרגל את הנושאים החלשים.'; cls = 'bad'; }
+  if (qPct != null && qPct < 87) ready += ` בתיאוריה: ${qPct}% תשובות נכונות (במבחן צריך 87%, כלומר 26 מתוך 30).`;
+  $('pReady').textContent = ready;
+  $('pReady').className = 'ready ' + cls;
+
+  drawScoreChart(tests.slice(-12));
+
+  // נושאים חלשים: עבירות מ-10 המבחנים והשיעורים האחרונים
+  const recent = h.filter(r => r.type !== 'quiz').slice(-10);
+  const agg = {};
+  for (const r of recent) for (const k in (r.keys || {})) agg[k] = (agg[k] || 0) + r.keys[k];
+  const weak = Object.entries(agg).filter(([k]) => ruleForKey(k)).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const box = $('pWeak'); box.innerHTML = '';
+  if (!weak.length) box.innerHTML = '<p class="empty">עוד אין מספיק נתונים. סע כמה מבחנים או שיעורים, והנושאים שצריך לחזק יופיעו כאן.</p>';
+  for (const [k, n] of weak) {
+    const rule = ruleForKey(k);
+    const lesson = LESSONS.find(L => L.focus.includes(k));
+    const el = document.createElement('div'); el.className = 'weak';
+    el.innerHTML = '<div class="winfo"><strong></strong><span></span></div><div class="mapbtns"></div>';
+    el.querySelector('strong').textContent = rule.title;
+    el.querySelector('span').textContent = `${n} פעמים ב-${recent.length} הנסיעות האחרונות`;
+    const btns = el.querySelector('.mapbtns');
+    const mk = (label, fn, primary) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (primary) b.className = 'primary'; b.addEventListener('click', fn); btns.appendChild(b); };
+    if (lesson) mk('תרגל בשיעור', () => { closeProgress(); openLessons(); showLessonBrief(lesson); }, true);
+    mk('החוק', () => { closeProgress(); openBook(rule.id); });
+    box.appendChild(el);
+  }
+
+  // תיאוריה לפי נושא
+  const cats = {};
+  for (const r of quizzes.slice(-20)) for (const c in (r.cats || {})) { cats[c] = cats[c] || [0, 0]; cats[c][0] += r.cats[c][0]; cats[c][1] += r.cats[c][1]; }
+  const tbox = $('pTheoryCats'); tbox.innerHTML = '';
+  const entries = Object.entries(cats);
+  if (!entries.length) tbox.innerHTML = '<p class="empty">עוד לא עשית מבחן תיאוריה.</p>';
+  for (const [c, [ok, tot]] of entries.sort((a, b) => a[1][0] / a[1][1] - b[1][0] / b[1][1])) {
+    const pct = Math.round(ok / tot * 100);
+    const el = document.createElement('div'); el.className = 'tcat';
+    el.innerHTML = '<span class="tname"></span><span class="tbar"><span></span></span><span class="tpct"></span><button type="button">תרגל</button>';
+    el.querySelector('.tname').textContent = c;
+    el.querySelector('.tbar span').style.width = pct + '%';
+    el.querySelector('.tbar span').className = pct >= 87 ? 'ok' : 'low';
+    el.querySelector('.tpct').textContent = `${pct}% (${ok}/${tot})`;
+    el.querySelector('button').addEventListener('click', () => { closeProgress(); openQuiz(); startQuiz('practice', c); });
+    tbox.appendChild(el);
+  }
+
+  // היסטוריה אחרונה
+  const list = $('pHistory'); list.innerHTML = '';
+  for (const r of h.slice(-12).reverse()) {
+    const li = document.createElement('li');
+    const d = new Date(r.date);
+    const label = { test: 'מבחן נהיגה', lesson: 'שיעור', quiz: 'תיאוריה' }[r.type];
+    const val = r.type === 'quiz' ? `${r.right}/${r.total}` : r.score;
+    li.innerHTML = '<span class="when"></span><span class="what"></span><span class="pts"></span>';
+    li.querySelector('.when').textContent = `${d.getDate()}/${d.getMonth() + 1} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    li.querySelector('.what').textContent = `${label}: ${r.name || ''}`;
+    li.querySelector('.pts').textContent = val + (r.passed ? ' ✓' : '');
+    li.className = r.passed ? 'minor' : 'severe';
+    list.appendChild(li);
+  }
+  if (!h.length) list.innerHTML = '<li class="empty">עוד אין היסטוריה.</li>';
+}
+
+// גרף עמודות של ציוני המבחנים האחרונים, עם קו של ציון מעבר (85)
+function drawScoreChart(tests) {
+  const box = $('pChart');
+  if (!tests.length) { box.innerHTML = '<p class="empty">הגרף יופיע אחרי המבחן הראשון ("סיום מבחן").</p>'; return; }
+  const W = 560, H = 190, padL = 30, padR = 8, padT = 12, padB = 26;
+  const iw = W - padL - padR, ih = H - padT - padB;
+  const n = tests.length, slot = iw / Math.max(n, 6), bw = Math.min(30, slot * 0.6);
+  const y = v => padT + ih - (v / 100) * ih;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ציוני המבחנים האחרונים" direction="ltr">`;
+  for (const v of [0, 50, 100]) svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}" class="grid"/><text x="${padL - 6}" y="${y(v) + 4}" class="axis" text-anchor="end">${v}</text>`;
+  svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(85)}" y2="${y(85)}" class="pass"/><text x="${padL - 6}" y="${y(85) + 4}" class="axis passlbl" text-anchor="end">85</text>`;
+  tests.forEach((r, i) => {
+    const cx = padL + slot * (i + 0.5), top = y(r.score), h = Math.max(2, padT + ih - top);
+    const d = new Date(r.date);
+    svg += `<g class="bar${r.passed ? '' : ' fail'}"><title>${d.getDate()}/${d.getMonth() + 1} · ${r.name}: ${r.score}${r.passed ? ' (עבר)' : ''}</title>`;
+    svg += `<path d="M${cx - bw / 2},${padT + ih} V${top + 4} Q${cx - bw / 2},${top} ${cx - bw / 2 + 4},${top} H${cx + bw / 2 - 4} Q${cx + bw / 2},${top} ${cx + bw / 2},${top + 4} V${padT + ih} Z"/>`;
+    svg += `<rect x="${cx - slot / 2}" y="${padT}" width="${slot}" height="${ih}" class="hit"/></g>`;
+    if (i === n - 1) svg += `<text x="${cx}" y="${top - 6}" class="val" text-anchor="middle">${r.score}</text>`;
+  });
+  svg += `<line x1="${padL}" x2="${W - padR}" y1="${padT + ih}" y2="${padT + ih}" class="base"/>`;
+  svg += '</svg>';
+  box.innerHTML = svg + '<p class="legend"><span class="sw pass"></span>עבר <span class="sw fail"></span>לא עבר <span class="sw line"></span>ציון מעבר (85) · ישן משמאל, חדש מימין</p>';
+}
+
+$('btnProgress').addEventListener('click', openProgress);
+$('btnCloseProgress').addEventListener('click', closeProgress);
+$('btnClearHistory').addEventListener('click', e => {
+  const b = e.currentTarget;
+  if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'בטוח? לחץ שוב למחיקה'; return; }
+  try { localStorage.removeItem(HISTORY_KEY); localStorage.removeItem(LESSON_STORE); } catch (err) { /* לא חובה */ }
+  b.dataset.armed = ''; b.textContent = 'מחק היסטוריה';
+  renderProgress();
+});
 
 </script>
 </body>

@@ -227,6 +227,7 @@ function finishLesson() {
   const score = Math.max(0, 100 - log.reduce((s, x) => s + x.pts, 0) - (ls.def.steps.length - stepsOk) * 10);
   const passed = !severe.length && !focusHits.length && stepsOk === ls.def.steps.length;
   saveLessonResult(ls.def.id, { score, passed });
+  addHistory({ type: 'lesson', name: ls.def.title, score, passed, keys: countKeys(log) });
   Voice.say(passed ? 'good' : 'warn_lane');
   $('lessonResScore').textContent = score;
   $('lessonResVerdict').textContent = passed ? 'עברת את השיעור!' : 'כדאי לנסות שוב';
