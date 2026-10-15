@@ -38,6 +38,23 @@ const Models = {
     }
     return pts;
   },
+  // נורמלים חלקים: ממצע נורמלים של פאות שנוגעות באותה נקודה (עד זווית מסוימת), כדי שגוף הרכב ייראה חלק ולא משושה
+  smoothNormals(geo, maxAngle = 0.9) {
+    const pos = geo.attributes.position, nor = geo.attributes.normal, n = pos.count;
+    const key = i => `${Math.round(pos.getX(i) * 1000)},${Math.round(pos.getY(i) * 1000)},${Math.round(pos.getZ(i) * 1000)}`;
+    const map = new Map();
+    for (let i = 0; i < n; i++) { const k = key(i); if (!map.has(k)) map.set(k, []); map.get(k).push(i); }
+    const out = new Float32Array(n * 3), cos = Math.cos(maxAngle);
+    for (const list of map.values()) for (const i of list) {
+      const ax = nor.getX(i), ay = nor.getY(i), az = nor.getZ(i);
+      let sx = 0, sy = 0, sz = 0;
+      for (const j of list) { const bx = nor.getX(j), by = nor.getY(j), bz = nor.getZ(j); if (ax * bx + ay * by + az * bz >= cos) { sx += bx; sy += by; sz += bz; } }
+      const l = Math.hypot(sx, sy, sz) || 1;
+      out[i * 3] = sx / l; out[i * 3 + 1] = sy / l; out[i * 3 + 2] = sz / l;
+    }
+    geo.setAttribute('normal', new THREE.BufferAttribute(out, 3));
+    return geo;
+  },
   // צורה מפרופיל צד (x אורך, y גובה), נמתחת לרוחב w
   extrude(points, w, bevel = 0.06) {
     const s = new THREE.Shape();
@@ -99,11 +116,11 @@ const Models = {
   car(color, type = 'sedan', isPlayer = false) {
     const T = THREE, P = this.CAR_TYPES[type] || this.CAR_TYPES.sedan, g = new T.Group();
     const paint = this.pbr(color, 0.45, 0.32);
-    const body = new T.Mesh(this.geo('low-' + type, () => this.extrude(this.smooth(P.low), P.W, 0.12)), paint);
+    const body = new T.Mesh(this.geo('low-' + type, () => this.smoothNormals(this.extrude(this.smooth(P.low), P.W, 0.12))), paint);
     g.add(body);
     // תא הנוסעים: זכוכית מכל הצדדים וגג בצבע הרכב
     const glass = this.pbr(0x101820, 0.9, 0.06, { polygonOffset: true, polygonOffsetFactor: -1 });
-    const cab = new T.Mesh(this.geo('cab-' + type, () => this.extrude(this.smooth(P.cab, 1), P.W - 0.18, 0.06)), glass);
+    const cab = new T.Mesh(this.geo('cab-' + type, () => this.smoothNormals(this.extrude(this.smooth(P.cab, 1), P.W - 0.18, 0.06))), glass);
     const roofY = P.cab[1][1];
     const roofLen = Math.abs(P.cab[1][0] - P.cab[2][0]);
     const roof = new T.Mesh(this.geo('roof-' + type, () => new T.BoxGeometry(roofLen + 0.1, 0.06, P.W - 0.14)), paint);
@@ -123,6 +140,21 @@ const Models = {
     for (const [x, z] of [[wx, P.W / 2 - 0.12], [wx, -(P.W / 2 - 0.12)], [-wx + 0.1, P.W / 2 - 0.12], [-wx + 0.1, -(P.W / 2 - 0.12)]]) {
       const t = new T.Mesh(tire, this.pbr(0x141414, 0, 0.9)); t.rotation.x = Math.PI / 2; t.position.set(x, 0.34, z); g.add(t);
       const r = new T.Mesh(rim, this.pbr(0xc8ccd0, 1, 0.28)); r.rotation.x = Math.PI / 2; r.position.set(x, 0.34, z); g.add(r);
+    }
+    // קשתות גלגלים כהות, פגושים, גריל, קו דלתות וידיות
+    const dark = this.pbr(0x1b1d20, 0.1, 0.7), chrome = this.pbr(0xd0d4d8, 1, 0.25);
+    const arch = this.geo('arch', () => new T.CylinderGeometry(0.41, 0.41, 0.02, 20));
+    for (const [x, z] of [[wx, 1], [wx, -1], [-wx + 0.1, 1], [-wx + 0.1, -1]]) { const a = new T.Mesh(arch, dark); a.rotation.x = Math.PI / 2; a.position.set(x, 0.36, z * (P.W / 2 + 0.003)); g.add(a); }
+    const front0 = P.low[2][0], rear0 = P.low[0][0];
+    const bumper = this.geo('bumper-' + type, () => { const q = new T.CapsuleGeometry(0.1, P.W - 0.35, 4, 10); q.rotateX(Math.PI / 2); return q; });
+    for (const x of [front0 - 0.04, rear0 + 0.04]) { const b = new T.Mesh(bumper, dark); b.position.set(x, P.low[0][1] + 0.1, 0); g.add(b); }
+    const grille = new T.Mesh(this.geo('grille', () => new T.BoxGeometry(0.03, 0.12, 0.62)), dark); grille.position.set(front0 + 0.01, P.low[2][1] - 0.06, 0); g.add(grille);
+    const seam = this.geo('seam-' + type, () => new T.BoxGeometry(0.012, P.cab[0][1] - P.low[0][1] - 0.15, 0.01));
+    const handle = this.geo('handle2', () => new T.BoxGeometry(0.14, 0.025, 0.02));
+    const doorX = (P.cab[0][0] + P.cab[3][0]) / 2 - 0.1;
+    for (const z of [1, -1]) {
+      const sm = new T.Mesh(seam, dark); sm.position.set(doorX, (P.cab[0][1] + P.low[0][1]) / 2 + 0.05, z * (P.W / 2 + 0.002)); g.add(sm);
+      for (const x of [doorX + 0.45, doorX - 0.5]) { const hd = new T.Mesh(handle, chrome); hd.position.set(x, P.cab[0][1] - 0.12, z * (P.W / 2 + 0.008)); g.add(hd); }
     }
     // פנסים, מראות, לוחית רישוי צהובה
     const lamp = this.geo('lamp', () => new T.BoxGeometry(0.06, 0.13, 0.36));
@@ -262,7 +294,7 @@ const Models = {
       p.group.position.set(-0.05, 0.19, 0);
     }
     const helmet = new T.Mesh(this.geo('helmet', () => new T.SphereGeometry(0.15, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2)), this.mat(kind === 'bike' ? 0xffffff : 0x111111));
-    helmet.position.y = 1.66; p.group.add(helmet);
+    helmet.position.y = 1.72; p.group.add(helmet);
     g.add(p.group, ...parts);
     g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     return { group: g, person: p, body: g, cabin: g, tails: [], tailOn: null, tailOff: null, blink: { '1': [], '-1': [] } };
@@ -288,33 +320,111 @@ const Models = {
   // ===== אנשים =====
   SKIN: [0xf1c9a5, 0xe0ac69, 0xc68642, 0x8d5524, 0xffdbac, 0xd1a17a],
   HAIR: [0x1b1410, 0x3b2a1e, 0x6b4a2b, 0xb38b5d, 0x111111, 0x8c8c8c],
+  BLONDE: [0xe8c77a, 0xf0d99a, 0xd9b26a, 0xf5e1b0],
   CLOTH: [0x2f5d8a, 0x8a2f2f, 0x3f6b45, 0xc9a227, 0x555b66, 0xe8e6e1, 0x6b4f8a, 0xa8552c, 0x1f2937, 0xd96c8a],
   pick(a) { return a[Math.floor(Math.random() * a.length)]; },
 
-  human(opts = {}) {
-    const T = THREE, g = new T.Group();
-    const skin = this.mat(opts.skin || this.pick(this.SKIN)), shirt = this.mat(opts.shirt || this.pick(this.CLOTH));
-    const pants = this.mat(opts.pants || this.pick([0x1f2937, 0x2d3640, 0x3b4a5c, 0x5b4636, 0x222222])), hair = this.mat(this.pick(this.HAIR));
-    const h = opts.height || (1.6 + Math.random() * 0.25), s = h / 1.75;
-    const legGeo = this.geo('leg', () => { const gg = new T.BoxGeometry(0.15, 0.82, 0.17); gg.translate(0, -0.41, 0); return gg; });
-    const armGeo = this.geo('arm', () => { const gg = new T.BoxGeometry(0.11, 0.62, 0.12); gg.translate(0, -0.31, 0); return gg; });
-    const legs = [-0.1, 0.1].map(z => { const l = new T.Mesh(legGeo, pants); l.position.set(0, 0.86 * s, z * s); l.scale.setScalar(s); g.add(l); return l; });
-    const torso = new T.Mesh(this.geo('torso', () => new T.BoxGeometry(0.26, 0.6, 0.42)), shirt);
-    torso.position.y = 1.16 * s; torso.scale.setScalar(s); g.add(torso);
-    const arms = [-0.27, 0.27].map(z => { const a = new T.Mesh(armGeo, shirt); a.position.set(0, 1.44 * s, z * s); a.scale.setScalar(s); g.add(a); return a; });
-    const head = new T.Mesh(this.geo('head', () => new T.SphereGeometry(0.12, 12, 10)), skin);
-    head.position.y = 1.6 * s; head.scale.setScalar(s); g.add(head);
-    const hairM = new T.Mesh(this.geo('hair', () => new T.SphereGeometry(0.125, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2)), hair);
-    hairM.position.y = 1.62 * s; hairM.scale.setScalar(s); g.add(hairM);
-    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-    Models.merge(g, [...legs, ...arms]);
-    return { group: g, legs, arms };
+  // חלקי גוף בצבעים שונים מאוחדים לרשת אחת (צבע לכל קודקוד), כדי שכל אדם יהיה מעט קריאות ציור
+  colored(parts) {
+    const T = THREE, geos = [];
+    for (const { g, c, m } of parts) {
+      let q = g.index ? g.toNonIndexed() : g.clone();
+      if (m) q.applyMatrix4(m);
+      const col = new T.Color(c), n = q.attributes.position.count, arr = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { arr[i * 3] = col.r; arr[i * 3 + 1] = col.g; arr[i * 3 + 2] = col.b; }
+      q.setAttribute('color', new T.BufferAttribute(arr, 3));
+      geos.push(q);
+    }
+    const out = new T.BufferGeometry();
+    for (const [name, k] of [['position', 3], ['normal', 3], ['color', 3]]) {
+      const total = geos.reduce((a, q) => a + q.attributes.position.count, 0), arr = new Float32Array(total * k);
+      let off = 0;
+      for (const q of geos) { arr.set(q.attributes[name].array, off); off += q.attributes.position.count * k; }
+      out.setAttribute(name, new T.BufferAttribute(arr, k));
+    }
+    geos.forEach(q => q.dispose());
+    if (!this._skinMat) { this._skinMat = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }); this._skinMat.userData.shared = true; }
+    const mesh = new T.Mesh(out, this._skinMat);
+    mesh.castShadow = true;
+    return mesh;
   },
-  // תנועת הליכה לפי שלב
+  M(x, y, z, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
+    const T = THREE;
+    return new T.Matrix4().compose(new T.Vector3(x, y, z), new T.Quaternion().setFromEuler(new T.Euler(rx, ry, rz)), new T.Vector3(sx, sy, sz));
+  },
+  SHOES: [0x1a1a1a, 0x3b2a1e, 0xf2f2f2, 0x5a5f66],
+  SHIRTS: [0xffffff, 0x2f5d8a, 0x8a2f2f, 0x3f6b45, 0xc9a227, 0x555b66, 0xe8e6e1, 0x6b4f8a, 0xa8552c, 0x1f2937, 0xd96c8a, 0x87ceeb, 0xf4a261],
+  PANTS: [0x1f2937, 0x2d3640, 0x3b4a5c, 0x5b4636, 0x222222, 0x6b7b8c, 0xc2b280],
+
+  // אדם עם מפרקים (ירכיים, ברכיים, כתפיים, מרפקים), פנים ושיער. פונה ל-x חיובי.
+  human(opts = {}) {
+    const T = THREE, g = new T.Group(), P = this.pick.bind(this);
+    const female = opts.female != null ? opts.female : Math.random() < 0.5;
+    const skin = opts.skin || P(this.SKIN), shirt = opts.shirt || P(this.SHIRTS), pants = opts.pants || P(this.PANTS);
+    const hair = female && Math.random() < 0.45 ? P(this.BLONDE) : P(this.HAIR), shoes = P(this.SHOES);
+    const dress = female && Math.random() < 0.3, skirt = dress || (female && Math.random() < 0.4), longSleeve = Math.random() < 0.35;
+    const hairStyle = female ? P(['long', 'long', 'ponytail', 'bun', 'wavy']) : (Math.random() < 0.12 ? 'bald' : 'short');
+    const h = opts.height || (female ? 1.58 + Math.random() * 0.15 : 1.68 + Math.random() * 0.2), sc = h / 1.75;
+    const cap = (r, l) => this.geo('cap' + r + ':' + l, () => new T.CapsuleGeometry(r, l, 4, 10));
+    const sph = r => this.geo('sph' + r, () => new T.SphereGeometry(r, 14, 10));
+    const M = this.M.bind(this);
+    // גוף, צוואר, ראש, פנים ושיער (חלק אחד שלא זז)
+    const body = [
+      { g: cap(0.16, 0.26), c: shirt, m: M(0, 1.29, 0, 0, 0, 0, female ? 0.66 : 0.74, 1, female ? 0.98 : 1.2) },
+      { g: cap(0.13, 0.12), c: skirt ? shirt : pants, m: M(0, 0.98, 0, Math.PI / 2, 0, 0, 0.85, 1, 1) },
+      { g: this.geo('neck', () => new T.CylinderGeometry(0.048, 0.055, 0.12, 10)), c: skin, m: M(0, 1.54, 0) },
+      { g: sph(0.105), c: skin, m: M(0, 1.67, 0, 0, 0, 0, 1, 1.15, 0.95) },
+      { g: this.geo('nose', () => new T.ConeGeometry(0.018, 0.045, 6)), c: skin, m: M(0.105, 1.66, 0, 0, 0, -Math.PI / 2) },
+      { g: sph(0.013), c: 0x1a1a1a, m: M(0.094, 1.695, 0.036) }, { g: sph(0.013), c: 0x1a1a1a, m: M(0.094, 1.695, -0.036) },
+    ];
+    if (hairStyle !== 'bald') body.push({ g: this.geo('hairCap', () => new T.SphereGeometry(0.113, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.55)), c: hair, m: M(-0.012, 1.69, 0, 0, 0, 0.25, 1, 1.12, 1) });
+    if (hairStyle === 'long') body.push({ g: cap(0.085, 0.24), c: hair, m: M(-0.07, 1.55, 0, 0, 0, 0, 0.8, 1, 1.25) });
+    if (hairStyle === 'wavy') body.push({ g: cap(0.1, 0.16), c: hair, m: M(-0.06, 1.58, 0, 0, 0, 0, 0.9, 1, 1.45) });
+    if (hairStyle === 'ponytail') body.push({ g: cap(0.04, 0.2), c: hair, m: M(-0.13, 1.6, 0, 0, 0, -0.35) });
+    if (hairStyle === 'bun') body.push({ g: sph(0.06), c: hair, m: M(-0.08, 1.79, 0) });
+    if (female) body.push({ g: this.geo('lips', () => new T.BoxGeometry(0.01, 0.012, 0.04)), c: P([0xb5354a, 0xc4566a, 0x9c3b3b]), m: M(0.1, 1.625, 0) });
+    // שמלה: אותו צבע כמו החולצה; חצאית: צבע משלה
+    if (skirt) body.push({ g: this.geo('skirt', () => new T.CylinderGeometry(0.14, 0.26, 0.46, 16, 1, true)), c: dress ? shirt : P([0x6b4f8a, 0x1f2937, 0xa8552c, 0x2f5d8a, 0xd96c8a, 0x222222]), m: M(0, 0.77, 0) });
+    // תיק צד
+    if (female && Math.random() < 0.4) body.push({ g: this.geo('bag', () => new T.BoxGeometry(0.22, 0.17, 0.07)), c: P([0x5b3a29, 0x111111, 0xc9a227, 0x8a2f2f]), m: M(-0.02, 0.98, 0.25) });
+    const torso = this.colored(body); g.add(torso);
+    // רגליים: ירך ← ברך ← שוק ונעל
+    const legs = [], knees = [];
+    for (const z of [0.09, -0.09]) {
+      const hip = new T.Group(); hip.position.set(0, 0.93, z); g.add(hip);
+      hip.add(this.colored([{ g: cap(0.072, 0.3), c: skirt ? skin : pants, m: M(0, -0.21, 0) }]));
+      const knee = new T.Group(); knee.position.y = -0.44; hip.add(knee);
+      knee.add(this.colored([
+        { g: cap(0.056, 0.32), c: skirt ? skin : pants, m: M(0, -0.21, 0) },
+        { g: cap(0.05, 0.14), c: shoes, m: M(0.05, -0.44, 0, 0, 0, Math.PI / 2, 1, 1, 1.1) },
+      ]));
+      legs.push(hip); knees.push(knee);
+    }
+    // ידיים: כתף ← מרפק ← אמה וכף יד
+    const arms = [], elbows = [];
+    for (const z of [0.21, -0.21]) {
+      const sh = new T.Group(); sh.position.set(0, 1.43, z * (female ? 0.88 : 1)); g.add(sh);
+      sh.add(this.colored([{ g: cap(0.05, 0.2), c: shirt, m: M(0, -0.14, 0) }]));
+      const el = new T.Group(); el.position.y = -0.29; sh.add(el);
+      el.add(this.colored([
+        { g: cap(0.042, 0.18), c: longSleeve ? shirt : skin, m: M(0, -0.12, 0) },
+        { g: sph(0.045), c: skin, m: M(0, -0.27, 0, 0, 0, 0, 1, 1.2, 0.7) },
+      ]));
+      arms.push(sh); elbows.push(el);
+    }
+    g.scale.setScalar(sc);
+    return { group: g, legs, knees, arms, elbows };
+  },
+  // הליכה טבעית: רגל מתנדנדת, ברך מתכופפת כשהרגל עוברת קדימה, ידיים נגדיות
   walk(p, phase, moving) {
-    const a = moving ? Math.sin(phase) * 0.5 : 0;
-    p.legs[0].rotation.z = a; p.legs[1].rotation.z = -a;
-    p.arms[0].rotation.z = -a * 0.8; p.arms[1].rotation.z = a * 0.8;
+    const sw = moving ? Math.sin(phase) * 0.42 : 0, cs = Math.cos(phase);
+    p.legs[0].rotation.z = sw; p.legs[1].rotation.z = -sw;
+    if (p.knees) {
+      p.knees[0].rotation.z = moving ? -(Math.max(0, cs) * 0.75 + 0.05) : 0;
+      p.knees[1].rotation.z = moving ? -(Math.max(0, -cs) * 0.75 + 0.05) : 0;
+      p.elbows[0].rotation.z = p.elbows[1].rotation.z = moving ? 0.35 : 0.12;
+    }
+    p.arms[0].rotation.z = -sw * 0.8; p.arms[1].rotation.z = sw * 0.8;
   },
 
   // ===== צמחייה =====
