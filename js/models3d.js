@@ -18,12 +18,32 @@ const Models = {
   },
   geo(key, make) { if (!this._geo[key]) { this._geo[key] = make(); this._geo[key].userData.shared = true; } return this._geo[key]; },
 
+  // חומר מבריק (צבע רכב, זכוכית, מתכת) שמחזיר את השמיים
+  pbr(color, metal, rough, opts) {
+    color = color && color.isColor ? color.getHex() : new THREE.Color(color).getHex();
+    const key = 'pbr' + color + ':' + metal + ':' + rough + JSON.stringify(opts || {});
+    if (!this._mat[key]) { this._mat[key] = new THREE.MeshStandardMaterial(Object.assign({ color, metalness: metal, roughness: rough }, opts || {})); this._mat[key].userData.shared = true; }
+    return this._mat[key];
+  },
+  // החלקת פינות של פרופיל (Chaikin) כדי שהרכב ייראה מעוגל ולא קופסה
+  smooth(points, it = 2) {
+    let pts = points;
+    for (let k = 0; k < it; k++) {
+      const out = [];
+      for (let i = 0; i < pts.length; i++) {
+        const a = pts[i], b = pts[(i + 1) % pts.length];
+        out.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+      }
+      pts = out;
+    }
+    return pts;
+  },
   // צורה מפרופיל צד (x אורך, y גובה), נמתחת לרוחב w
   extrude(points, w, bevel = 0.06) {
     const s = new THREE.Shape();
     points.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
     s.closePath();
-    const g = new THREE.ExtrudeGeometry(s, { depth: w - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 4 });
+    const g = new THREE.ExtrudeGeometry(s, { depth: w - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 4 });
     g.translate(0, 0, -(w - bevel * 2) / 2);
     return g;
   },
@@ -78,12 +98,12 @@ const Models = {
 
   car(color, type = 'sedan', isPlayer = false) {
     const T = THREE, P = this.CAR_TYPES[type] || this.CAR_TYPES.sedan, g = new T.Group();
-    const paint = this.mat(color);
-    const body = new T.Mesh(this.geo('low-' + type, () => this.extrude(P.low, P.W, 0.08)), paint);
+    const paint = this.pbr(color, 0.45, 0.32);
+    const body = new T.Mesh(this.geo('low-' + type, () => this.extrude(this.smooth(P.low), P.W, 0.12)), paint);
     g.add(body);
     // תא הנוסעים: זכוכית מכל הצדדים וגג בצבע הרכב
-    const glass = this.mat(0x1c2a36, { polygonOffset: true, polygonOffsetFactor: -1 });
-    const cab = new T.Mesh(this.geo('cab-' + type, () => this.extrude(P.cab, P.W - 0.18, 0.04)), glass);
+    const glass = this.pbr(0x101820, 0.9, 0.06, { polygonOffset: true, polygonOffsetFactor: -1 });
+    const cab = new T.Mesh(this.geo('cab-' + type, () => this.extrude(this.smooth(P.cab, 1), P.W - 0.18, 0.06)), glass);
     const roofY = P.cab[1][1];
     const roofLen = Math.abs(P.cab[1][0] - P.cab[2][0]);
     const roof = new T.Mesh(this.geo('roof-' + type, () => new T.BoxGeometry(roofLen + 0.1, 0.06, P.W - 0.14)), paint);
@@ -101,8 +121,8 @@ const Models = {
     const rim = this.geo('rim', () => new T.CylinderGeometry(0.2, 0.2, 0.25, 12));
     const wx = P.L / 2 - 0.85;
     for (const [x, z] of [[wx, P.W / 2 - 0.12], [wx, -(P.W / 2 - 0.12)], [-wx + 0.1, P.W / 2 - 0.12], [-wx + 0.1, -(P.W / 2 - 0.12)]]) {
-      const t = new T.Mesh(tire, this.mat(0x161616)); t.rotation.x = Math.PI / 2; t.position.set(x, 0.34, z); g.add(t);
-      const r = new T.Mesh(rim, this.mat(0xb8bec4)); r.rotation.x = Math.PI / 2; r.position.set(x, 0.34, z); g.add(r);
+      const t = new T.Mesh(tire, this.pbr(0x141414, 0, 0.9)); t.rotation.x = Math.PI / 2; t.position.set(x, 0.34, z); g.add(t);
+      const r = new T.Mesh(rim, this.pbr(0xc8ccd0, 1, 0.28)); r.rotation.x = Math.PI / 2; r.position.set(x, 0.34, z); g.add(r);
     }
     // פנסים, מראות, לוחית רישוי צהובה
     const lamp = this.geo('lamp', () => new T.BoxGeometry(0.06, 0.13, 0.36));

@@ -16,6 +16,9 @@ const View3D = {
     this.cv = cv;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    // צבעים כמו של מצלמה אמיתית
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.25;
     this.camera = new THREE.PerspectiveCamera(68, 1, 0.1, 900);
     this.mirrorCam = new THREE.PerspectiveCamera(42, 3.2, 0.5, 300);
     this.aniso = this.renderer.capabilities.getMaxAnisotropy();
@@ -88,6 +91,7 @@ const View3D = {
     this.nearAt = null;
 
     this.buildSky();
+    this.buildEnv();
     this.buildCurbs();
     this.buildLamps();
     this.buildBuildings();
@@ -194,6 +198,25 @@ const View3D = {
     this.paintRoads(this.nearCv.getContext('2d'), px - N / 2, py - N / 2, S / N, S, S);
     this.nearTex.needsUpdate = true;
     this.nearMesh.position.x = px; this.nearMesh.position.z = py;
+  },
+
+  // סביבה להשתקפויות (צבע רכב מבריק, זכוכית): כיפת שמיים קטנה עם אדמה, מעובדת פעם אחת
+  buildEnv() {
+    const T = THREE;
+    if (!this.pmrem) this.pmrem = new T.PMREMGenerator(this.renderer);
+    const env = new T.Scene();
+    const c = document.createElement('canvas'); c.width = 4; c.height = 128;
+    const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 128);
+    gr.addColorStop(0, '#5f9fd8'); gr.addColorStop(0.45, '#d8ecf8'); gr.addColorStop(0.52, '#8e8a80'); gr.addColorStop(1, '#3a3c3e');
+    g.fillStyle = gr; g.fillRect(0, 0, 4, 128);
+    const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace;
+    env.add(new T.Mesh(new T.SphereGeometry(50, 32, 16), new T.MeshBasicMaterial({ map: tex, side: T.BackSide })));
+    const sunBall = new T.Mesh(new T.SphereGeometry(4, 12, 8), new T.MeshBasicMaterial({ color: 0xfff4e0 }));
+    sunBall.position.set(-20, 40, 15); env.add(sunBall);
+    if (this.envTex) this.envTex.dispose();
+    this.envTex = this.pmrem.fromScene(env, 0.02).texture;
+    this.envTex.userData.cached = true;
+    this.scene.environment = this.envTex;
   },
 
   // שמיים: כיפה עם מעבר צבע מהאופק לכחול
