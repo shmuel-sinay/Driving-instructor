@@ -36,6 +36,7 @@ const Cockpit = {
     const kmh = Math.abs(player.v) * 3.6;
     this.updateRpm(dt, kmh, opts.gas);
 
+    this.interior(c, W, H);
     // --- הטמבון: לוח כהה עם קצה עליון מעוגל ---
     const top = H * 0.78, mid = H * 0.74;
     const gr = c.createLinearGradient(0, mid, 0, H);
@@ -54,6 +55,21 @@ const Cockpit = {
       for (let i = 1; i < 5; i++) { const y = top + H * 0.06 + i * H * 0.01; c.beginPath(); c.moveTo(x - W * 0.04, y); c.lineTo(x + W * 0.04, y); c.stroke(); }
     }
 
+    // --- קונסולה מרכזית מימין להגה: מסך מולטימדיה ופתחי מיזוג ---
+    {
+      const sx = W * 0.79, sw = Math.min(W * 0.16, 260), sh = sw * 0.58, sy = top + H * 0.035;
+      c.fillStyle = '#0e0f11'; this.round(c, sx - sw / 2 - 8, sy - 8, sw + 16, sh + 16, 12); c.fill();
+      const sg = c.createLinearGradient(sx - sw / 2, sy, sx + sw / 2, sy + sh);
+      sg.addColorStop(0, '#10243a'); sg.addColorStop(1, '#0a1522');
+      c.fillStyle = sg; this.round(c, sx - sw / 2, sy, sw, sh, 8); c.fill();
+      // מפת ניווט קטנה על המסך
+      c.strokeStyle = 'rgba(120,190,255,0.55)'; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(sx - sw * 0.3, sy + sh * 0.85); c.lineTo(sx - sw * 0.05, sy + sh * 0.45); c.lineTo(sx + sw * 0.3, sy + sh * 0.3); c.stroke();
+      c.fillStyle = '#4fc3ff'; c.beginPath(); c.arc(sx - sw * 0.05, sy + sh * 0.45, 5, 0, Math.PI * 2); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.7)'; c.font = `${Math.max(11, sh * 0.11)}px Arial`; c.textAlign = 'center';
+      c.fillText(new Date().toTimeString().slice(0, 5), sx + sw * 0.3, sy + sh * 0.15);
+      c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(sx - sw / 2, sy, sw, sh * 0.12);
+    }
     // --- גומחת השעונים מול הנהג ---
     const R = Math.min(H * 0.105, W * 0.085, 105), cx = W / 2, cy = top + R * 0.62;
     c.fillStyle = '#141518';
@@ -92,6 +108,45 @@ const Cockpit = {
     c.beginPath(); c.arc(0, 0, R * 0.62, 0, Math.PI * 2); c.fill();
     c.fillStyle = '#9aa3ab'; c.beginPath(); c.arc(0, -R * 0.05, R * 0.14, 0, Math.PI * 2); c.fill();
     c.restore();
+  },
+
+  // הפנים של הרכב סביב השמשה: תקרה בהירה עם מגני שמש, עמודי שמשה רחבים, וזרוע של המראה האחורית
+  interior(c, W, H) {
+    const beige = '#c8bea9', beigeD = '#a99f8a';
+    // תקרה
+    const hh = H * 0.11;
+    let g = c.createLinearGradient(0, 0, 0, hh * 1.4);
+    g.addColorStop(0, '#d9d0bd'); g.addColorStop(1, beigeD);
+    c.fillStyle = g;
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(W, 0); c.lineTo(W, hh * 1.35);
+    c.bezierCurveTo(W * 0.7, hh * 0.95, W * 0.3, hh * 0.95, 0, hh * 1.35); c.closePath(); c.fill();
+    // מגני שמש (מקופלים)
+    for (const [x, w] of [[W * 0.06, W * 0.3], [W * 0.64, W * 0.3]]) {
+      g = c.createLinearGradient(0, hh * 0.4, 0, hh * 1.2);
+      g.addColorStop(0, '#cfc5b1'); g.addColorStop(1, '#b3a994');
+      c.fillStyle = g; this.round(c, x, hh * 0.35, w, hh * 0.75, 14); c.fill();
+      c.strokeStyle = 'rgba(0,0,0,0.12)'; c.lineWidth = 2; c.stroke();
+    }
+    // זרוע המראה האחורית (המראה עצמה מוצגת מעליה)
+    const mr = document.getElementById('mirror'), mTop = mr && !mr.hidden ? mr.getBoundingClientRect().top : hh * 1.25;
+    c.fillStyle = '#8f8676'; c.fillRect(W / 2 - 7, 0, 14, Math.max(0, mTop - 2));
+    // עמודי השמשה: רחבים, בהירים, נוטים פנימה למעלה
+    for (const side of [-1, 1]) {
+      const xb = side < 0 ? 0 : W, inner = side < 0 ? 1 : -1;
+      g = c.createLinearGradient(xb, 0, xb + inner * W * 0.2, 0);
+      g.addColorStop(0, beigeD); g.addColorStop(1, beige);
+      c.fillStyle = g;
+      c.beginPath();
+      c.moveTo(xb, hh * 1.2);
+      c.lineTo(xb + inner * W * 0.06, hh * 1.25);
+      c.lineTo(xb + inner * W * 0.2, H * 0.8);
+      c.lineTo(xb + inner * W * 0.13, H * 0.82);
+      c.lineTo(xb, H * 0.6);
+      c.closePath(); c.fill();
+      // גומי השמשה: קו כהה בצד הפנימי של העמוד
+      c.strokeStyle = 'rgba(20,20,20,0.6)'; c.lineWidth = 4;
+      c.beginPath(); c.moveTo(xb + inner * W * 0.06, hh * 1.25); c.lineTo(xb + inner * W * 0.2, H * 0.8); c.stroke();
+    }
   },
 
   // שעון עגול עם שנתות, מספרים ומחוג

@@ -252,10 +252,10 @@ const Models = {
       m.position.copy(a).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()); dash.add(m);
     };
     for (const z of [W / 2 - 0.03, -(W / 2 - 0.03)]) {
-      beam(new T.Vector3(1.3, 0.97, z), new T.Vector3(0.62, 1.47, z * 0.95), 0.028, this.mat(0x6b6e72));
+      // עמודי השמשה מצוירים עכשיו בלוח שעל המסך (cockpit.js)
       beam(new T.Vector3(1.0, 0.98, z), new T.Vector3(-0.6, 0.98, z), 0.07, soft);   // אדן החלון
     }
-    const header = new T.Mesh(new T.BoxGeometry(0.4, 0.03, W), roofIn); header.position.set(0.4, 1.5, 0); dash.add(header);
+    const header = new T.Mesh(new T.BoxGeometry(0.4, 0.03, W), roofIn); header.position.set(0.4, 1.5, 0); header.visible = false; dash.add(header);
     // קווי עזר על הכביש: איפה הרכב נגמר מימין, משמאל ומלפנים (כמו מצלמת חניה)
     const guideMat = new T.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.7, depthWrite: false });
     const guides = new T.Group();
