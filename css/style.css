@@ -109,8 +109,6 @@ li.severe .pts { color: var(--red); }
 .lead.assist { border-inline-start: 3px solid var(--sky); padding-inline-start: 12px; font-size: 16px; }
 
 /* במבט נהג: ההוראה וההודעות מתחת למראה */
-body.view3d.drivercam .instr { top: calc(var(--top) + 16px + var(--mirror-w) / 3.2); }
-body.view3d.drivercam .toasts { top: calc(var(--top) + 72px + var(--mirror-w) / 3.2); }
 
 /* ===== תפריט הגדרות ===== */
 .settings { position: relative; }
@@ -331,3 +329,9 @@ body.view3d .toast { padding: 6px 12px; font-size: 15px; }
 .mainmenu > .tools { position: absolute; top: calc(100% + 6px); inset-inline-end: 0; z-index: 20; display: grid; gap: 4px; min-width: 230px; max-height: 80vh; overflow-y: auto; margin: 0; width: auto; padding: 8px; background: #14191d; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 30px rgba(0,0,0,.45); }
 .mainmenu > .tools > button, .mainmenu .settings summary { text-align: start; width: 100%; }
 .mainmenu .settings .menu { position: static; box-shadow: none; margin-top: 4px; }
+
+/* ===== ההודעות בפינה הימנית העליונה, כדי שמרכז המסך יישאר פנוי לכביש ===== */
+.instr { left: auto; right: 16px; transform: none; top: calc(var(--top) + 8px); width: min(330px, calc(100% - 32px)); max-width: none; font-size: 15px; padding: 8px 12px; box-shadow: none; }
+.toasts { left: auto; right: 16px; transform: none; top: calc(var(--top) + 64px); width: min(330px, calc(100% - 32px)); align-items: stretch; }
+.toast { font-size: 14px; padding: 6px 10px; }
+.toast .why { display: none; }

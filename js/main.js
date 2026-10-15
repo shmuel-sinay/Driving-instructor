@@ -192,6 +192,13 @@ let hintsOn = (() => { try { return localStorage.getItem('driving-practice.hints
 function showHints() { $('btnHints').textContent = hintsOn ? 'רמזים "לפניך": מוצגים' : 'רמזים "לפניך": מוסתרים (מזהים לבד)'; $('nextBox').hidden = !hintsOn; }
 $('btnHints').addEventListener('click', () => { hintsOn = !hintsOn; try { localStorage.setItem('driving-practice.hints', hintsOn ? 'on' : 'off'); } catch (e) { /* לא חובה */ } showHints(); });
 showHints();
+// קווי עזר בכביש שמראים את רוחב הרכב ואת החזית שלו
+function showGuides() {
+  $('btnGuides').textContent = Models.guidesOn ? 'קווי עזר לגבולות הרכב: מוצגים' : 'קווי עזר לגבולות הרכב: מוסתרים';
+  const d = View3D.player && View3D.player.dash; if (d && d.userData.guides) d.userData.guides.visible = Models.guidesOn;
+}
+$('btnGuides').addEventListener('click', () => { Models.guidesOn = !Models.guidesOn; try { localStorage.setItem('driving-practice.guides', Models.guidesOn ? 'on' : 'off'); } catch (e) { /* לא חובה */ } showGuides(); });
+showGuides();
 $('btnReset').addEventListener('click', () => { act.reset(); $('settings').open = false; });
 $('btnLog').addEventListener('click', toggleLog);
 $('btnHelp').addEventListener('click', showHelp);

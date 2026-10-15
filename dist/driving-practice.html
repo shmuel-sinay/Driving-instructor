@@ -119,8 +119,6 @@ li.severe .pts { color: var(--red); }
 .lead.assist { border-inline-start: 3px solid var(--sky); padding-inline-start: 12px; font-size: 16px; }
 
 /* במבט נהג: ההוראה וההודעות מתחת למראה */
-body.view3d.drivercam .instr { top: calc(var(--top) + 16px + var(--mirror-w) / 3.2); }
-body.view3d.drivercam .toasts { top: calc(var(--top) + 72px + var(--mirror-w) / 3.2); }
 
 /* ===== תפריט הגדרות ===== */
 .settings { position: relative; }
@@ -342,6 +340,12 @@ body.view3d .toast { padding: 6px 12px; font-size: 15px; }
 .mainmenu > .tools > button, .mainmenu .settings summary { text-align: start; width: 100%; }
 .mainmenu .settings .menu { position: static; box-shadow: none; margin-top: 4px; }
 
+/* ===== ההודעות בפינה הימנית העליונה, כדי שמרכז המסך יישאר פנוי לכביש ===== */
+.instr { left: auto; right: 16px; transform: none; top: calc(var(--top) + 8px); width: min(330px, calc(100% - 32px)); max-width: none; font-size: 15px; padding: 8px 12px; box-shadow: none; }
+.toasts { left: auto; right: 16px; transform: none; top: calc(var(--top) + 64px); width: min(330px, calc(100% - 32px)); align-items: stretch; }
+.toast { font-size: 14px; padding: 6px 10px; }
+.toast .why { display: none; }
+
 </style>
 </head>
 <body>
@@ -383,6 +387,7 @@ body.view3d .toast { padding: 6px 12px; font-size: 15px; }
           <button id="btnQuality" type="button">גרפיקה: גבוהה</button>
           <button id="btnWeather" type="button">תנאים: יום</button>
           <button id="btnEmergency" type="button">רכבי ביטחון: מופיעים</button>
+          <button id="btnGuides" type="button">קווי עזר לגבולות הרכב: מוצגים</button>
           <button id="btnHints" type="button">רמזים "לפניך": מוצגים</button>
           <button id="btnReset" type="button">חזרה לנקודת ההתחלה</button>
         </div>
@@ -4320,6 +4325,7 @@ function renderMinimap(mctx, w, h, npcs) {
 
 const Models = {
   _mat: {}, _geo: {},
+  guidesOn: (() => { try { return localStorage.getItem('driving-practice.guides') !== 'off'; } catch (e) { return true; } })(),
   mat(color, opts) {
     color = color && color.isColor ? color.getHex() : new THREE.Color(color).getHex();
     const key = color + JSON.stringify(opts || {});
@@ -4530,8 +4536,22 @@ const Models = {
       beam(new T.Vector3(1.0, 0.98, z), new T.Vector3(-0.6, 0.98, z), 0.07, soft);   // אדן החלון
     }
     const header = new T.Mesh(new T.BoxGeometry(0.4, 0.03, W), roofIn); header.position.set(0.4, 1.5, 0); dash.add(header);
+    // קווי עזר על הכביש: איפה הרכב נגמר מימין, משמאל ומלפנים (כמו מצלמת חניה)
+    const guideMat = new T.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.7, depthWrite: false });
+    const guides = new T.Group();
+    for (const z of [P.W / 2, -P.W / 2]) {
+      const strip = new T.Mesh(new T.PlaneGeometry(9, 0.1), guideMat);
+      strip.rotation.x = -Math.PI / 2; strip.position.set(P.L / 2 + 4.5, 0.03, z); guides.add(strip);
+    }
+    for (const [x, op] of [[P.L / 2 + 0.05, 0.6], [P.L / 2 + 3, 0.3], [P.L / 2 + 6, 0.2]]) {
+      const m = new T.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: op, depthWrite: false });
+      const cross = new T.Mesh(new T.PlaneGeometry(0.07, P.W), m);
+      cross.rotation.x = -Math.PI / 2; cross.position.set(x, 0.03, 0); guides.add(cross);
+    }
+    guides.visible = Models.guidesOn;
+    dash.add(guides);
     g.add(dash);
-    dash.userData = { wheel: spin, gauge: { ctx: gc.getContext('2d'), tex: gtex } };
+    dash.userData = { guides, wheel: spin, gauge: { ctx: gc.getContext('2d'), tex: gtex } };
     return dash;
   },
   // ציור השעונים: מד מהירות, איתותים, הילוך
@@ -5864,6 +5884,13 @@ let hintsOn = (() => { try { return localStorage.getItem('driving-practice.hints
 function showHints() { $('btnHints').textContent = hintsOn ? 'רמזים "לפניך": מוצגים' : 'רמזים "לפניך": מוסתרים (מזהים לבד)'; $('nextBox').hidden = !hintsOn; }
 $('btnHints').addEventListener('click', () => { hintsOn = !hintsOn; try { localStorage.setItem('driving-practice.hints', hintsOn ? 'on' : 'off'); } catch (e) { /* לא חובה */ } showHints(); });
 showHints();
+// קווי עזר בכביש שמראים את רוחב הרכב ואת החזית שלו
+function showGuides() {
+  $('btnGuides').textContent = Models.guidesOn ? 'קווי עזר לגבולות הרכב: מוצגים' : 'קווי עזר לגבולות הרכב: מוסתרים';
+  const d = View3D.player && View3D.player.dash; if (d && d.userData.guides) d.userData.guides.visible = Models.guidesOn;
+}
+$('btnGuides').addEventListener('click', () => { Models.guidesOn = !Models.guidesOn; try { localStorage.setItem('driving-practice.guides', Models.guidesOn ? 'on' : 'off'); } catch (e) { /* לא חובה */ } showGuides(); });
+showGuides();
 $('btnReset').addEventListener('click', () => { act.reset(); $('settings').open = false; });
 $('btnLog').addEventListener('click', toggleLog);
 $('btnHelp').addEventListener('click', showHelp);

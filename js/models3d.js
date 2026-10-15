@@ -5,6 +5,7 @@
 
 const Models = {
   _mat: {}, _geo: {},
+  guidesOn: (() => { try { return localStorage.getItem('driving-practice.guides') !== 'off'; } catch (e) { return true; } })(),
   mat(color, opts) {
     color = color && color.isColor ? color.getHex() : new THREE.Color(color).getHex();
     const key = color + JSON.stringify(opts || {});
@@ -215,8 +216,22 @@ const Models = {
       beam(new T.Vector3(1.0, 0.98, z), new T.Vector3(-0.6, 0.98, z), 0.07, soft);   // אדן החלון
     }
     const header = new T.Mesh(new T.BoxGeometry(0.4, 0.03, W), roofIn); header.position.set(0.4, 1.5, 0); dash.add(header);
+    // קווי עזר על הכביש: איפה הרכב נגמר מימין, משמאל ומלפנים (כמו מצלמת חניה)
+    const guideMat = new T.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.7, depthWrite: false });
+    const guides = new T.Group();
+    for (const z of [P.W / 2, -P.W / 2]) {
+      const strip = new T.Mesh(new T.PlaneGeometry(9, 0.1), guideMat);
+      strip.rotation.x = -Math.PI / 2; strip.position.set(P.L / 2 + 4.5, 0.03, z); guides.add(strip);
+    }
+    for (const [x, op] of [[P.L / 2 + 0.05, 0.6], [P.L / 2 + 3, 0.3], [P.L / 2 + 6, 0.2]]) {
+      const m = new T.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: op, depthWrite: false });
+      const cross = new T.Mesh(new T.PlaneGeometry(0.07, P.W), m);
+      cross.rotation.x = -Math.PI / 2; cross.position.set(x, 0.03, 0); guides.add(cross);
+    }
+    guides.visible = Models.guidesOn;
+    dash.add(guides);
     g.add(dash);
-    dash.userData = { wheel: spin, gauge: { ctx: gc.getContext('2d'), tex: gtex } };
+    dash.userData = { guides, wheel: spin, gauge: { ctx: gc.getContext('2d'), tex: gtex } };
     return dash;
   },
   // ציור השעונים: מד מהירות, איתותים, הילוך
