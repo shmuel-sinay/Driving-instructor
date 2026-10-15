@@ -368,7 +368,7 @@ body.view3d.drivercam .dash { left: 42%; }
 
 /* מפה קטנה ולוח כפתורים: מוסתרים כברירת מחדל, ונפתחים בלחיצה */
 body.nominimap .minimap { display: none; }
-body.padhidden .controls .pad { display: none; }
+body.padhidden .controls .pad.drive { display: none; }   /* דוושות הגז והבלם נשארות תמיד */
 .controls .padtoggle { position: absolute; right: 16px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 52px; font-size: 20px; }
 body:not(.padhidden) .controls .padtoggle { bottom: calc(14px + 3 * 52px + 2 * 6px + 10px + env(safe-area-inset-bottom, 0px)); }
 
@@ -813,7 +813,7 @@ const RULEBOOK = [
 
   // ----- רמזורים ותמרורים -----
   { id: 'red-light', cat: 'רמזורים ותמרורים', title: 'אור אדום ואדום-צהוב', text: 'באור אדום עוצרים לפני קו העצירה, ואם אין קו, לפני מעבר החצייה. אדום-צהוב פירושו להתכונן לנסיעה, אבל עדיין אסור להיכנס.', src: [693, 978], keys: ['red', 'stopline'] },
-  { id: 'yellow-light', cat: 'רמזורים ותמרורים', title: 'אור צהוב', text: 'באור צהוב (לא מהבהב) עוצרים לפני הצומת, אלא אם אי אפשר לעצור בבטחה.', src: [667, 1750] },
+  { id: 'yellow-light', cat: 'רמזורים ותמרורים', title: 'אור צהוב', text: 'באור צהוב (לא מהבהב) עוצרים לפני הצומת, אלא אם אי אפשר לעצור בבטחה.', src: [667, 1750], keys: ['yellow'] },
   { id: 'green-blink', cat: 'רמזורים ותמרורים', title: 'ירוק מהבהב', text: 'ירוק מהבהב פירושו שמיד יופיע צהוב: מתכוננים לעצירה.', src: [1787, 93] },
   { id: 'yellow-blink', cat: 'רמזורים ותמרורים', title: 'צהוב מהבהב', text: 'ברמזור שמהבהב בו צהוב מאטים ונוהגים לפי התמרורים ולפי כללי זכות הקדימה.', src: [668, 246] },
   { id: 'light-over-sign', cat: 'רמזורים ותמרורים', title: 'רמזור קודם לתמרור', text: 'הוראת רמזור (חוץ מצהוב מהבהב) עדיפה על תמרור של מתן זכות קדימה.', src: [59, 69] },
@@ -836,20 +836,20 @@ const RULEBOOK = [
   { id: 'reasonable-speed', cat: 'מהירות ושמירת מרחק', title: 'מהירות סבירה', text: 'המהירות המותרת היא רק הגבול העליון. נוסעים במהירות שמתאימה לתנאי הדרך, התנועה והראות, ושמאפשרת שליטה מלאה.', src: [1540, 807, 803], keys: ['slow'] },
   { id: 'following-distance', cat: 'מהירות ושמירת מרחק', title: 'שמירת רווח', text: 'לפי החוק שומרים לפחות מרחק נסיעה של שנייה אחת מהרכב שלפנים; מומלץ שתי שניות. בראות לקויה, בכביש חלק או בעייפות מגדילים את הרווח.', src: [138, 821, 1598], keys: ['distance'] },
   { id: 'wet-road', cat: 'מהירות ושמירת מרחק', title: 'כביש רטוב וגשם', text: 'בכביש רטוב סכנת ההחלקה גדלה ככל שהמהירות גבוהה יותר, ובמיוחד בגשם הראשון (אבק ושמן על הכביש). מאטים, מגדילים את הרווח מהרכב שלפנים, ובהתקרבות לצומת מאטים מוקדם כדי לא להחליק לתוכו.', src: [611, 1529, 1701, 1773, 774], keys: ['wetspeed', 'wetdist'] },
-  { id: 'night-driving', cat: 'מהירות ושמירת מרחק', title: 'נהיגה בלילה', text: 'בלילה שדה הראייה מוגבל, יש סינוור וקשה להעריך מרחקים. מתאימים את המהירות לטווח האורות. כשרכב ממול מסנוור: מאטים, נצמדים לימין ולא מביטים לתוך האורות. אור גבוה רק בדרך שאינה עירונית ובלי רכב ממול.', src: [851, 853, 852, 1564, 1698] },
+  { id: 'night-driving', cat: 'מהירות ושמירת מרחק', title: 'נהיגה בלילה', text: 'בלילה שדה הראייה מוגבל, יש סינוור וקשה להעריך מרחקים. מתאימים את המהירות לטווח האורות. כשרכב ממול מסנוור: מאטים, נצמדים לימין ולא מביטים לתוך האורות. אור גבוה רק בדרך שאינה עירונית ובלי רכב ממול.', src: [851, 853, 852, 1564, 1698], keys: ['nightspeed'] },
   { id: 'overtake-speed', cat: 'מהירות ושמירת מרחק', title: 'בעקיפה לא עוברים את המהירות', text: 'גם בזמן עקיפה אסור לעבור את המהירות המרבית.', src: [1484, 1487] },
   { id: 'slow-hazard', cat: 'מהירות ושמירת מרחק', title: 'מתי חובה להאט', text: 'חובה להאט בכל מקרה שבו צפויה סכנה לעוברי דרך או לרכוש, למשל ליד ילדים או כשכדור מתגלגל לכביש.', src: [332, 914, 910] },
 
   // ----- הולכי רגל ורוכבי אופניים -----
   { id: 'crosswalk-slow', cat: 'הולכי רגל ורוכבי אופניים', title: 'מאטים לפני כל מעבר חצייה', text: 'בהתקרבות למעבר חצייה מאטים ומוודאים שאין הולכי רגל שמתכוונים לחצות.', src: [893], keys: ['pedwait'] },
   { id: 'crosswalk-yield', cat: 'הולכי רגל ורוכבי אופניים', title: 'זכות קדימה להולכי רגל', text: 'כשהולכי רגל חוצים במעבר, מאטים ועוצרים ומאפשרים להם להשלים את החצייה בבטחה.', src: [189, 594], keys: ['ped', 'pedhit'] },
-  { id: 'crosswalk-overtake', cat: 'הולכי רגל ורוכבי אופניים', title: 'לא עוקפים לפני מעבר חצייה', text: 'אסור לעקוף לפני מעבר חצייה בכל מקרה, ובמיוחד רכב שעצר לפניו.', src: [1785, 1536] },
+  { id: 'crosswalk-overtake', cat: 'הולכי רגל ורוכבי אופניים', title: 'לא עוקפים לפני מעבר חצייה', text: 'אסור לעקוף לפני מעבר חצייה בכל מקרה, ובמיוחד רכב שעצר לפניו.', src: [1785, 1536], keys: ['crosspass'] },
   { id: 'cyclists', cat: 'הולכי רגל ורוכבי אופניים', title: 'רוכבי אופניים', text: 'חולפים על פני רוכב אופניים משמאלו ורחוק ככל האפשר, ושומרים רווח צד מתאים. בפנייה ימינה מביאים בחשבון רוכב שיופיע מימין.', src: [1183, 907, 879], keys: ['cyclistpass'] },
 
   // ----- עצירה וחניה -----
   { id: 'park-junction', cat: 'עצירה וחניה', title: '12 מטר מצומת', text: 'אסור להעמיד רכב בתחום 12 מטרים מצומת, אלא אם תמרור או סימון מתירים.', src: [203, 207], keys: ['parkspot'] },
   { id: 'park-crosswalk', cat: 'עצירה וחניה', title: '12 מטר לפני מעבר חצייה', text: 'אסור לעצור או להחנות על מעבר חצייה ובתחום 12 מטרים לפניו. אחרי מעבר החצייה מותר.', src: [1766, 205, 206], keys: ['parkspot', 'stopcross'] },
-  { id: 'park-bus', cat: 'עצירה וחניה', title: 'תחנת אוטובוס', text: 'אסור להעמיד רכב מ-20 מטר לפני תמרור תחנת אוטובוס ועד 20 מטר אחריו, אלא אם סומן אחרת.', src: [212] },
+  { id: 'park-bus', cat: 'עצירה וחניה', title: 'תחנת אוטובוס', text: 'אסור להעמיד רכב מ-20 מטר לפני תמרור תחנת אוטובוס ועד 20 מטר אחריו, אלא אם סומן אחרת.', src: [212], keys: ['busstop'] },
   { id: 'park-hydrant', cat: 'עצירה וחניה', title: 'ברז כיבוי אש', text: 'אסור להעמיד רכב בתחום של 2 מטרים מברז כיבוי אש.', src: [204] },
   { id: 'park-railway', cat: 'עצירה וחניה', title: 'מסילת ברזל', text: 'מותר להעמיד רכב רק לפחות 20 מטרים ממפגש מסילת ברזל.', src: [208] },
   { id: 'park-curbs', cat: 'עצירה וחניה', title: 'צבעי אבני השפה', text: 'אדום-לבן: אסורה עצירה וחניה. אדום-צהוב: אסורה כל עצירה, חוץ מסוג רכב שהותר בתמרור (למשל אוטובוסים). כחול-לבן: חניה מותרת בתשלום או לפי הסדר.', src: [609], keys: ['parkspot'] },
@@ -918,6 +918,8 @@ const RULEBOOK = [
   { id: 'narrow-road', cat: 'זכות קדימה וצמתים', title: 'דרך צרה ומורד', text: 'בדרך צרה כשבא רכב ממול מאטים וסוטים ימינה, ואם צריך עוצרים. במורד צר שאין בו מקום לשניים, היורד נותן זכות קדימה לעולה.', src: [1528, 744] },
   { id: 'hit-parked', cat: 'מצבי חירום', title: 'פגיעה ברכב חונה', text: 'מי שפגע ברכב חונה ובעליו לא במקום, משאיר הודעה בכתב עם פרטיו.', src: [1496] },
   { id: 'cargo', cat: 'חובות הנהג ובטיחות', title: 'מטען שנפל', text: 'נהג שמרגיש שחלק מהמטען נפל לכביש עוצר מיד ודואג לסלק אותו.', src: [1546] },
+  { id: 'horn-use', cat: 'חובות הנהג ובטיחות', title: 'שימוש בצופר', text: 'מותר לצפור רק כדי למנוע סכנה קרובה שאי אפשר למנוע בדרך אחרת, והאות לא יהיה ממושך יותר מהדרוש. לא צופרים כדי לזרז, לברך או להביע כעס.', src: [171, 927, 170], keys: ['horn'] },
+  { id: 'tjunction-sign', cat: 'רמזורים ותמרורים', title: 'צומת T: פנה ימינה או שמאלה', text: 'בסוף דרך שנגמרת בצומת T מוצב לפעמים תמרור כחול עם חצים לשני הצדדים: חובה לפנות ימינה או שמאלה. מאטים, מאותתים לכיוון הפנייה ונותנים זכות קדימה לפי התמרור.', src: [], verified: false },
   { id: 'emergency-follow', cat: 'זכות קדימה וצמתים', title: 'נסיעה אחרי רכב ביטחון', text: 'כשנוסעים אחרי רכב ביטחון שומרים מרחק של 100 מטרים לפחות.', src: [249], keys: ['emergencyfollow'] },
 ];
 
@@ -1066,6 +1068,7 @@ const nodeList = [];
 const edges = [];
 const edgeById = {};
 const crosswalks = [];
+const busStops = [];   // { edge, side, t }: תחנות אוטובוס (אסור לעצור ולחנות 20 מ' לפני ואחרי)
 const WORLD = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
 const START = { x: 0, y: 0, h: 0, lim: 50 };
 let currentMap = null;
@@ -1149,6 +1152,19 @@ function buildWorld(map) {
     e.t1 = e.len - trimAt(e.b, e);
     for (const t of e.crossDef) { const cw = { edge: e, t, peds: [], timer: 2 + Math.random() * 5 }; e.crosswalks.push(cw); crosswalks.push(cw); }
   }
+  // תחנות אוטובוס: בקטעים ארוכים, בצד שאין בו רצועת חניה, לא ליד מעבר חציה ולא באזור בית ספר
+  busStops.length = 0;
+  edges.forEach((e, i) => {
+    const len = e.t1 - e.t0;
+    if (len < 110 || e.school || i % 3 === 2 || busStops.length > 14) return;
+    for (const side of [1, -1]) {
+      if (side > 0 ? e.pf : e.pb) continue;
+      if (laneCount(e, side) === 0) continue;
+      const t = side > 0 ? e.t0 + len * 0.62 : e.t1 - len * 0.62;
+      if (e.crosswalks.some(cw => Math.abs(cw.t - t) < 30)) continue;
+      busStops.push({ edge: e, side, t });
+    }
+  });
   for (const e of edges) placeParkedCars(e);
   WORLD.minX = Math.min(...nodeList.map(n => n.x)) - 60; WORLD.maxX = Math.max(...nodeList.map(n => n.x)) + 60;
   WORLD.minY = Math.min(...nodeList.map(n => n.y)) - 60; WORLD.maxY = Math.max(...nodeList.map(n => n.y)) + 60;
@@ -1216,6 +1232,7 @@ function parkingRule(e, t, dir = 1) {
   if (t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION) return 'junction';
   for (const cw of e.crosswalks) { const ahead = (cw.t - t) * dir; if (ahead > -2.5 && ahead < NO_PARK_CROSSWALK) return 'crosswalk'; }
   for (const b of e.bumps) if (Math.abs(t - b) < 3) return 'bump';
+  if (busStopNear(e, dir, t)) return 'bus';
   return null;
 }
 function placeParkedCars(e) {
@@ -1309,6 +1326,10 @@ function filletTrim(e, end, s) {
   if (!n.fillets) return 0;
   const f = n.fillets.find(f => Math.sign(pt.x - n.x) === f.sx && Math.sign(pt.y - n.y) === f.sy);
   return f ? f.R : 0;
+}
+// תחנת אוטובוס בצד של כיוון הנסיעה, במרחק עד m מטרים לאורך הכביש
+function busStopNear(e, dir, t, m = 20) {
+  return busStops.find(b => b.edge === e && b.side === dir && Math.abs(b.t - t) <= m) || null;
 }
 function locate(p) {
   for (const n of nodeList) if (nodeContains(n, p)) return { kind: 'node', node: n };
@@ -2159,11 +2180,26 @@ class NPC {
         const dcw = leg.dir > 0 ? cw.t - 3 - tNow : tNow - (cw.t + 3);
         if (dcw > -1 && cw.peds.some(pd => pd.state === 'cross')) stopDist = Math.min(stopDist, dcw - 0.5);
       }
+      // אוטובוס עוצר כמה שניות בתחנה שבצד ימין (רק מהנתיב הימני), ומאותת ימינה לפני העצירה
+      if (this.type === 'bus' && leg.lane === laneCount(e, leg.dir) - 1) {
+        const tNow = leg.tFrom + this.s * leg.dir;
+        const bs = busStops.find(b => b.edge === e && b.side === leg.dir && (b.t - tNow) * leg.dir > -1 && (b.t - tNow) * leg.dir < 60 && !(this.served && this.served.has(b)));
+        if (bs) {
+          const d = (bs.t - tNow) * leg.dir;
+          stopDist = Math.min(stopDist, d);
+          this.busSignal = d < 40 ? 1 : 0;
+          if (d < 2 && this.v < 0.3) {
+            this.busWait = (this.busWait || 0) + dt;
+            if (this.busWait > 7) { (this.served = this.served || new Set()).add(bs); this.busWait = 0; this.busSignal = 0; }
+          }
+        } else this.busSignal = 0;
+      }
       // האטה לפני פנייה
       if (this.next.turn !== 'straight') vT = Math.min(vT, Math.sqrt((5.5) ** 2 + 2 * 2.2 * Math.max(0, remaining)));
       this.blinker = (remaining < 45 && (this.next.turn === 'left' || this.next.turn === 'uturn')) ? -1 :
         (remaining < 45 && this.next.turn === 'right') ? 1 : 0;
       if (this.next.node.type === 'roundabout') this.blinker = (remaining < 45 && this.next.turn === 'right') ? 1 : 0;
+      if (this.busSignal) this.blinker = this.busWait > 5 ? -1 : 1;
     } else {
       vT = leg.node.type === 'roundabout' ? 7 : (this.next.turn === 'straight' ? 11 : 6);
       if (leg.node.type === 'roundabout') this.blinker = this.s > leg.path.len - 14 ? 1 : 0;
@@ -2925,6 +2961,8 @@ const Rules = {
     const kmh = Math.abs(p.v) * 3.6;
     this.emergencyChecks(dt, time, p, vehicles, loc);
     this.riderChecks(time, p, vehicles);
+    this.busStopChecks(dt, time, p, vehicles, loc);
+    this.passCrossChecks(time, p, vehicles, loc);
     if (loc && loc.kind === 'edge') this.edgeChecks(loc, dt, time, p, kmh);
     else this.overTimer = 0;
     if (loc && loc.kind === 'node') this.nodeChecks(loc.node, dt, time, p, kmh);
@@ -2966,6 +3004,48 @@ const Rules = {
   },
 
   // עקיפת רוכב אופניים / קורקינט: משמאלו ורחוק ככל האפשר
+  // עצירה בתחנת אוטובוס: אסור לעצור או לחנות 20 מ' לפני התחנה ועד 20 מ' אחריה (אבן שפה צהוב-לבן)
+  busStopChecks(dt, time, p, vehicles, loc) {
+    this.busTimer = this.busTimer || 0;
+    if (!loc || loc.kind !== 'edge' || Math.abs(p.v) > 0.3) { this.busTimer = 0; return; }
+    const e = loc.edge, hd = Math.cos(p.h) * e.d.x + Math.sin(p.h) * e.d.y, dir = hd > 0 ? 1 : -1;
+    const n = laneCount(e, dir);
+    // רק כשעומדים בנתיב הימני או בשוליים, ולא בתור של רכבים
+    if (!n || (loc.s * dir) < laneS(e, dir, n - 1) * dir - LW / 2 || !busStopNear(e, dir, loc.t)) { this.busTimer = 0; return; }
+    const hx = Math.cos(p.h), hy = Math.sin(p.h);
+    const queued = vehicles.some(o => o !== p && !o.isParked && ((o.x - p.x) * hx + (o.y - p.y) * hy) > 0 && ((o.x - p.x) * hx + (o.y - p.y) * hy) < 12 && Math.abs((o.x - p.x) * hy - (o.y - p.y) * hx) < 2);
+    if (queued) { this.busTimer = 0; return; }
+    this.busTimer += dt;
+    if (this.busTimer > 3) { this.report('busstop', 'עצירה בתחנת אוטובוס: אסור לעצור 20 מטר לפני התחנה ועד 20 מטר אחריה', false, time, 20); this.busTimer = 0; }
+  },
+
+  // עקיפה לפני מעבר חציה: אסור לעבור רכב שנוסע באותו כיוון ב-30 המטרים שלפני מעבר החציה
+  passCrossChecks(time, p, vehicles, loc) {
+    this.passRel = this.passRel || new Map();
+    if (!loc || loc.kind !== 'edge' || p.v < 2) { this.passRel.clear(); return; }
+    const e = loc.edge, hd = Math.cos(p.h) * e.d.x + Math.sin(p.h) * e.d.y, dir = hd > 0 ? 1 : -1;
+    const cw = e.crosswalks.find(c => { const a = (c.t - loc.t) * dir; return a > 0 && a < 30; });
+    for (const o of vehicles) {
+      if (o === p || o.isParked || o.rider || !(o.v > 0.5)) continue;
+      const lo = edgeLocal(e, o);
+      if (lo.t < e.t0 || lo.t > e.t1 || Math.abs(lo.s - loc.s) > 5 || Math.abs(lo.s - loc.s) < 1.8) { this.passRel.delete(o); continue; }
+      if ((Math.cos(o.h) * e.d.x + Math.sin(o.h) * e.d.y) * dir < 0.8) { this.passRel.delete(o); continue; }
+      const ahead = (lo.t - loc.t) * dir;                    // חיובי = הרכב האחר לפניי
+      const was = this.passRel.get(o);
+      this.passRel.set(o, ahead);
+      if (cw && was != null && was > 0 && ahead <= 0) this.report('crosspass', 'עקיפה לפני מעבר חציה: אסור לעקוף רכב ב-30 המטרים שלפני מעבר חציה', true, time, 8);
+    }
+  },
+
+  // צופר: מותר רק כדי למנוע סכנה (רכב או הולך רגל קרובים לפניך)
+  onHorn(time, p, vehicles) {
+    const hx = Math.cos(p.h), hy = Math.sin(p.h);
+    const near = q => { const dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy); return d < 8 || (d < 30 && (dx * hx + dy * hy) / d > 0.4); };
+    const peds = crosswalks.flatMap(c => c.peds).filter(pd => pd.x != null);
+    if (vehicles.some(o => o !== p && !o.isParked && near(o)) || peds.some(near)) return;
+    this.report('horn', 'שימוש מיותר בצופר: מותר לצפור רק כדי למנוע סכנה קרובה', false, time, 15);
+  },
+
   riderChecks(time, p, vehicles) {
     this.riderSide = this.riderSide || new Map();
     const hx = Math.cos(p.h), hy = Math.sin(p.h);
@@ -3038,6 +3118,12 @@ const Rules = {
       this.wetTimer = (this.wetTimer || 0) + dt;
       if (this.wetTimer > 5) { this.report('wetspeed', `בכביש רטוב צריך להאט: נסעת ${Math.round(kmh)} קמ"ש (מומלץ עד ${Math.round(e.lim * 0.85)})`, false, time, 25); this.wetTimer = 0; }
     } else this.wetTimer = 0;
+    // לילה: שדה הראייה מוגבל, ולכן נוסעים מעט מתחת למהירות המרבית
+    const night = typeof View3D !== 'undefined' && View3D.weather === 'night';
+    if (night && kmh > e.lim * 0.9 + 2 && kmh <= e.lim + 3) {
+      this.nightTimer = (this.nightTimer || 0) + dt;
+      if (this.nightTimer > 6) { this.report('nightspeed', `בלילה הראייה מוגבלת וצריך להאט: נסעת ${Math.round(kmh)} קמ"ש (מומלץ עד ${Math.round(e.lim * 0.9)})`, false, time, 30); this.nightTimer = 0; }
+    } else this.nightTimer = 0;
 
     if (Math.abs(hd) < 0.55) { this.lastT = loc.t; return; }
     const dir = hd > 0 ? 1 : -1;
@@ -3235,6 +3321,8 @@ const Rules = {
     if (ctrl === 'light') {
       const st = lightState(node, axisOf(edge), time);
       if (st === 'red' || st === 'redyellow') this.report('red', 'נסיעה באור אדום ברמזור', true, time, 5);
+      // צהוב שדלק כבר יותר משנייה וחצי: היה זמן לעצור בבטחה לפני הקו
+      else if (st === 'yellow' && lightState(node, axisOf(edge), time - 1.5) === 'yellow' && Math.abs(p.v) * 3.6 < 70) this.report('yellow', 'נכנסת לצומת באור צהוב כשאפשר היה לעצור בבטחה', false, time, 5);
     }
     if (ctrl === 'stop') {
       if (!this.stopped[edge.id + node.id]) this.report('stop', 'לא עצרת עצירה מוחלטת בתמרור "עצור"', true, time, 5);
@@ -3346,6 +3434,7 @@ const Rules = {
     if (rule === 'junction') this.report('parkspot', 'חניה פחות מ-12 מטר מצומת (אבן שפה אדום-לבן)', false, time, 4);
     else if (rule === 'crosswalk') this.report('parkspot', 'חניה על מעבר חציה או בתחום 12 מטר לפניו', false, time, 4);
     else if (rule === 'bump') this.report('parkspot', 'חניה על פס האטה', false, time, 4);
+    else if (rule === 'bus') this.report('busstop', 'חניה בתחנת אוטובוס (אבן שפה צהוב-לבן): אסור 20 מטר לפני התחנה ועד 20 מטר אחריה', false, time, 4);
   },
   onParked(e, dir, side, t, time) {
     this.parkedAt = time;
@@ -3987,6 +4076,19 @@ function buildSigns() {
         const tw = cw.t - 45 * dir;
         if ((tw - e.t0) * (e.t1 - tw) > 0 && Math.abs(tw - (dir > 0 ? e.t0 : e.t1)) > 20) add(at(tw), { kind: 'crossahead', dir, edge: e });
       }
+      // תמרור מהירות חוזר בקטע ארוך (כל 150 מ')
+      for (let m = 150; m < span - 80; m += 150) add(at(fwd(m)), { kind: 'speed', val: e.lim, dir, edge: e });
+      // תחנת אוטובוס בצד ימין
+      for (const b of busStops) if (b.edge === e && b.side === dir) add(at(b.t + 3 * dir, 0.6), { kind: 'bus', dir, edge: e });
+      // צומת T: תמרור כחול "פנה ימינה או שמאלה" מול הנהג, בצד השני של הצומת
+      if (node.type !== 'roundabout' && node.edges.length === 3) {
+        const din = dirVec(e, dir);
+        const straight = node.edges.some(x => x !== e && Math.abs(dirVec(x, exitDirFrom(node, x)).x * din.x + dirVec(x, exitDirFrom(node, x)).y * din.y - 1) < 0.1);
+        if (!straight) {
+          const far = Math.abs(din.x) > 0.5 ? node.hx : node.hy;
+          add({ x: node.x + din.x * (far + SIDEWALK + 1.5), y: node.y + din.y * (far + SIDEWALK + 1.5) }, { kind: 'tdir', dir, edge: e });
+        }
+      }
       for (const bt of e.bumps) {
         const tw = bt - 25 * dir;
         if ((tw - e.t0) * (e.t1 - tw) > 0) add(at(tw), { kind: 'bump', dir, edge: e });
@@ -4166,19 +4268,21 @@ function curbSegments(e, key) {
   let segStart = ta, prev = null;
   const flush = t => {
     if (prev === null) return;
-    const col = prev ? 'red' : hasStrip ? 'blue' : null;
-    if (col) out.push({ t0: segStart, t1: t, col });
+    if (prev) out.push({ t0: segStart, t1: t, col: prev });
     segStart = t;
   };
+  // צבע אבן השפה: צהוב-לבן ליד תחנת אוטובוס, אדום-לבן כשאסור לחנות, כחול-לבן ליד רצועת חניה
+  const side = key === 'f' ? 1 : -1;
   for (let t = ta; t <= tb + 0.01; t += 1) {
-    const rule = !!parkingRule(e, t, tdir) && (hasStrip || t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION || e.crosswalks.some(c => { const a = (c.t - t) * tdir; return a > -2.5 && a < NO_PARK_CROSSWALK; }));
-    if (prev !== null && rule !== prev) flush(t);
-    prev = rule;
+    const red = !!parkingRule(e, t, tdir) && (hasStrip || t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION || e.crosswalks.some(c => { const a = (c.t - t) * tdir; return a > -2.5 && a < NO_PARK_CROSSWALK; }));
+    const col = busStops.some(b => b.edge === e && b.side === side && Math.abs(b.t - t) <= 20) ? 'yellow' : red ? 'red' : hasStrip ? 'blue' : '';
+    if (prev !== null && col !== prev) flush(t);
+    prev = col;
   }
   flush(tb);
   return out;
 }
-const CURB_COL = { red: '#d23b2f', blue: '#2f6fd2' };
+const CURB_COL = { red: '#d23b2f', blue: '#2f6fd2', yellow: '#f2c230' };
 
 // אבני שפה: אדום-לבן = אסור לחנות, כחול-לבן = חניה מותרת. וגם סימון מקומות החניה
 function drawCurbsAndParking(ctx) {
@@ -4375,6 +4479,20 @@ function drawSignGlyph(ctx, kind, val, r, ang = 0) {
       ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = r * 0.16; ctx.beginPath(); ctx.moveTo(-r * 0.62, -r * 0.62); ctx.lineTo(r * 0.62, r * 0.62); ctx.stroke();
       break;
     }
+    case 'bus':
+      ctx.fillStyle = '#fff'; ctx.fillRect(-r * 0.8, -r, r * 1.6, r * 2);
+      ctx.fillStyle = '#1565c0'; ctx.fillRect(-r * 0.8, -r, r * 1.6, r * 0.62);
+      ctx.fillStyle = '#fff'; ctx.font = `bold ${r * 0.4}px Assistant, sans-serif`; ctx.fillText('תחנה', 0, -r * 0.68);
+      ctx.fillStyle = '#1565c0'; ctx.fillRect(-r * 0.5, -r * 0.15, r, r * 0.65);
+      ctx.fillStyle = '#fff'; ctx.fillRect(-r * 0.4, -r * 0.05, r * 0.8, r * 0.22);
+      ctx.fillStyle = '#111'; circle(ctx, -r * 0.28, r * 0.55, r * 0.1); ctx.fill(); circle(ctx, r * 0.28, r * 0.55, r * 0.1); ctx.fill();
+      break;
+    case 'tdir':
+      ctx.fillStyle = '#1565c0'; circle(ctx, 0, 0, r); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.fillStyle = '#fff'; ctx.lineWidth = r * 0.16;
+      ctx.beginPath(); ctx.moveTo(0, r * 0.55); ctx.lineTo(0, -r * 0.05); ctx.moveTo(-r * 0.45, -r * 0.05); ctx.lineTo(r * 0.45, -r * 0.05); ctx.stroke();
+      for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sd * r * 0.72, -r * 0.05); ctx.lineTo(sd * r * 0.4, -r * 0.3); ctx.lineTo(sd * r * 0.4, r * 0.2); ctx.closePath(); ctx.fill(); }
+      break;
     case 'school':
       ctx.fillStyle = '#fff'; ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = r * 0.16;
       ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(r, r * 0.75); ctx.lineTo(-r, r * 0.75); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -5400,7 +5518,7 @@ const View3D = {
   buildCurbs() {
     const T = THREE, list = [];
     // אבני שפה צבועות בקטעים של 0.9 מ' (אדום-לבן / כחול-לבן) או אפורות
-    const white = new T.Color(0xf2f0ea), grey = new T.Color(0xd8d4cc), cols = { red: new T.Color(CURB_COL.red), blue: new T.Color(CURB_COL.blue) };
+    const white = new T.Color(0xf2f0ea), grey = new T.Color(0xd8d4cc), cols = { red: new T.Color(CURB_COL.red), blue: new T.Color(CURB_COL.blue), yellow: new T.Color(CURB_COL.yellow) };
     for (const e of edges) for (const key of ['f', 'b']) {
       const s = key === 'f' ? e.sMax + 0.1 : e.sMin - 0.1;
       const segs = curbSegments(e, key);
@@ -5686,14 +5804,9 @@ const View3D = {
     const signTex = new T.CanvasTexture(c); signTex.colorSpace = T.SRGBColorSpace;
     const signMat = new T.MeshBasicMaterial({ map: signTex });
     let n = 0;
-    for (const e of edges) {
-      const len = e.t1 - e.t0;
-      if (len < 110 || e.school || n > 14 || rnd() < 0.35) continue;
-      for (const side of [1, -1]) {
-        if (side > 0 ? e.pf : e.pb) continue;
-        if (side < 0 && laneCount(e, -1) === 0) continue;
-        const t = side > 0 ? e.t0 + len * 0.62 : e.t1 - len * 0.62;
-        if (e.crosswalks.some(cw => Math.abs(cw.t - t) < 20)) continue;
+    for (const bs of busStops) {
+      const e = bs.edge, side = bs.side, t = bs.t;
+      {
         const s = side > 0 ? e.sMax + SIDEWALK - 0.9 : e.sMin - SIDEWALK + 0.9;
         const p = edgePoint(e, t, s);
         const grp = new T.Group();
@@ -6494,7 +6607,7 @@ const act = {
   lane(side) { if (assist.on) apLane(side); },
   park(side) { if (assist.on) apPark(side); else Rules.onEvent('good', { text: 'בהיגוי ידני חונים לבד: מאותתים, מאטים ונכנסים למקום בעזרת החיצים' }); },
   gear() { if (!toggleGear()) Rules.onEvent('good', { text: 'עצור לגמרי לפני החלפת הילוך' }); else tick(false); },
-  horn(on) { player.horn = on; truckHorn(on); },
+  horn(on) { if (on && !player.horn) Rules.onHorn(time, player, [player, ...npcs]); player.horn = on; truckHorn(on); },
   reset() { resetPlayer(); Rules.loc = null; Rules.entry = null; Rules.rb = null; },
 };
 

@@ -86,6 +86,19 @@ function buildSigns() {
         const tw = cw.t - 45 * dir;
         if ((tw - e.t0) * (e.t1 - tw) > 0 && Math.abs(tw - (dir > 0 ? e.t0 : e.t1)) > 20) add(at(tw), { kind: 'crossahead', dir, edge: e });
       }
+      // תמרור מהירות חוזר בקטע ארוך (כל 150 מ')
+      for (let m = 150; m < span - 80; m += 150) add(at(fwd(m)), { kind: 'speed', val: e.lim, dir, edge: e });
+      // תחנת אוטובוס בצד ימין
+      for (const b of busStops) if (b.edge === e && b.side === dir) add(at(b.t + 3 * dir, 0.6), { kind: 'bus', dir, edge: e });
+      // צומת T: תמרור כחול "פנה ימינה או שמאלה" מול הנהג, בצד השני של הצומת
+      if (node.type !== 'roundabout' && node.edges.length === 3) {
+        const din = dirVec(e, dir);
+        const straight = node.edges.some(x => x !== e && Math.abs(dirVec(x, exitDirFrom(node, x)).x * din.x + dirVec(x, exitDirFrom(node, x)).y * din.y - 1) < 0.1);
+        if (!straight) {
+          const far = Math.abs(din.x) > 0.5 ? node.hx : node.hy;
+          add({ x: node.x + din.x * (far + SIDEWALK + 1.5), y: node.y + din.y * (far + SIDEWALK + 1.5) }, { kind: 'tdir', dir, edge: e });
+        }
+      }
       for (const bt of e.bumps) {
         const tw = bt - 25 * dir;
         if ((tw - e.t0) * (e.t1 - tw) > 0) add(at(tw), { kind: 'bump', dir, edge: e });
@@ -265,19 +278,21 @@ function curbSegments(e, key) {
   let segStart = ta, prev = null;
   const flush = t => {
     if (prev === null) return;
-    const col = prev ? 'red' : hasStrip ? 'blue' : null;
-    if (col) out.push({ t0: segStart, t1: t, col });
+    if (prev) out.push({ t0: segStart, t1: t, col: prev });
     segStart = t;
   };
+  // צבע אבן השפה: צהוב-לבן ליד תחנת אוטובוס, אדום-לבן כשאסור לחנות, כחול-לבן ליד רצועת חניה
+  const side = key === 'f' ? 1 : -1;
   for (let t = ta; t <= tb + 0.01; t += 1) {
-    const rule = !!parkingRule(e, t, tdir) && (hasStrip || t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION || e.crosswalks.some(c => { const a = (c.t - t) * tdir; return a > -2.5 && a < NO_PARK_CROSSWALK; }));
-    if (prev !== null && rule !== prev) flush(t);
-    prev = rule;
+    const red = !!parkingRule(e, t, tdir) && (hasStrip || t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION || e.crosswalks.some(c => { const a = (c.t - t) * tdir; return a > -2.5 && a < NO_PARK_CROSSWALK; }));
+    const col = busStops.some(b => b.edge === e && b.side === side && Math.abs(b.t - t) <= 20) ? 'yellow' : red ? 'red' : hasStrip ? 'blue' : '';
+    if (prev !== null && col !== prev) flush(t);
+    prev = col;
   }
   flush(tb);
   return out;
 }
-const CURB_COL = { red: '#d23b2f', blue: '#2f6fd2' };
+const CURB_COL = { red: '#d23b2f', blue: '#2f6fd2', yellow: '#f2c230' };
 
 // אבני שפה: אדום-לבן = אסור לחנות, כחול-לבן = חניה מותרת. וגם סימון מקומות החניה
 function drawCurbsAndParking(ctx) {
@@ -474,6 +489,20 @@ function drawSignGlyph(ctx, kind, val, r, ang = 0) {
       ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = r * 0.16; ctx.beginPath(); ctx.moveTo(-r * 0.62, -r * 0.62); ctx.lineTo(r * 0.62, r * 0.62); ctx.stroke();
       break;
     }
+    case 'bus':
+      ctx.fillStyle = '#fff'; ctx.fillRect(-r * 0.8, -r, r * 1.6, r * 2);
+      ctx.fillStyle = '#1565c0'; ctx.fillRect(-r * 0.8, -r, r * 1.6, r * 0.62);
+      ctx.fillStyle = '#fff'; ctx.font = `bold ${r * 0.4}px Assistant, sans-serif`; ctx.fillText('תחנה', 0, -r * 0.68);
+      ctx.fillStyle = '#1565c0'; ctx.fillRect(-r * 0.5, -r * 0.15, r, r * 0.65);
+      ctx.fillStyle = '#fff'; ctx.fillRect(-r * 0.4, -r * 0.05, r * 0.8, r * 0.22);
+      ctx.fillStyle = '#111'; circle(ctx, -r * 0.28, r * 0.55, r * 0.1); ctx.fill(); circle(ctx, r * 0.28, r * 0.55, r * 0.1); ctx.fill();
+      break;
+    case 'tdir':
+      ctx.fillStyle = '#1565c0'; circle(ctx, 0, 0, r); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.fillStyle = '#fff'; ctx.lineWidth = r * 0.16;
+      ctx.beginPath(); ctx.moveTo(0, r * 0.55); ctx.lineTo(0, -r * 0.05); ctx.moveTo(-r * 0.45, -r * 0.05); ctx.lineTo(r * 0.45, -r * 0.05); ctx.stroke();
+      for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sd * r * 0.72, -r * 0.05); ctx.lineTo(sd * r * 0.4, -r * 0.3); ctx.lineTo(sd * r * 0.4, r * 0.2); ctx.closePath(); ctx.fill(); }
+      break;
     case 'school':
       ctx.fillStyle = '#fff'; ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = r * 0.16;
       ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(r, r * 0.75); ctx.lineTo(-r, r * 0.75); ctx.closePath(); ctx.fill(); ctx.stroke();

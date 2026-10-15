@@ -358,6 +358,6 @@ body.view3d.drivercam .dash { left: 42%; }
 
 /* מפה קטנה ולוח כפתורים: מוסתרים כברירת מחדל, ונפתחים בלחיצה */
 body.nominimap .minimap { display: none; }
-body.padhidden .controls .pad { display: none; }
+body.padhidden .controls .pad.drive { display: none; }   /* דוושות הגז והבלם נשארות תמיד */
 .controls .padtoggle { position: absolute; right: 16px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 52px; font-size: 20px; }
 body:not(.padhidden) .controls .padtoggle { bottom: calc(14px + 3 * 52px + 2 * 6px + 10px + env(safe-area-inset-bottom, 0px)); }

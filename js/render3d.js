@@ -333,7 +333,7 @@ const View3D = {
   buildCurbs() {
     const T = THREE, list = [];
     // אבני שפה צבועות בקטעים של 0.9 מ' (אדום-לבן / כחול-לבן) או אפורות
-    const white = new T.Color(0xf2f0ea), grey = new T.Color(0xd8d4cc), cols = { red: new T.Color(CURB_COL.red), blue: new T.Color(CURB_COL.blue) };
+    const white = new T.Color(0xf2f0ea), grey = new T.Color(0xd8d4cc), cols = { red: new T.Color(CURB_COL.red), blue: new T.Color(CURB_COL.blue), yellow: new T.Color(CURB_COL.yellow) };
     for (const e of edges) for (const key of ['f', 'b']) {
       const s = key === 'f' ? e.sMax + 0.1 : e.sMin - 0.1;
       const segs = curbSegments(e, key);
@@ -619,14 +619,9 @@ const View3D = {
     const signTex = new T.CanvasTexture(c); signTex.colorSpace = T.SRGBColorSpace;
     const signMat = new T.MeshBasicMaterial({ map: signTex });
     let n = 0;
-    for (const e of edges) {
-      const len = e.t1 - e.t0;
-      if (len < 110 || e.school || n > 14 || rnd() < 0.35) continue;
-      for (const side of [1, -1]) {
-        if (side > 0 ? e.pf : e.pb) continue;
-        if (side < 0 && laneCount(e, -1) === 0) continue;
-        const t = side > 0 ? e.t0 + len * 0.62 : e.t1 - len * 0.62;
-        if (e.crosswalks.some(cw => Math.abs(cw.t - t) < 20)) continue;
+    for (const bs of busStops) {
+      const e = bs.edge, side = bs.side, t = bs.t;
+      {
         const s = side > 0 ? e.sMax + SIDEWALK - 0.9 : e.sMin - SIDEWALK + 0.9;
         const p = edgePoint(e, t, s);
         const grp = new T.Group();

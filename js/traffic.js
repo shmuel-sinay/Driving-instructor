@@ -133,11 +133,26 @@ class NPC {
         const dcw = leg.dir > 0 ? cw.t - 3 - tNow : tNow - (cw.t + 3);
         if (dcw > -1 && cw.peds.some(pd => pd.state === 'cross')) stopDist = Math.min(stopDist, dcw - 0.5);
       }
+      // אוטובוס עוצר כמה שניות בתחנה שבצד ימין (רק מהנתיב הימני), ומאותת ימינה לפני העצירה
+      if (this.type === 'bus' && leg.lane === laneCount(e, leg.dir) - 1) {
+        const tNow = leg.tFrom + this.s * leg.dir;
+        const bs = busStops.find(b => b.edge === e && b.side === leg.dir && (b.t - tNow) * leg.dir > -1 && (b.t - tNow) * leg.dir < 60 && !(this.served && this.served.has(b)));
+        if (bs) {
+          const d = (bs.t - tNow) * leg.dir;
+          stopDist = Math.min(stopDist, d);
+          this.busSignal = d < 40 ? 1 : 0;
+          if (d < 2 && this.v < 0.3) {
+            this.busWait = (this.busWait || 0) + dt;
+            if (this.busWait > 7) { (this.served = this.served || new Set()).add(bs); this.busWait = 0; this.busSignal = 0; }
+          }
+        } else this.busSignal = 0;
+      }
       // האטה לפני פנייה
       if (this.next.turn !== 'straight') vT = Math.min(vT, Math.sqrt((5.5) ** 2 + 2 * 2.2 * Math.max(0, remaining)));
       this.blinker = (remaining < 45 && (this.next.turn === 'left' || this.next.turn === 'uturn')) ? -1 :
         (remaining < 45 && this.next.turn === 'right') ? 1 : 0;
       if (this.next.node.type === 'roundabout') this.blinker = (remaining < 45 && this.next.turn === 'right') ? 1 : 0;
+      if (this.busSignal) this.blinker = this.busWait > 5 ? -1 : 1;
     } else {
       vT = leg.node.type === 'roundabout' ? 7 : (this.next.turn === 'straight' ? 11 : 6);
       if (leg.node.type === 'roundabout') this.blinker = this.s > leg.path.len - 14 ? 1 : 0;

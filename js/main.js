@@ -52,7 +52,7 @@ const act = {
   lane(side) { if (assist.on) apLane(side); },
   park(side) { if (assist.on) apPark(side); else Rules.onEvent('good', { text: 'בהיגוי ידני חונים לבד: מאותתים, מאטים ונכנסים למקום בעזרת החיצים' }); },
   gear() { if (!toggleGear()) Rules.onEvent('good', { text: 'עצור לגמרי לפני החלפת הילוך' }); else tick(false); },
-  horn(on) { player.horn = on; truckHorn(on); },
+  horn(on) { if (on && !player.horn) Rules.onHorn(time, player, [player, ...npcs]); player.horn = on; truckHorn(on); },
   reset() { resetPlayer(); Rules.loc = null; Rules.entry = null; Rules.rb = null; },
 };
 

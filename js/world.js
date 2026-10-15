@@ -24,6 +24,7 @@ const nodeList = [];
 const edges = [];
 const edgeById = {};
 const crosswalks = [];
+const busStops = [];   // { edge, side, t }: תחנות אוטובוס (אסור לעצור ולחנות 20 מ' לפני ואחרי)
 const WORLD = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
 const START = { x: 0, y: 0, h: 0, lim: 50 };
 let currentMap = null;
@@ -107,6 +108,19 @@ function buildWorld(map) {
     e.t1 = e.len - trimAt(e.b, e);
     for (const t of e.crossDef) { const cw = { edge: e, t, peds: [], timer: 2 + Math.random() * 5 }; e.crosswalks.push(cw); crosswalks.push(cw); }
   }
+  // תחנות אוטובוס: בקטעים ארוכים, בצד שאין בו רצועת חניה, לא ליד מעבר חציה ולא באזור בית ספר
+  busStops.length = 0;
+  edges.forEach((e, i) => {
+    const len = e.t1 - e.t0;
+    if (len < 110 || e.school || i % 3 === 2 || busStops.length > 14) return;
+    for (const side of [1, -1]) {
+      if (side > 0 ? e.pf : e.pb) continue;
+      if (laneCount(e, side) === 0) continue;
+      const t = side > 0 ? e.t0 + len * 0.62 : e.t1 - len * 0.62;
+      if (e.crosswalks.some(cw => Math.abs(cw.t - t) < 30)) continue;
+      busStops.push({ edge: e, side, t });
+    }
+  });
   for (const e of edges) placeParkedCars(e);
   WORLD.minX = Math.min(...nodeList.map(n => n.x)) - 60; WORLD.maxX = Math.max(...nodeList.map(n => n.x)) + 60;
   WORLD.minY = Math.min(...nodeList.map(n => n.y)) - 60; WORLD.maxY = Math.max(...nodeList.map(n => n.y)) + 60;
@@ -174,6 +188,7 @@ function parkingRule(e, t, dir = 1) {
   if (t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION) return 'junction';
   for (const cw of e.crosswalks) { const ahead = (cw.t - t) * dir; if (ahead > -2.5 && ahead < NO_PARK_CROSSWALK) return 'crosswalk'; }
   for (const b of e.bumps) if (Math.abs(t - b) < 3) return 'bump';
+  if (busStopNear(e, dir, t)) return 'bus';
   return null;
 }
 function placeParkedCars(e) {
@@ -267,6 +282,10 @@ function filletTrim(e, end, s) {
   if (!n.fillets) return 0;
   const f = n.fillets.find(f => Math.sign(pt.x - n.x) === f.sx && Math.sign(pt.y - n.y) === f.sy);
   return f ? f.R : 0;
+}
+// תחנת אוטובוס בצד של כיוון הנסיעה, במרחק עד m מטרים לאורך הכביש
+function busStopNear(e, dir, t, m = 20) {
+  return busStops.find(b => b.edge === e && b.side === dir && Math.abs(b.t - t) <= m) || null;
 }
 function locate(p) {
   for (const n of nodeList) if (nodeContains(n, p)) return { kind: 'node', node: n };

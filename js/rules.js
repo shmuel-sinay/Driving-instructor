@@ -50,6 +50,8 @@ const Rules = {
     const kmh = Math.abs(p.v) * 3.6;
     this.emergencyChecks(dt, time, p, vehicles, loc);
     this.riderChecks(time, p, vehicles);
+    this.busStopChecks(dt, time, p, vehicles, loc);
+    this.passCrossChecks(time, p, vehicles, loc);
     if (loc && loc.kind === 'edge') this.edgeChecks(loc, dt, time, p, kmh);
     else this.overTimer = 0;
     if (loc && loc.kind === 'node') this.nodeChecks(loc.node, dt, time, p, kmh);
@@ -91,6 +93,48 @@ const Rules = {
   },
 
   // עקיפת רוכב אופניים / קורקינט: משמאלו ורחוק ככל האפשר
+  // עצירה בתחנת אוטובוס: אסור לעצור או לחנות 20 מ' לפני התחנה ועד 20 מ' אחריה (אבן שפה צהוב-לבן)
+  busStopChecks(dt, time, p, vehicles, loc) {
+    this.busTimer = this.busTimer || 0;
+    if (!loc || loc.kind !== 'edge' || Math.abs(p.v) > 0.3) { this.busTimer = 0; return; }
+    const e = loc.edge, hd = Math.cos(p.h) * e.d.x + Math.sin(p.h) * e.d.y, dir = hd > 0 ? 1 : -1;
+    const n = laneCount(e, dir);
+    // רק כשעומדים בנתיב הימני או בשוליים, ולא בתור של רכבים
+    if (!n || (loc.s * dir) < laneS(e, dir, n - 1) * dir - LW / 2 || !busStopNear(e, dir, loc.t)) { this.busTimer = 0; return; }
+    const hx = Math.cos(p.h), hy = Math.sin(p.h);
+    const queued = vehicles.some(o => o !== p && !o.isParked && ((o.x - p.x) * hx + (o.y - p.y) * hy) > 0 && ((o.x - p.x) * hx + (o.y - p.y) * hy) < 12 && Math.abs((o.x - p.x) * hy - (o.y - p.y) * hx) < 2);
+    if (queued) { this.busTimer = 0; return; }
+    this.busTimer += dt;
+    if (this.busTimer > 3) { this.report('busstop', 'עצירה בתחנת אוטובוס: אסור לעצור 20 מטר לפני התחנה ועד 20 מטר אחריה', false, time, 20); this.busTimer = 0; }
+  },
+
+  // עקיפה לפני מעבר חציה: אסור לעבור רכב שנוסע באותו כיוון ב-30 המטרים שלפני מעבר החציה
+  passCrossChecks(time, p, vehicles, loc) {
+    this.passRel = this.passRel || new Map();
+    if (!loc || loc.kind !== 'edge' || p.v < 2) { this.passRel.clear(); return; }
+    const e = loc.edge, hd = Math.cos(p.h) * e.d.x + Math.sin(p.h) * e.d.y, dir = hd > 0 ? 1 : -1;
+    const cw = e.crosswalks.find(c => { const a = (c.t - loc.t) * dir; return a > 0 && a < 30; });
+    for (const o of vehicles) {
+      if (o === p || o.isParked || o.rider || !(o.v > 0.5)) continue;
+      const lo = edgeLocal(e, o);
+      if (lo.t < e.t0 || lo.t > e.t1 || Math.abs(lo.s - loc.s) > 5 || Math.abs(lo.s - loc.s) < 1.8) { this.passRel.delete(o); continue; }
+      if ((Math.cos(o.h) * e.d.x + Math.sin(o.h) * e.d.y) * dir < 0.8) { this.passRel.delete(o); continue; }
+      const ahead = (lo.t - loc.t) * dir;                    // חיובי = הרכב האחר לפניי
+      const was = this.passRel.get(o);
+      this.passRel.set(o, ahead);
+      if (cw && was != null && was > 0 && ahead <= 0) this.report('crosspass', 'עקיפה לפני מעבר חציה: אסור לעקוף רכב ב-30 המטרים שלפני מעבר חציה', true, time, 8);
+    }
+  },
+
+  // צופר: מותר רק כדי למנוע סכנה (רכב או הולך רגל קרובים לפניך)
+  onHorn(time, p, vehicles) {
+    const hx = Math.cos(p.h), hy = Math.sin(p.h);
+    const near = q => { const dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy); return d < 8 || (d < 30 && (dx * hx + dy * hy) / d > 0.4); };
+    const peds = crosswalks.flatMap(c => c.peds).filter(pd => pd.x != null);
+    if (vehicles.some(o => o !== p && !o.isParked && near(o)) || peds.some(near)) return;
+    this.report('horn', 'שימוש מיותר בצופר: מותר לצפור רק כדי למנוע סכנה קרובה', false, time, 15);
+  },
+
   riderChecks(time, p, vehicles) {
     this.riderSide = this.riderSide || new Map();
     const hx = Math.cos(p.h), hy = Math.sin(p.h);
@@ -163,6 +207,12 @@ const Rules = {
       this.wetTimer = (this.wetTimer || 0) + dt;
       if (this.wetTimer > 5) { this.report('wetspeed', `בכביש רטוב צריך להאט: נסעת ${Math.round(kmh)} קמ"ש (מומלץ עד ${Math.round(e.lim * 0.85)})`, false, time, 25); this.wetTimer = 0; }
     } else this.wetTimer = 0;
+    // לילה: שדה הראייה מוגבל, ולכן נוסעים מעט מתחת למהירות המרבית
+    const night = typeof View3D !== 'undefined' && View3D.weather === 'night';
+    if (night && kmh > e.lim * 0.9 + 2 && kmh <= e.lim + 3) {
+      this.nightTimer = (this.nightTimer || 0) + dt;
+      if (this.nightTimer > 6) { this.report('nightspeed', `בלילה הראייה מוגבלת וצריך להאט: נסעת ${Math.round(kmh)} קמ"ש (מומלץ עד ${Math.round(e.lim * 0.9)})`, false, time, 30); this.nightTimer = 0; }
+    } else this.nightTimer = 0;
 
     if (Math.abs(hd) < 0.55) { this.lastT = loc.t; return; }
     const dir = hd > 0 ? 1 : -1;
@@ -360,6 +410,8 @@ const Rules = {
     if (ctrl === 'light') {
       const st = lightState(node, axisOf(edge), time);
       if (st === 'red' || st === 'redyellow') this.report('red', 'נסיעה באור אדום ברמזור', true, time, 5);
+      // צהוב שדלק כבר יותר משנייה וחצי: היה זמן לעצור בבטחה לפני הקו
+      else if (st === 'yellow' && lightState(node, axisOf(edge), time - 1.5) === 'yellow' && Math.abs(p.v) * 3.6 < 70) this.report('yellow', 'נכנסת לצומת באור צהוב כשאפשר היה לעצור בבטחה', false, time, 5);
     }
     if (ctrl === 'stop') {
       if (!this.stopped[edge.id + node.id]) this.report('stop', 'לא עצרת עצירה מוחלטת בתמרור "עצור"', true, time, 5);
@@ -471,6 +523,7 @@ const Rules = {
     if (rule === 'junction') this.report('parkspot', 'חניה פחות מ-12 מטר מצומת (אבן שפה אדום-לבן)', false, time, 4);
     else if (rule === 'crosswalk') this.report('parkspot', 'חניה על מעבר חציה או בתחום 12 מטר לפניו', false, time, 4);
     else if (rule === 'bump') this.report('parkspot', 'חניה על פס האטה', false, time, 4);
+    else if (rule === 'bus') this.report('busstop', 'חניה בתחנת אוטובוס (אבן שפה צהוב-לבן): אסור 20 מטר לפני התחנה ועד 20 מטר אחריה', false, time, 4);
   },
   onParked(e, dir, side, t, time) {
     this.parkedAt = time;
