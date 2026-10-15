@@ -30,12 +30,16 @@ let npcs = [];
 let emergencyOn = (() => { try { return localStorage.getItem('driving-practice.emergency') !== 'off'; } catch (e) { return true; } })();
 let parkedList = [];
 // מיקום המראה האחורית על המסך (לפי האלמנט #mirror)
-function mirrorRect() {
-  const el = $('mirror'), app = $('app');
+function mirrorRect(id = 'mirror') {
+  const el = $(id), app = $('app');
   if (!el || el.hidden) return null;
   const r = el.getBoundingClientRect(), a = app.getBoundingClientRect();
-  return { x: Math.round(r.left - a.left), y: Math.round(r.top - a.top), w: Math.round(r.width), h: Math.round(r.height) };
+  // בתוך המסגרת (בלי עובי הגבול)
+  const b = parseFloat(getComputedStyle(el).borderLeftWidth) || 0;
+  return { x: Math.round(r.left - a.left + b), y: Math.round(r.top - a.top + b), w: Math.round(r.width - 2 * b), h: Math.round(r.height - 2 * b) };
 }
+// המראה האחורית ושתי מראות הצד
+function mirrorRects() { return { rear: mirrorRect('mirror'), left: mirrorRect('mirrorL'), right: mirrorRect('mirrorR') }; }
 let time = 0;
 let paused = true;
 let soundOn = true;
@@ -126,6 +130,8 @@ function setCamera(mode) {
   const is3d = mode === 'driver' || mode === 'follow';
   document.body.classList.toggle('view3d', is3d);
   $('mirror').hidden = mode !== 'driver';
+  // מראות צד: במבט נהג, ורק בגרפיקה גבוהה (שלוש מראות זה הרבה עבודה למחשב חלש)
+  $('mirrorL').hidden = $('mirrorR').hidden = mode !== 'driver' || View3D.quality !== 'high';
   document.body.classList.toggle('drivercam', mode === 'driver');
   try { localStorage.setItem('driving-practice.cam', mode); } catch (e) { /* לא חובה */ }
 }
@@ -165,7 +171,7 @@ $('btnInstr').addEventListener('click', toggleInstructor);
 $('btnVoice').addEventListener('click', toggleVoice);
 // איכות גרפיקה: גבוהה (צללים, הולכי רגל על המדרכות) או מהירה למחשבים חלשים
 function showQuality() { $('btnQuality').textContent = View3D.quality === 'high' ? 'גרפיקה: גבוהה' : 'גרפיקה: מהירה'; }
-$('btnQuality').addEventListener('click', () => { View3D.setQuality(View3D.quality === 'high' ? 'fast' : 'high'); showQuality(); });
+$('btnQuality').addEventListener('click', () => { View3D.setQuality(View3D.quality === 'high' ? 'fast' : 'high'); showQuality(); $('mirrorL').hidden = $('mirrorR').hidden = cam.mode !== 'driver' || View3D.quality !== 'high'; });
 showQuality();
 // תנאי נהיגה: יום, גשם או לילה (משפיע על התצוגה ועל המרחק שהבוחן דורש)
 const WEATHER_NAMES = { day: 'יום', rain: 'גשם', night: 'לילה' };
@@ -596,7 +602,7 @@ function frame(now) {
     }
   }
   if (cam.mode === 'driver' || cam.mode === 'follow') {
-    View3D.render(dt, time, npcs, cam.mode, cam.mode === 'driver' ? mirrorRect() : null);
+    View3D.render(dt, time, npcs, cam.mode, cam.mode === 'driver' ? mirrorRects() : null);
   } else {
     updateCamera(dt, W, H);
     renderWorld(ctx, W, H, time, npcs);

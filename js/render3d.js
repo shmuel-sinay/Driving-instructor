@@ -1018,22 +1018,35 @@ const View3D = {
     R.setViewport(0, 0, this.w, this.h);
     R.render(this.scene, cam);
     // מראה אחורית: מצלמה הפוכה בעולם משוקף, כדי שימין יופיע מימין כמו במראה אמיתית
+    // מראות: המצלמה מסתכלת אחורה, והעולם משוקף (scale.x = -1) כדי שימין יופיע מימין כמו במראה אמיתית
     if (driver && mirrorRect) {
-      const mc = this.mirrorCam;
-      mc.aspect = mirrorRect.w / mirrorRect.h; mc.updateProjectionMatrix();
-      const ex = p.x + hx * 0.3, ey = p.y + hy * 0.3;
-      mc.position.set(-ex, 1.45, ey);
-      mc.lookAt(-(ex - hx * 30), 1.1, ey - hy * 30);
-      this.scene.scale.x = -1; this.scene.updateMatrixWorld(true);
-      this.player.group.visible = false;
-      const y = this.h - mirrorRect.y - mirrorRect.h;
-      R.setScissorTest(true);
-      R.setScissor(mirrorRect.x, y, mirrorRect.w, mirrorRect.h);
-      R.setViewport(mirrorRect.x, y, mirrorRect.w, mirrorRect.h);
-      R.render(this.scene, mc);
-      R.setScissorTest(false);
-      this.scene.scale.x = 1; this.scene.updateMatrixWorld(true);
-      this.player.group.visible = true;
+      const rects = mirrorRect.rear !== undefined ? mirrorRect : { rear: mirrorRect };
+      const lx = hy, ly = -hx;   // כיוון שמאל של הרכב
+      const views = [];
+      if (rects.rear) { const ex = p.x + hx * 0.3, ey = p.y + hy * 0.3; views.push({ r: rects.rear, fov: 42, pos: [ex, 1.45, ey], look: [ex - hx * 30, 1.1, ey - hy * 30] }); }
+      for (const [k, side] of [['left', 1], ['right', -1]]) {
+        if (!rects[k]) continue;
+        const mx = p.x + hx * 0.9 + lx * side * 1.05, my = p.y + hy * 0.9 + ly * side * 1.05;
+        views.push({ r: rects[k], fov: 30, pos: [mx, 1.1, my], look: [mx - hx * 30 + lx * side * 4.5, 0.9, my - hy * 30 + ly * side * 4.5] });
+      }
+      if (views.length) {
+        const mc = this.mirrorCam;
+        this.scene.scale.x = -1; this.scene.updateMatrixWorld(true);
+        this.player.group.visible = false;
+        R.setScissorTest(true);
+        for (const v of views) {
+          mc.fov = v.fov; mc.aspect = v.r.w / v.r.h; mc.updateProjectionMatrix();
+          mc.position.set(-v.pos[0], v.pos[1], v.pos[2]);
+          mc.lookAt(-v.look[0], v.look[1], v.look[2]);
+          const y = this.h - v.r.y - v.r.h;
+          R.setScissor(v.r.x, y, v.r.w, v.r.h);
+          R.setViewport(v.r.x, y, v.r.w, v.r.h);
+          R.render(this.scene, mc);
+        }
+        R.setScissorTest(false);
+        this.scene.scale.x = 1; this.scene.updateMatrixWorld(true);
+        this.player.group.visible = true;
+      }
     }
   },
 };

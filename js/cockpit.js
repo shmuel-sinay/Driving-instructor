@@ -106,13 +106,13 @@ const Cockpit = {
     c.fillStyle = '#0a1622'; this.round(c, cx - R * 0.62, cy - R * 0.75, R * 1.24, R * 1.5, 10); c.fill();
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillStyle = player.gear === 'R' ? '#ff453a' : '#7fd4ff'; c.font = `bold ${R * 0.42}px Rubik, Arial`;
-    c.fillText(this.gearNo || 'D', cx, cy - R * 0.45);
+    c.fillText(this.gearNo || 'D', cx - R * 0.25, cy - R * 0.42);
     c.fillStyle = '#ffffff'; c.font = `bold ${R * 0.36}px Rubik, Arial`;
-    c.fillText(Math.round(kmh) + '', cx, cy - R * 0.02);
+    c.fillText(Math.round(kmh) + '', cx + R * 0.22, cy - R * 0.42);
     // מד דלק קטן
-    c.fillStyle = '#2a3a48'; c.fillRect(cx - R * 0.42, cy + R * 0.3, R * 0.84, R * 0.08);
-    c.fillStyle = '#7fd4ff'; c.fillRect(cx - R * 0.42, cy + R * 0.3, R * 0.84 * this.fuel, R * 0.08);
-    c.fillStyle = '#7f8c99'; c.font = `${R * 0.13}px Arial`; c.fillText('דלק', cx, cy + R * 0.48);
+    c.fillStyle = '#2a3a48'; c.fillRect(cx - R * 0.42, cy - R * 0.08, R * 0.84, R * 0.08);
+    c.fillStyle = '#7fd4ff'; c.fillRect(cx - R * 0.42, cy - R * 0.08, R * 0.84 * this.fuel, R * 0.08);
+    c.fillStyle = '#7f8c99'; c.font = `${R * 0.13}px Arial`; c.fillText('דלק', cx, cy + R * 0.1);
     // נורות איתות ירוקות מעל השעונים
     const on = opts.blinkOn;
     this.arrow(c, cx - R * 0.95, cy - R * 0.98, -1, R * 0.2, player.blinker === -1 && on);
@@ -120,18 +120,38 @@ const Cockpit = {
     // נורית בלם יד / אור גבוה לגיוון
     if (opts.lights) { c.fillStyle = '#4fa3ff'; c.font = `bold ${R * 0.16}px Arial`; c.fillText('◐', cx, cy - R * 0.98); }
 
-    // --- הגה: שפה עבה, שלושה חישורים, מסתובב לפי ההיגוי ---
-    const wr = R * 2.25, wx = cx, wy = cy + R * 2.55;
+    // --- הגה גדול: שפה עבה מעור, שלושה חישורים וכרית אוויר עם סמל; השעונים מציצים מעל החלק העליון שלו ---
+    const wr = Math.min(W * 0.3, R * 3.0), wx = cx, wy = H + wr * 0.35;
     c.save(); c.translate(wx, wy); c.rotate((player.steer || 0) * 6);
-    c.lineWidth = R * 0.32; c.strokeStyle = '#121314';
+    // שפה
+    c.lineWidth = wr * 0.13; c.strokeStyle = '#141517';
     c.beginPath(); c.arc(0, 0, wr, 0, Math.PI * 2); c.stroke();
-    c.lineWidth = R * 0.06; c.strokeStyle = 'rgba(255,255,255,0.08)';
-    c.beginPath(); c.arc(0, 0, wr + R * 0.1, Math.PI * 1.1, Math.PI * 1.9); c.stroke();
-    c.fillStyle = '#1b1c1f';
-    for (const a of [Math.PI, 0]) { c.save(); c.rotate(a); c.fillRect(R * 0.5, -R * 0.13, wr - R * 0.55, R * 0.26); c.restore(); }
-    c.beginPath(); c.arc(0, 0, R * 0.62, 0, Math.PI * 2); c.fill();
-    c.fillStyle = '#9aa3ab'; c.beginPath(); c.arc(0, -R * 0.05, R * 0.14, 0, Math.PI * 2); c.fill();
+    c.lineWidth = wr * 0.04; c.strokeStyle = 'rgba(255,255,255,0.07)';
+    c.beginPath(); c.arc(0, 0, wr - wr * 0.03, Math.PI * 1.12, Math.PI * 1.88); c.stroke();
+    // תפרים על העור
+    c.setLineDash([4, 6]); c.lineWidth = 1.2; c.strokeStyle = 'rgba(140,140,140,0.35)';
+    c.beginPath(); c.arc(0, 0, wr + wr * 0.035, Math.PI * 1.05, Math.PI * 1.95); c.stroke(); c.setLineDash([]);
+    // חישורים לשני הצדדים, עם כפתורים
+    c.fillStyle = '#1c1d20';
+    for (const sd of [-1, 1]) {
+      c.beginPath(); c.moveTo(sd * wr * 0.28, -wr * 0.12); c.lineTo(sd * wr * 0.95, -wr * 0.08); c.lineTo(sd * wr * 0.95, wr * 0.1); c.lineTo(sd * wr * 0.28, wr * 0.16); c.closePath(); c.fill();
+      for (let i = 0; i < 3; i++) { c.fillStyle = '#2c2e33'; c.beginPath(); c.arc(sd * wr * (0.45 + i * 0.12), 0, wr * 0.03, 0, Math.PI * 2); c.fill(); }
+      c.fillStyle = '#1c1d20';
+    }
+    // כרית האוויר במרכז, עם סמל כללי
+    const hub = c.createRadialGradient(0, -wr * 0.08, wr * 0.02, 0, 0, wr * 0.32);
+    hub.addColorStop(0, '#2c2e33'); hub.addColorStop(1, '#141518');
+    c.fillStyle = hub; this.round(c, -wr * 0.3, -wr * 0.24, wr * 0.6, wr * 0.48, wr * 0.16); c.fill();
+    c.fillStyle = '#b8bec4'; c.beginPath(); c.ellipse(0, -wr * 0.02, wr * 0.07, wr * 0.035, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#141518'; c.beginPath(); c.ellipse(0, -wr * 0.02, wr * 0.05, wr * 0.02, 0, 0, Math.PI * 2); c.fill();
     c.restore();
+    // מקום פנוי למראות (הן מצוירות בתלת-ממד מתחת ללוח הזה)
+    for (const id of ['mirror', 'mirrorL', 'mirrorR']) {
+      const el = document.getElementById(id);
+      if (!el || el.hidden) continue;
+      const r = el.getBoundingClientRect();
+      c.clearRect(r.left, r.top, r.width, r.height);
+    }
   },
 
   // הפנים של הרכב סביב השמשה: תקרה בהירה עם מגני שמש, עמודי שמשה רחבים, וזרוע של המראה האחורית
