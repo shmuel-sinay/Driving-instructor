@@ -9,7 +9,7 @@ const Models = {
   mat(color, opts) {
     color = color && color.isColor ? color.getHex() : new THREE.Color(color).getHex();
     const key = color + JSON.stringify(opts || {});
-    if (!this._mat[key]) { this._mat[key] = new THREE.MeshLambertMaterial(Object.assign({ color }, opts || {})); this._mat[key].userData.shared = true; }
+    if (!this._mat[key]) { this._mat[key] = new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.85, metalness: 0 }, opts || {})); this._mat[key].userData.shared = true; }
     return this._mat[key];
   },
   basic(color) {
@@ -101,52 +101,87 @@ const Models = {
     return out;
   },
 
+  // צל מגע רך מתחת לרכב או לאדם (כמו בצילום: הקרקע כהה ממש מתחתיו)
+  blob(l, w, op = 0.6) {
+    const T = THREE;
+    if (!this._blobTex) {
+      const c = document.createElement('canvas'); c.width = c.height = 128;
+      const x = c.getContext('2d'), gr = x.createRadialGradient(64, 64, 8, 64, 64, 64);
+      gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.55, 'rgba(0,0,0,.65)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+      this._blobTex = new T.CanvasTexture(c); this._blobTex.userData.cached = true;
+    }
+    const key = 'blob' + op;
+    if (!this._mat[key]) { this._mat[key] = new T.MeshBasicMaterial({ map: this._blobTex, transparent: true, opacity: op, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }); this._mat[key].userData.shared = true; }
+    const m = new T.Mesh(this.geo('blobPlane', () => { const q = new T.PlaneGeometry(1, 1); q.rotateX(-Math.PI / 2); return q; }), this._mat[key]);
+    m.scale.set(l, 1, w); m.position.y = 0.025; m.renderOrder = 1;
+    return m;
+  },
+
   // ===== רכבים =====
+  // פרופיל צד של כל סוג רכב: low = גוף תחתון (עד קו החלונות), cab = תא הנוסעים [בסיס שמשה, גג קדמי, גג אחורי, בסיס חלון אחורי]
   CAR_TYPES: {
-    sedan: { L: 4.5, W: 1.8, low: [[-2.25, 0.32], [2.25, 0.32], [2.25, 0.62], [2.05, 0.82], [1.05, 0.9], [-1.55, 0.92], [-2.2, 0.86], [-2.25, 0.62]],
-      cab: [[0.95, 0.9], [0.25, 1.42], [-0.95, 1.42], [-1.55, 0.92]] },
-    hatch: { L: 4.1, W: 1.76, low: [[-2.05, 0.32], [2.05, 0.32], [2.05, 0.62], [1.85, 0.82], [0.95, 0.9], [-1.95, 0.95], [-2.05, 0.7]],
-      cab: [[0.85, 0.9], [0.15, 1.45], [-1.7, 1.42], [-1.95, 0.95]] },
-    suv: { L: 4.6, W: 1.88, low: [[-2.3, 0.4], [2.3, 0.4], [2.3, 0.78], [2.1, 0.98], [1.15, 1.04], [-2.2, 1.06], [-2.3, 0.8]],
-      cab: [[1.05, 1.04], [0.45, 1.72], [-2.0, 1.72], [-2.2, 1.06]] },
-    van: { L: 4.6, W: 1.9, low: [[-2.3, 0.38], [2.3, 0.38], [2.3, 0.8], [2.15, 1.02], [1.55, 1.08], [-2.3, 1.1]],
-      cab: [[1.5, 1.08], [0.95, 1.95], [-2.25, 1.95], [-2.3, 1.1]] },
+    sedan: { L: 4.6, W: 1.82, low: [[-2.3, 0.3], [2.3, 0.3], [2.33, 0.64], [2.2, 0.76], [1.35, 0.86], [-1.65, 0.9], [-2.27, 0.86], [-2.34, 0.6]],
+      cab: [[1.35, 0.86], [0.42, 1.4], [-0.85, 1.42], [-1.65, 0.9]] },
+    hatch: { L: 4.1, W: 1.76, low: [[-2.05, 0.3], [2.05, 0.3], [2.08, 0.64], [1.96, 0.76], [1.15, 0.86], [-1.92, 0.92], [-2.08, 0.62]],
+      cab: [[1.15, 0.86], [0.3, 1.44], [-1.62, 1.42], [-1.92, 0.94]] },
+    suv: { L: 4.65, W: 1.9, low: [[-2.32, 0.42], [2.32, 0.42], [2.35, 0.8], [2.25, 0.94], [1.45, 1.04], [-2.22, 1.07], [-2.34, 0.76]],
+      cab: [[1.42, 1.04], [0.62, 1.72], [-1.95, 1.74], [-2.22, 1.09]] },
+    van: { L: 4.7, W: 1.92, low: [[-2.35, 0.4], [2.35, 0.4], [2.38, 0.78], [2.28, 0.96], [1.78, 1.06], [-2.35, 1.1]],
+      cab: [[1.75, 1.06], [1.08, 1.92], [-2.25, 1.94], [-2.33, 1.12]] },
   },
   randomCarType() { const r = Math.random(); return r < 0.45 ? 'sedan' : r < 0.72 ? 'hatch' : r < 0.9 ? 'suv' : 'van'; },
 
   car(color, type = 'sedan', isPlayer = false) {
     const T = THREE, P = this.CAR_TYPES[type] || this.CAR_TYPES.sedan, g = new T.Group();
-    const paint = this.pbr(color, 0.45, 0.32);
-    const body = new T.Mesh(this.geo('low-' + type, () => this.smoothNormals(this.extrude(this.smooth(P.low), P.W, 0.12))), paint);
+    const paint = this.pbr(color, 0.5, 0.28);
+    const body = new T.Mesh(this.geo('low-' + type, () => this.smoothNormals(this.extrude(this.smooth(P.low, 1), P.W, 0.1))), paint);
     g.add(body);
-    // תא הנוסעים: זכוכית מכל הצדדים וגג בצבע הרכב
-    const glass = this.pbr(0x101820, 0.9, 0.06, { polygonOffset: true, polygonOffsetFactor: -1 });
-    const cab = new T.Mesh(this.geo('cab-' + type, () => this.smoothNormals(this.extrude(this.smooth(P.cab, 1), P.W - 0.18, 0.06))), glass);
+    // תא הנוסעים: צר יותר מהגוף, בצבע הרכב, ועליו שמשות וחלונות זכוכית מבריקה
+    const WG = P.W - 0.16, glass = this.pbr(0x0b1118, 0.95, 0.04, { side: T.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
+    const cabin = new T.Group();
+    cabin.add(new T.Mesh(this.geo('gh-' + type, () => this.smoothNormals(this.extrude(this.smooth(P.cab, 1), WG, 0.07))), paint));
+    // שמשה קדמית ואחורית: מלבן על השיפוע, מעט מעל המשטח
+    const pane = (A, B, w) => {
+      const dx = B[0] - A[0], dy = B[1] - A[1], l = Math.hypot(dx, dy), ux = dx / l, uy = dy / l, nx = dy / l, ny = -dx / l;
+      const o = 0.082, i0 = 0.16, a0 = [A[0] + ux * i0 + nx * o, A[1] + uy * i0 + ny * o], b0 = [B[0] - ux * i0 + nx * o, B[1] - uy * i0 + ny * o];
+      const q = new T.BufferGeometry();
+      q.setAttribute('position', new T.BufferAttribute(new Float32Array([a0[0], a0[1], -w / 2, a0[0], a0[1], w / 2, b0[0], b0[1], w / 2, a0[0], a0[1], -w / 2, b0[0], b0[1], w / 2, b0[0], b0[1], -w / 2]), 3));
+      q.computeVertexNormals();
+      return q;
+    };
+    const cp = this.smooth(P.cab, 1);
+    cabin.add(new T.Mesh(this.geo('ws-' + type, () => pane(P.cab[0], P.cab[1], WG - 0.16)), glass));
+    cabin.add(new T.Mesh(this.geo('rw-' + type, () => pane(P.cab[2], P.cab[3], WG - 0.2)), glass));
+    // חלונות צד: צורת התא מוקטנת סביב המרכז, משני הצדדים, עם עמוד בין הדלתות
+    const sideGeo = this.geo('side-' + type, () => {
+      const cx = P.cab.reduce((a, q) => a + q[0], 0) / 4, cy = P.cab.reduce((a, q) => a + q[1], 0) / 4;
+      const pts = this.smooth(P.cab, 1).map(([x, y]) => [cx + (x - cx) * 0.86, cy + (y - cy) * 0.78 + 0.02]);
+      const sh = new T.Shape(); pts.forEach(([x, y], i) => (i ? sh.lineTo(x, y) : sh.moveTo(x, y)));
+      return new T.ShapeGeometry(sh);
+    });
+    for (const z of [1, -1]) { const sw = new T.Mesh(sideGeo, glass); sw.position.z = z * (WG / 2 + 0.006); sw.scale.z = z; cabin.add(sw); }
+    const bpX = (P.cab[0][0] + P.cab[3][0]) / 2 - 0.05;
+    const bp = this.geo('bpillar-' + type, () => new T.BoxGeometry(0.09, (P.cab[1][1] - P.cab[0][1]) * 0.8, WG + 0.03));
+    const bpm = new T.Mesh(bp, paint); bpm.position.set(bpX, (P.cab[1][1] + P.cab[0][1]) / 2, 0); cabin.add(bpm);
     const roofY = P.cab[1][1];
-    const roofLen = Math.abs(P.cab[1][0] - P.cab[2][0]);
-    const roof = new T.Mesh(this.geo('roof-' + type, () => new T.BoxGeometry(roofLen + 0.1, 0.06, P.W - 0.14)), paint);
-    roof.position.set((P.cab[1][0] + P.cab[2][0]) / 2, roofY + 0.02, 0);
-    const cabin = new T.Group(); cabin.add(cab, roof);
-    // עמודים בין החלונות
-    const pillarGeo = this.geo('pillar', () => new T.BoxGeometry(0.08, 0.5, 0.04));
-    for (const z of [P.W / 2 - 0.08, -(P.W / 2 - 0.08)]) {
-      const pl = new T.Mesh(pillarGeo, paint);
-      pl.position.set((P.cab[0][0] + P.cab[3][0]) / 2 - 0.1, (roofY + P.cab[0][1]) / 2, z); cabin.add(pl);
-    }
     g.add(cabin);
     // גלגלים עם חישוקים
-    const tire = this.geo('tire', () => new T.CylinderGeometry(0.34, 0.34, 0.24, 18));
-    const rim = this.geo('rim', () => new T.CylinderGeometry(0.2, 0.2, 0.25, 12));
+    const tire = this.geo('tire', () => new T.CylinderGeometry(0.34, 0.34, 0.24, 24));
+    const rim = this.geo('rim', () => new T.CylinderGeometry(0.22, 0.22, 0.25, 20));
     const wx = P.L / 2 - 0.85;
     for (const [x, z] of [[wx, P.W / 2 - 0.12], [wx, -(P.W / 2 - 0.12)], [-wx + 0.1, P.W / 2 - 0.12], [-wx + 0.1, -(P.W / 2 - 0.12)]]) {
       const t = new T.Mesh(tire, this.pbr(0x141414, 0, 0.9)); t.rotation.x = Math.PI / 2; t.position.set(x, 0.34, z); g.add(t);
-      const r = new T.Mesh(rim, this.pbr(0xc8ccd0, 1, 0.28)); r.rotation.x = Math.PI / 2; r.position.set(x, 0.34, z); g.add(r);
+      const r = new T.Mesh(rim, this.pbr(0xc8ccd0, 1, 0.28)); r.rotation.x = Math.PI / 2; r.position.set(x, 0.34, z + Math.sign(z) * 0.02); g.add(r);
+      // חמישה חישורים כהים על החישוק
+      for (let k = 0; k < 5; k++) { const sp = new T.Mesh(this.geo('spoke', () => new T.BoxGeometry(0.05, 0.17, 0.02)), this.pbr(0x2a2d30, 0.6, 0.4)); sp.position.set(x + Math.sin(k * 1.2566) * 0.09, 0.34 + Math.cos(k * 1.2566) * 0.09, z + Math.sign(z) * 0.15); sp.rotation.z = -k * 1.2566; g.add(sp); }
     }
     // קשתות גלגלים כהות, פגושים, גריל, קו דלתות וידיות
     const dark = this.pbr(0x1b1d20, 0.1, 0.7), chrome = this.pbr(0xd0d4d8, 1, 0.25);
-    const arch = this.geo('arch', () => new T.CylinderGeometry(0.41, 0.41, 0.02, 20));
-    for (const [x, z] of [[wx, 1], [wx, -1], [-wx + 0.1, 1], [-wx + 0.1, -1]]) { const a = new T.Mesh(arch, dark); a.rotation.x = Math.PI / 2; a.position.set(x, 0.36, z * (P.W / 2 + 0.003)); g.add(a); }
-    const front0 = P.low[2][0], rear0 = P.low[0][0];
+    // קשת כהה מעל כל גלגל (חצי טבעת על דופן הרכב)
+    const arch = this.geo('arch2', () => new T.TorusGeometry(0.4, 0.035, 6, 18, Math.PI));
+    for (const [x, z] of [[wx, 1], [wx, -1], [-wx + 0.1, 1], [-wx + 0.1, -1]]) { const a = new T.Mesh(arch, dark); a.position.set(x, 0.34, z * (P.W / 2 + 0.005)); g.add(a); }
+    const front0 = Math.max(...P.low.map(q => q[0])) + 0.06, rear0 = Math.min(...P.low.map(q => q[0])) - 0.06;
     const bumper = this.geo('bumper-' + type, () => { const q = new T.CapsuleGeometry(0.1, P.W - 0.35, 4, 10); q.rotateX(Math.PI / 2); return q; });
     for (const x of [front0 - 0.04, rear0 + 0.04]) { const b = new T.Mesh(bumper, dark); b.position.set(x, P.low[0][1] + 0.1, 0); g.add(b); }
     const grille = new T.Mesh(this.geo('grille', () => new T.BoxGeometry(0.03, 0.12, 0.62)), dark); grille.position.set(front0 + 0.01, P.low[2][1] - 0.06, 0); g.add(grille);
@@ -159,7 +194,8 @@ const Models = {
     }
     // פנסים, מראות, לוחית רישוי צהובה
     const lamp = this.geo('lamp', () => new T.BoxGeometry(0.06, 0.13, 0.36));
-    const front = P.low[2][0], rear = P.low[0][0];
+    // הגוף מעוגל ובולט 0.1 מ' מהפרופיל, אז הפנסים והלוחיות יושבים על פני השטח
+    const front = Math.max(...P.low.map(q => q[0])) + 0.1, rear = Math.min(...P.low.map(q => q[0])) - 0.1;
     for (const z of [P.W / 2 - 0.3, -(P.W / 2 - 0.3)]) { const h = new T.Mesh(lamp, this.basic(0xfff6c8)); h.position.set(front + 0.02, P.low[2][1] - 0.04, z); g.add(h); }
     const tailOff = this.mat(0x6a1a1a), tailOn = this.basic(0xff2d2d);
     const tails = [P.W / 2 - 0.3, -(P.W / 2 - 0.3)].map(z => { const t = new T.Mesh(lamp, tailOff); t.position.set(rear - 0.02, P.low[P.low.length - 1][1] + 0.06, z); g.add(t); return t; });
@@ -172,6 +208,7 @@ const Models = {
     const bl = side => [front - 0.05, rear + 0.05].map(x => { const b = new T.Mesh(bgeo, blinkMat); b.position.set(x, P.low[2][1] - 0.06, side * (P.W / 2 + 0.01)); b.visible = false; g.add(b); return b; });
     const car = { group: g, cabin, body, tails, tailOn, tailOff, blink: { '1': bl(1), '-1': bl(-1) } };
     g.traverse(o => { if (o.isMesh) { o.castShadow = true; } });
+    g.add(this.blob(P.L + 0.5, P.W + 0.5, 0.75));
     if (!isPlayer) Models.merge(g, [...tails, ...car.blink['1'], ...car.blink['-1']]);
     if (isPlayer) car.dash = this.cockpit(g, P, paint);
     return car;
@@ -374,14 +411,14 @@ const Models = {
   // אדם עם מפרקים (ירכיים, ברכיים, כתפיים, מרפקים), פנים ושיער. פונה ל-x חיובי.
   human(opts = {}) {
     const T = THREE, g = new T.Group(), P = this.pick.bind(this);
-    const female = opts.female != null ? opts.female : Math.random() < 0.5;
+    const female = opts.female != null ? opts.female : false;
     const skin = opts.skin || P(this.SKIN), shirt = opts.shirt || P(this.SHIRTS), pants = opts.pants || P(this.PANTS);
     const hair = female && Math.random() < 0.45 ? P(this.BLONDE) : P(this.HAIR), shoes = P(this.SHOES);
     const dress = female && Math.random() < 0.3, skirt = dress || (female && Math.random() < 0.4), longSleeve = Math.random() < 0.35;
     const hairStyle = female ? P(['long', 'long', 'ponytail', 'bun', 'wavy']) : (Math.random() < 0.12 ? 'bald' : 'short');
     const h = opts.height || (female ? 1.58 + Math.random() * 0.15 : 1.68 + Math.random() * 0.2), sc = h / 1.75;
-    const cap = (r, l) => this.geo('cap' + r + ':' + l, () => new T.CapsuleGeometry(r, l, 6, 14));
-    const sph = r => this.geo('sph' + r, () => new T.SphereGeometry(r, 18, 12));
+    const cap = (r, l) => this.geo('cap' + r + ':' + l, () => new T.CapsuleGeometry(r, l, 4, 10));
+    const sph = r => this.geo('sph' + r, () => new T.SphereGeometry(r, 12, 8));
     const M = this.M.bind(this);
     // גוף, צוואר, ראש, פנים ושיער (חלק אחד שלא זז)
     const W = female ? 0.9 : 1;   // רוחב כתפיים
@@ -443,6 +480,7 @@ const Models = {
       ]));
       arms.push(sh); elbows.push(el);
     }
+    g.add(this.blob(0.7, 0.6, 0.45));
     g.scale.setScalar(sc);
     return { group: g, legs, knees, arms, elbows };
   },

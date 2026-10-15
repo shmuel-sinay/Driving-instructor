@@ -18,7 +18,7 @@ const View3D = {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     // צבעים כמו של מצלמה אמיתית
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.25;
+    this.renderer.toneMappingExposure = 1.0;
     this.camera = new THREE.PerspectiveCamera(68, 1, 0.1, 900);
     this.mirrorCam = new THREE.PerspectiveCamera(42, 3.2, 0.5, 300);
     this.aniso = this.renderer.capabilities.getMaxAnisotropy();
@@ -36,7 +36,7 @@ const View3D = {
     this.w = w; this.h = h;
   },
 
-  mat(color, opts = {}) { return new THREE.MeshLambertMaterial(Object.assign({ color }, opts)); },
+  mat(color, opts = {}) { return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.9, metalness: 0 }, opts)); },
 
   // ===== בניית הסצנה למפה הנוכחית =====
   build() {
@@ -70,7 +70,7 @@ const View3D = {
     this.paintRoads(far.getContext('2d'), WORLD.minX, WORLD.minY, k, far.width, far.height);
     const farTex = new T.CanvasTexture(far);
     farTex.anisotropy = this.aniso; farTex.colorSpace = T.SRGBColorSpace;
-    const farMesh = new T.Mesh(new T.PlaneGeometry(wx, wy), new T.MeshLambertMaterial({ map: farTex }));
+    const farMesh = new T.Mesh(new T.PlaneGeometry(wx, wy), new T.MeshStandardMaterial({ map: farTex, roughness: 0.95 }));
     farMesh.rotation.x = -Math.PI / 2;
     farMesh.position.set(WORLD.minX + wx / 2, 0, WORLD.minY + wy / 2);
     farMesh.receiveShadow = true;
@@ -83,7 +83,7 @@ const View3D = {
     this.nearTex = new T.CanvasTexture(this.nearCv);
     this.nearTex.anisotropy = this.aniso; this.nearTex.colorSpace = T.SRGBColorSpace;
     this.nearMesh = new T.Mesh(new T.PlaneGeometry(this.NEAR, this.NEAR),
-      new T.MeshLambertMaterial({ map: this.nearTex, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      new T.MeshStandardMaterial({ map: this.nearTex, roughness: 0.92, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
     this.nearMesh.rotation.x = -Math.PI / 2;
     this.nearMesh.position.y = 0.01;
     this.nearMesh.receiveShadow = true;
@@ -121,9 +121,56 @@ const View3D = {
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.fillStyle = COL.grass; c.fillRect(0, 0, w, h);
     c.setTransform(k, 0, 0, k, -x0 * k, -y0 * k);
+    // דשא עם עלים וכתמים במקום צבע אחיד
+    c.fillStyle = this.texPattern(c, 'grass'); c.fillRect(x0, y0, w / k, h / k);
     drawRoads(c);
     if (k >= 6) this.paintDetail(c, k, x0, y0, w, h);
     drawMarkings(c);
+  },
+
+  // מרקמים שחוזרים על עצמם, בקנה מידה של העולם (מטרים)
+  texCanvas(kind) {
+    this.texCv = this.texCv || {};
+    if (this.texCv[kind]) return this.texCv[kind];
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const g = c.getContext('2d'), rnd = seeded({ grass: 11, pave: 23, asph: 37 }[kind]);
+    if (kind === 'grass') {
+      g.fillStyle = '#5d8a3c'; g.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 40; i++) {   // כתמים בהירים וכהים
+        const x = rnd() * 256, y = rnd() * 256, r = 10 + rnd() * 40, gr = g.createRadialGradient(x, y, 0, x, y, r);
+        gr.addColorStop(0, rnd() < 0.5 ? 'rgba(120,150,60,.35)' : 'rgba(40,70,30,.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      for (let i = 0; i < 5000; i++) {   // עלי דשא
+        const x = rnd() * 256, y = rnd() * 256, l = 2 + rnd() * 4, v = rnd();
+        g.strokeStyle = v < 0.33 ? 'rgba(130,170,70,.55)' : v < 0.66 ? 'rgba(60,100,40,.5)' : 'rgba(95,135,55,.5)';
+        g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (rnd() - 0.5) * 2, y - l); g.stroke();
+      }
+    } else if (kind === 'pave') {
+      // מרצפות 60x60 ס"מ בגוונים שונים
+      for (let r = 0; r < 4; r++) for (let q = 0; q < 4; q++) {
+        const v = 196 + Math.floor((rnd() - 0.5) * 26), t = Math.floor((rnd() - 0.5) * 8);
+        g.fillStyle = `rgb(${v + t},${v},${v - 8 - t})`; g.fillRect(q * 64, r * 64, 64, 64);
+        for (let i = 0; i < 160; i++) { g.fillStyle = `rgba(0,0,0,${rnd() * 0.08})`; g.fillRect(q * 64 + rnd() * 64, r * 64 + rnd() * 64, 2, 2); }
+      }
+      g.strokeStyle = 'rgba(80,75,65,.55)'; g.lineWidth = 2;
+      for (let i = 0; i <= 4; i++) { g.beginPath(); g.moveTo(i * 64, 0); g.lineTo(i * 64, 256); g.moveTo(0, i * 64); g.lineTo(256, i * 64); g.stroke(); }
+    } else {
+      // חצץ באספלט: נקודות בהירות וכהות
+      for (let i = 0; i < 9000; i++) {
+        const v = rnd();
+        g.fillStyle = v < 0.5 ? `rgba(255,255,255,${0.04 + rnd() * 0.1})` : `rgba(0,0,0,${0.05 + rnd() * 0.12})`;
+        const sz = rnd() < 0.9 ? 1 : 2;
+        g.fillRect(rnd() * 256, rnd() * 256, sz, sz);
+      }
+    }
+    return (this.texCv[kind] = c);
+  },
+  texPattern(c, kind) {
+    const pat = c.createPattern(this.texCanvas(kind), 'repeat');
+    const size = { grass: 4, pave: 2.4, asph: 1.6 }[kind];
+    pat.setTransform(new DOMMatrix().scale(size / 256));
+    return pat;
   },
 
   // פרטים שנראים רק מקרוב: מרצפות במדרכה, עקבות צמיגים, טלאים, מכסי ביוב ומרקם של אספלט
@@ -145,14 +192,15 @@ const View3D = {
       return Math.max(...xs) > x0 - 20 && Math.min(...xs) < x0 + w / k + 20 && Math.max(...ys) > y0 - 20 && Math.min(...ys) < y0 + h / k + 20;
     };
     const vis = edges.filter(inView);
-    // מרצפות
-    c.strokeStyle = 'rgba(90,85,75,0.35)'; c.lineWidth = 0.04;
-    c.beginPath();
-    for (const e of vis) for (const [a, b] of [[e.sMax, e.sMax + SIDEWALK], [e.sMin - SIDEWALK, e.sMin]]) {
-      for (let t = e.t0; t < e.t1; t += 0.6) { const p = edgePoint(e, t, a), q = edgePoint(e, t, b); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); }
-      for (let s = a + 0.6; s < b; s += 0.6) { const p = edgePoint(e, e.t0, s), q = edgePoint(e, e.t1, s); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); }
+    // מרקם מרצפות במדרכות ומרקם חצץ על האספלט
+    c.fillStyle = this.texPattern(c, 'pave');
+    for (const e of vis) { rectAlong(c, e, e.t0, e.t1, e.sMax + 0.2, e.sMax + SIDEWALK); rectAlong(c, e, e.t0, e.t1, e.sMin - SIDEWALK, e.sMin - 0.2); }
+    c.fillStyle = this.texPattern(c, 'asph');
+    for (const e of vis) rectAlong(c, e, 0, e.len, e.sMin, e.sMax);
+    for (const n of nodeList) {
+      if (n.type === 'roundabout') { circle(c, n.x, n.y, RB_OUT); c.fill(); }
+      else c.fillRect(n.x - n.hx, n.y - n.hy, 2 * n.hx, 2 * n.hy);
     }
-    c.stroke();
     // עקבות צמיגים כהים במרכז כל נתיב
     c.strokeStyle = 'rgba(0,0,0,0.13)'; c.lineWidth = 0.55;
     c.beginPath();
@@ -213,10 +261,23 @@ const View3D = {
     env.add(new T.Mesh(new T.SphereGeometry(50, 32, 16), new T.MeshBasicMaterial({ map: tex, side: T.BackSide })));
     const sunBall = new T.Mesh(new T.SphereGeometry(4, 12, 8), new T.MeshBasicMaterial({ color: 0xfff4e0 }));
     sunBall.position.set(-20, 40, 15); env.add(sunBall);
+    if (this.photoEnv) { this.scene.environment = this.photoEnv; return; }
     if (this.envTex) this.envTex.dispose();
     this.envTex = this.pmrem.fromScene(env, 0.02).texture;
     this.envTex.userData.cached = true;
     this.scene.environment = this.envTex;
+    // השתקפויות מצילום 360° אמיתי (נטען ברקע, ובינתיים משתמשים בשמיים המצוירים)
+    if (typeof ENV_JPG !== 'undefined' && !this.photoLoading) {
+      this.photoLoading = true;
+      const img = new Image();
+      img.onload = () => {
+        const tex = new T.Texture(img); tex.mapping = T.EquirectangularReflectionMapping; tex.colorSpace = T.SRGBColorSpace; tex.needsUpdate = true;
+        this.photoEnv = this.pmrem.fromEquirectangular(tex).texture; this.photoEnv.userData.cached = true;
+        tex.dispose();
+        if (this.scene && this.weather !== 'night') this.scene.environment = this.photoEnv;
+      };
+      img.src = ENV_JPG;
+    }
   },
 
   // שמיים: כיפה עם מעבר צבע מהאופק לכחול
@@ -382,7 +443,7 @@ const View3D = {
     const T = THREE, rnd = seeded(77);
     const styles = ['stone', 'stone', 'stone2', 'plaster', 'shikun'];
     const wallMat = {};
-    for (const st of styles) wallMat[st] = wallMat[st] || new T.MeshLambertMaterial({ map: this.facadeTex(st), emissiveMap: this.litTex(st), emissive: 0x000000 });
+    for (const st of styles) wallMat[st] = wallMat[st] || new T.MeshStandardMaterial({ map: this.facadeTex(st), emissiveMap: this.litTex(st), emissive: 0x000000, roughness: 0.88 });
     this.wallMats = Object.values(wallMat);
     const roofMat = this.mat(0xb9b6ae), slabMat = this.mat(0xe9e5dc), railMat = this.mat(0xf4f4f2);
     const glassMat = this.mat(0x2a3a46), heaterMat = this.mat(0xf2f2f2), panelMat = this.mat(0x1f3d66), acMat = this.mat(0xe7e7e7);
@@ -562,8 +623,8 @@ const View3D = {
     if (!this.ok || !this.scene) return;
     const T = THREE, w = this.weather, sc = this.scene;
     const P = {
-      day: { bg: 0xa9cfe8, fog: [140, 520], hemi: 0.95, sun: 1.0, sky: 0xffffff, road: 0xffffff },
-      rain: { bg: 0x8e979f, fog: [40, 260], hemi: 0.7, sun: 0.25, sky: 0x8a939b, road: 0xb4b8bd },
+      day: { bg: 0xa9cfe8, fog: [160, 620], hemi: 0.5, sun: 2.4, sky: 0xffffff, road: 0xffffff },
+      rain: { bg: 0x8e979f, fog: [40, 260], hemi: 0.55, sun: 0.35, sky: 0x8a939b, road: 0xb4b8bd },
       night: { bg: 0x0a1020, fog: [30, 300], hemi: 0.12, sun: 0.06, sky: 0x10182c, road: 0xffffff },
     }[w] || {};
     sc.background = new T.Color(P.bg);
@@ -573,6 +634,8 @@ const View3D = {
     for (const c of this.sky.children) c.material.color.setHex(P.sky);
     for (const m of [this.nearMesh.material]) m.color.setHex(P.road);
     const night = w === 'night';
+    // בלילה אין השתקפות של שמיים מוארים
+    sc.environment = night ? null : (this.photoEnv || this.envTex);
     for (const m of this.wallMats || []) m.emissive.setHex(night ? 0xa8a8a8 : 0x000000);
     if (this.lampHeadMat) this.lampHeadMat.emissive.setHex(night ? 0xffe6a8 : 0x000000);
     // פנסים של הרכב שלנו
@@ -796,8 +859,12 @@ const View3D = {
   },
   updateWalkers(dt) {
     if (!this.walkers || this.quality !== 'high') return;
+    const cx = this.camera.position.x, cz = this.camera.position.z;
     for (const w of this.walkers) {
       const e = w.e;
+      // הולכי רגל רחוקים לא מצוירים (חוסך הרבה עבודה למחשב)
+      const far = (w.m.group.position.x - cx) ** 2 + (w.m.group.position.z - cz) ** 2 > 110 * 110;
+      w.m.group.visible = !far;
       if (w.pause > 0) { w.pause -= dt; Models.walk(w.m, 0, false); }
       else {
         w.t += w.dir * w.speed * dt; w.phase += dt * w.speed * 6;
