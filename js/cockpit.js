@@ -37,38 +37,62 @@ const Cockpit = {
     this.updateRpm(dt, kmh, opts.gas);
 
     this.interior(c, W, H);
-    // --- הטמבון: לוח כהה עם קצה עליון מעוגל ---
-    const top = H * 0.78, mid = H * 0.74;
-    const gr = c.createLinearGradient(0, mid, 0, H);
-    gr.addColorStop(0, '#2b2e33'); gr.addColorStop(0.18, '#1d1f23'); gr.addColorStop(1, '#0d0e10');
-    c.fillStyle = gr;
-    c.beginPath(); c.moveTo(0, top + H * 0.03);
-    c.bezierCurveTo(W * 0.25, top - H * 0.005, W * 0.75, top - H * 0.005, W, top + H * 0.03);
-    c.lineTo(W, H); c.lineTo(0, H); c.closePath(); c.fill();
-    // פס אור על קצה הלוח (השתקפות של השמשה)
-    c.strokeStyle = 'rgba(255,255,255,0.12)'; c.lineWidth = 2;
-    c.beginPath(); c.moveTo(0, top + H * 0.03); c.bezierCurveTo(W * 0.25, top - H * 0.005, W * 0.75, top - H * 0.005, W, top + H * 0.03); c.stroke();
-    // פתחי מיזוג משני הצדדים
-    for (const x of [W * 0.1, W * 0.9]) {
-      c.fillStyle = '#121315'; this.round(c, x - W * 0.045, top + H * 0.06, W * 0.09, H * 0.05, 8); c.fill();
-      c.strokeStyle = '#2a2d31'; c.lineWidth = 2;
-      for (let i = 1; i < 5; i++) { const y = top + H * 0.06 + i * H * 0.01; c.beginPath(); c.moveTo(x - W * 0.04, y); c.lineTo(x + W * 0.04, y); c.stroke(); }
-    }
+    // --- הטמבון: משטח עליון אפור-כחלחל עם קו ברור מתחת לשמשה, וחזית כהה עם פסי עיטור ---
+    const top = H * 0.72;
+    const edge = x => top + Math.pow((x / W - 0.5) * 2, 2) * H * 0.025;   // קצה עליון מעט מקושת
+    const shape = (y0off) => { c.beginPath(); c.moveTo(0, edge(0) + y0off); for (let x = 0; x <= W; x += W / 24) c.lineTo(x, edge(x) + y0off); c.lineTo(W, H); c.lineTo(0, H); c.closePath(); };
+    // משטח עליון
+    let gr = c.createLinearGradient(0, top - 4, 0, top + H * 0.06);
+    gr.addColorStop(0, '#4a5466'); gr.addColorStop(1, '#2d3542');
+    c.fillStyle = gr; shape(0); c.fill();
+    c.strokeStyle = 'rgba(255,255,255,0.22)'; c.lineWidth = 2;
+    c.beginPath(); for (let x = 0; x <= W; x += W / 24) (x ? c.lineTo(x, edge(x)) : c.moveTo(x, edge(x))); c.stroke();
+    // חזית הלוח (מתחת לקצה)
+    const faceY = top + H * 0.05;
+    gr = c.createLinearGradient(0, faceY, 0, H);
+    gr.addColorStop(0, '#252b35'); gr.addColorStop(1, '#101318');
+    c.fillStyle = gr; shape(H * 0.05); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 2;
+    c.beginPath(); for (let x = 0; x <= W; x += W / 24) (x ? c.lineTo(x, edge(x) + H * 0.05) : c.moveTo(x, edge(x) + H * 0.05)); c.stroke();
+    // פס כרום לרוחב צד הנוסע
+    const stackX = W * 0.76, stackW = Math.min(W * 0.14, 240);
+    c.strokeStyle = '#9aa4ae'; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(stackX + stackW / 2 + 10, faceY + H * 0.07); c.lineTo(W * 0.96, faceY + H * 0.075); c.stroke();
+    c.strokeStyle = 'rgba(154,164,174,0.4)'; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(stackX + stackW / 2 + 10, faceY + H * 0.1); c.lineTo(W * 0.96, faceY + H * 0.105); c.stroke();
+    // פתח מיזוג אנכי (בקצוות)
+    const vent = (x, y, w, h) => {
+      c.fillStyle = '#0c0e11'; this.round(c, x - w / 2, y, w, h, 10); c.fill();
+      c.strokeStyle = '#9aa4ae'; c.lineWidth = 2.5; c.stroke();
+      c.strokeStyle = '#2e343c'; c.lineWidth = 2;
+      for (let i = 1; i < 6; i++) { const yy = y + i * h / 6; c.beginPath(); c.moveTo(x - w * 0.38, yy); c.lineTo(x + w * 0.38, yy); c.stroke(); }
+    };
+    vent(W * 0.955, faceY + H * 0.01, W * 0.05, H * 0.12);
+    vent(W * 0.045, faceY + H * 0.01, W * 0.05, H * 0.12);
 
-    // --- קונסולה מרכזית מימין להגה: מסך מולטימדיה ופתחי מיזוג ---
+    // --- קונסולה מרכזית: מסגרת כסופה, מסך מולטימדיה ושני פתחי מיזוג לצדו ---
     {
-      const sx = W * 0.79, sw = Math.min(W * 0.16, 260), sh = sw * 0.58, sy = top + H * 0.035;
-      c.fillStyle = '#0e0f11'; this.round(c, sx - sw / 2 - 8, sy - 8, sw + 16, sh + 16, 12); c.fill();
-      const sg = c.createLinearGradient(sx - sw / 2, sy, sx + sw / 2, sy + sh);
-      sg.addColorStop(0, '#10243a'); sg.addColorStop(1, '#0a1522');
-      c.fillStyle = sg; this.round(c, sx - sw / 2, sy, sw, sh, 8); c.fill();
-      // מפת ניווט קטנה על המסך
-      c.strokeStyle = 'rgba(120,190,255,0.55)'; c.lineWidth = 3;
-      c.beginPath(); c.moveTo(sx - sw * 0.3, sy + sh * 0.85); c.lineTo(sx - sw * 0.05, sy + sh * 0.45); c.lineTo(sx + sw * 0.3, sy + sh * 0.3); c.stroke();
-      c.fillStyle = '#4fc3ff'; c.beginPath(); c.arc(sx - sw * 0.05, sy + sh * 0.45, 5, 0, Math.PI * 2); c.fill();
-      c.fillStyle = 'rgba(255,255,255,0.7)'; c.font = `${Math.max(11, sh * 0.11)}px Arial`; c.textAlign = 'center';
-      c.fillText(new Date().toTimeString().slice(0, 5), sx + sw * 0.3, sy + sh * 0.15);
-      c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(sx - sw / 2, sy, sw, sh * 0.12);
+      const sx = stackX, sw = stackW, sy = faceY - H * 0.01, sh = H - sy;
+      c.fillStyle = '#15191f'; this.round(c, sx - sw / 2, sy, sw, sh + 20, 14); c.fill();
+      c.strokeStyle = '#a7b0b9'; c.lineWidth = 3; c.stroke();
+      const scW = sw * 0.62, scH = Math.min(sh * 0.62, scW * 1.15), scX = sx - scW / 2, scY = sy + 10;
+      const sg = c.createLinearGradient(scX, scY, scX + scW, scY + scH);
+      sg.addColorStop(0, '#13304d'); sg.addColorStop(1, '#0a1828');
+      c.fillStyle = sg; this.round(c, scX, scY, scW, scH, 6); c.fill();
+      // מסך: מפת ניווט ושעה
+      c.strokeStyle = 'rgba(120,190,255,0.6)'; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(scX + scW * 0.2, scY + scH * 0.9); c.lineTo(scX + scW * 0.45, scY + scH * 0.5); c.lineTo(scX + scW * 0.8, scY + scH * 0.35); c.stroke();
+      c.fillStyle = '#4fc3ff'; c.beginPath(); c.arc(scX + scW * 0.45, scY + scH * 0.5, 5, 0, Math.PI * 2); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.75)'; c.font = `${Math.max(11, scW * 0.1)}px Arial`; c.textAlign = 'center';
+      c.fillText(new Date().toTimeString().slice(0, 5), scX + scW / 2, scY + scH * 0.13);
+      // פתחי מיזוג משני צדי המסך
+      for (const vx of [sx - sw * 0.41, sx + sw * 0.41]) {
+        c.fillStyle = '#0b0d10'; this.round(c, vx - sw * 0.07, scY + 6, sw * 0.14, scH * 0.55, 6); c.fill();
+        c.strokeStyle = '#2e343c'; c.lineWidth = 1.5;
+        for (let i = 1; i < 6; i++) { const yy = scY + 6 + i * scH * 0.55 / 6; c.beginPath(); c.moveTo(vx - sw * 0.05, yy); c.lineTo(vx + sw * 0.05, yy); c.stroke(); }
+      }
+      // כפתורים מתחת למסך
+      for (let i = 0; i < 5; i++) { c.fillStyle = '#2a3038'; c.beginPath(); c.arc(sx - sw * 0.3 + i * sw * 0.15, scY + scH + 18, 6, 0, Math.PI * 2); c.fill(); }
     }
     // --- גומחת השעונים מול הנהג ---
     const R = Math.min(H * 0.105, W * 0.085, 105), cx = W / 2, cy = top + R * 0.62;

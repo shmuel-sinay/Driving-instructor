@@ -5,7 +5,7 @@
 
 const Models = {
   _mat: {}, _geo: {},
-  guidesOn: (() => { try { return localStorage.getItem('driving-practice.guides') !== 'off'; } catch (e) { return true; } })(),
+  guidesOn: (() => { try { return localStorage.getItem('driving-practice.guides') === 'on'; } catch (e) { return false; } })(),
   mat(color, opts) {
     color = color && color.isColor ? color.getHex() : new THREE.Color(color).getHex();
     const key = color + JSON.stringify(opts || {});
@@ -227,7 +227,7 @@ const Models = {
     const grain = new T.CanvasTexture(gr); grain.wrapS = grain.wrapT = T.RepeatWrapping; grain.repeat.set(6, 6); grain.colorSpace = T.SRGBColorSpace;
     const soft = new T.MeshStandardMaterial({ map: grain, roughness: 0.75 });
     // מכסה מנוע שנראה מעבר ללוח
-    dash.add(new T.Mesh(this.extrude([[1.25, 0.88], [2.15, 0.8], [2.25, 0.7], [1.25, 0.7]], W, 0.05), paint));
+    // (מכסה המנוע לא נראה: הטמבון שעל המסך מסתיר אותו)
     // הלוח (טמבון) לכל רוחב הרכב
     const board = new T.Mesh(this.extrude([[0.62, 0.9], [0.62, 0.99], [0.76, 1.03], [1.12, 1.01], [1.28, 0.93], [1.28, 0.86]], W, 0.03), soft);
     dash.add(board);
