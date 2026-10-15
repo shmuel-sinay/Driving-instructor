@@ -253,7 +253,7 @@ const Models = {
     };
     for (const z of [W / 2 - 0.03, -(W / 2 - 0.03)]) {
       // עמודי השמשה מצוירים עכשיו בלוח שעל המסך (cockpit.js)
-      beam(new T.Vector3(1.0, 0.98, z), new T.Vector3(-0.6, 0.98, z), 0.07, soft);   // אדן החלון
+      // (אדן החלון לא מוצג: מסתיר את הכביש)
     }
     const header = new T.Mesh(new T.BoxGeometry(0.4, 0.03, W), roofIn); header.position.set(0.4, 1.5, 0); header.visible = false; dash.add(header);
     // קווי עזר על הכביש: איפה הרכב נגמר מימין, משמאל ומלפנים (כמו מצלמת חניה)

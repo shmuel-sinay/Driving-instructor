@@ -38,8 +38,8 @@ const Cockpit = {
 
     this.interior(c, W, H);
     // --- הטמבון: משטח עליון אפור-כחלחל עם קו ברור מתחת לשמשה, וחזית כהה עם פסי עיטור ---
-    const top = H * 0.72;
-    const edge = x => top + Math.pow((x / W - 0.5) * 2, 2) * H * 0.025;   // קצה עליון מעט מקושת
+    const top = H * 0.85;
+    const edge = x => top + Math.pow((x / W - 0.5) * 2, 2) * H * 0.012;   // קצה עליון מעט מקושת
     const shape = (y0off) => { c.beginPath(); c.moveTo(0, edge(0) + y0off); for (let x = 0; x <= W; x += W / 24) c.lineTo(x, edge(x) + y0off); c.lineTo(W, H); c.lineTo(0, H); c.closePath(); };
     // משטח עליון
     let gr = c.createLinearGradient(0, top - 4, 0, top + H * 0.06);
@@ -48,14 +48,14 @@ const Cockpit = {
     c.strokeStyle = 'rgba(255,255,255,0.22)'; c.lineWidth = 2;
     c.beginPath(); for (let x = 0; x <= W; x += W / 24) (x ? c.lineTo(x, edge(x)) : c.moveTo(x, edge(x))); c.stroke();
     // חזית הלוח (מתחת לקצה)
-    const faceY = top + H * 0.05;
+    const faceY = top + H * 0.03;
     gr = c.createLinearGradient(0, faceY, 0, H);
     gr.addColorStop(0, '#252b35'); gr.addColorStop(1, '#101318');
-    c.fillStyle = gr; shape(H * 0.05); c.fill();
+    c.fillStyle = gr; shape(H * 0.03); c.fill();
     c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 2;
-    c.beginPath(); for (let x = 0; x <= W; x += W / 24) (x ? c.lineTo(x, edge(x) + H * 0.05) : c.moveTo(x, edge(x) + H * 0.05)); c.stroke();
+    c.beginPath(); for (let x = 0; x <= W; x += W / 24) (x ? c.lineTo(x, edge(x) + H * 0.03) : c.moveTo(x, edge(x) + H * 0.03)); c.stroke();
     // פס כרום לרוחב צד הנוסע
-    const stackX = W * 0.76, stackW = Math.min(W * 0.14, 240);
+    const stackX = W * 0.66, stackW = Math.min(W * 0.1, 170);
     c.strokeStyle = '#9aa4ae'; c.lineWidth = 3;
     c.beginPath(); c.moveTo(stackX + stackW / 2 + 10, faceY + H * 0.07); c.lineTo(W * 0.96, faceY + H * 0.075); c.stroke();
     c.strokeStyle = 'rgba(154,164,174,0.4)'; c.lineWidth = 1.5;
@@ -67,8 +67,8 @@ const Cockpit = {
       c.strokeStyle = '#2e343c'; c.lineWidth = 2;
       for (let i = 1; i < 6; i++) { const yy = y + i * h / 6; c.beginPath(); c.moveTo(x - w * 0.38, yy); c.lineTo(x + w * 0.38, yy); c.stroke(); }
     };
-    vent(W * 0.955, faceY + H * 0.01, W * 0.05, H * 0.12);
-    vent(W * 0.045, faceY + H * 0.01, W * 0.05, H * 0.12);
+    vent(W * 0.955, faceY + H * 0.01, W * 0.035, H * 0.07);
+    vent(W * 0.045, faceY + H * 0.01, W * 0.035, H * 0.07);
 
     // --- קונסולה מרכזית: מסגרת כסופה, מסך מולטימדיה ושני פתחי מיזוג לצדו ---
     {
@@ -95,7 +95,8 @@ const Cockpit = {
       for (let i = 0; i < 5; i++) { c.fillStyle = '#2a3038'; c.beginPath(); c.arc(sx - sw * 0.3 + i * sw * 0.15, scY + scH + 18, 6, 0, Math.PI * 2); c.fill(); }
     }
     // --- גומחת השעונים מול הנהג ---
-    const R = Math.min(H * 0.105, W * 0.085, 105), cx = W / 2, cy = top + R * 0.62;
+    // ההגה והשעונים מול הנהג, שיושב בצד שמאל של הרכב
+    const R = Math.min(H * 0.07, W * 0.055, 66), cx = W * 0.4, cy = top + R * 0.75;
     c.fillStyle = '#141518';
     this.round(c, cx - R * 3.05, cy - R * 1.22, R * 6.1, R * 2.35, R * 0.9); c.fill();
     c.strokeStyle = '#33373c'; c.lineWidth = 3; c.stroke();
@@ -121,7 +122,7 @@ const Cockpit = {
     if (opts.lights) { c.fillStyle = '#4fa3ff'; c.font = `bold ${R * 0.16}px Arial`; c.fillText('◐', cx, cy - R * 0.98); }
 
     // --- הגה גדול: שפה עבה מעור, שלושה חישורים וכרית אוויר עם סמל; השעונים מציצים מעל החלק העליון שלו ---
-    const wr = Math.min(W * 0.3, R * 3.0), wx = cx, wy = H + wr * 0.35;
+    const wr = Math.min(W * 0.2, R * 2.9), wx = cx, wy = H + wr * 0.5;
     c.save(); c.translate(wx, wy); c.rotate((player.steer || 0) * 6);
     // שפה
     c.lineWidth = wr * 0.13; c.strokeStyle = '#141517';
@@ -158,14 +159,14 @@ const Cockpit = {
   interior(c, W, H) {
     const beige = '#c8bea9', beigeD = '#a99f8a';
     // תקרה
-    const hh = H * 0.11;
+    const hh = H * 0.055;
     let g = c.createLinearGradient(0, 0, 0, hh * 1.4);
     g.addColorStop(0, '#d9d0bd'); g.addColorStop(1, beigeD);
     c.fillStyle = g;
     c.beginPath(); c.moveTo(0, 0); c.lineTo(W, 0); c.lineTo(W, hh * 1.35);
     c.bezierCurveTo(W * 0.7, hh * 0.95, W * 0.3, hh * 0.95, 0, hh * 1.35); c.closePath(); c.fill();
     // מגני שמש (מקופלים)
-    for (const [x, w] of [[W * 0.06, W * 0.3], [W * 0.64, W * 0.3]]) {
+    for (const [x, w] of [[W * 0.1, W * 0.24], [W * 0.66, W * 0.24]]) {
       g = c.createLinearGradient(0, hh * 0.4, 0, hh * 1.2);
       g.addColorStop(0, '#cfc5b1'); g.addColorStop(1, '#b3a994');
       c.fillStyle = g; this.round(c, x, hh * 0.35, w, hh * 0.75, 14); c.fill();
@@ -173,7 +174,8 @@ const Cockpit = {
     }
     // זרוע המראה האחורית (המראה עצמה מוצגת מעליה)
     const mr = document.getElementById('mirror'), mTop = mr && !mr.hidden ? mr.getBoundingClientRect().top : hh * 1.25;
-    c.fillStyle = '#8f8676'; c.fillRect(W / 2 - 7, 0, 14, Math.max(0, mTop - 2));
+    const mx = mr && !mr.hidden ? (mr.getBoundingClientRect().left + mr.getBoundingClientRect().right) / 2 : W * 0.6;
+    c.fillStyle = '#8f8676'; c.fillRect(mx - 7, 0, 14, Math.max(0, mTop - 2));
     // עמודי השמשה: רחבים, בהירים, נוטים פנימה למעלה
     for (const side of [-1, 1]) {
       const xb = side < 0 ? 0 : W, inner = side < 0 ? 1 : -1;
@@ -182,14 +184,14 @@ const Cockpit = {
       c.fillStyle = g;
       c.beginPath();
       c.moveTo(xb, hh * 1.2);
-      c.lineTo(xb + inner * W * 0.06, hh * 1.25);
-      c.lineTo(xb + inner * W * 0.2, H * 0.8);
-      c.lineTo(xb + inner * W * 0.13, H * 0.82);
-      c.lineTo(xb, H * 0.6);
+      c.lineTo(xb + inner * W * 0.025, hh * 1.25);
+      c.lineTo(xb + inner * W * 0.075, H * 0.86);
+      c.lineTo(xb + inner * W * 0.045, H * 0.87);
+      c.lineTo(xb, H * 0.75);
       c.closePath(); c.fill();
       // גומי השמשה: קו כהה בצד הפנימי של העמוד
       c.strokeStyle = 'rgba(20,20,20,0.6)'; c.lineWidth = 4;
-      c.beginPath(); c.moveTo(xb + inner * W * 0.06, hh * 1.25); c.lineTo(xb + inner * W * 0.2, H * 0.8); c.stroke();
+      c.beginPath(); c.moveTo(xb + inner * W * 0.025, hh * 1.25); c.lineTo(xb + inner * W * 0.075, H * 0.86); c.stroke();
     }
   },
 
