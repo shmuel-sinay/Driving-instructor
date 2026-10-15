@@ -69,13 +69,31 @@ function updatePlayer(dt) {
   const p = player;
   const sp = Math.abs(p.v);
 
-  // היגוי
-  const maxSteer = 0.62 / (1 + sp * 0.085);
-  const target = ((input.right ? 1 : 0) - (input.left ? 1 : 0)) * maxSteer;
-  const rate = target === 0 ? 3.2 : 2.0;
+  // היגוי: הסיבוב המרבי לפי המהירות (תאוצה צידית נוחה), כך שבמהירות ההגה עדין ובמהירות נמוכה אפשר לפנות חד
+  const maxSteer = Math.min(0.62, Math.atan(p.wb * 3.2 / Math.max(sp * sp, 1)));
+  const key = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+  let target = key * maxSteer, rate = key ? 1.6 : 3.0;
+  // שמירת נתיב: כשלא לוחצים על החיצים, הרכב נשאר במרכז הנתיב שהוא נמצא בו ומתעקל עם הכביש.
+  // לא פונה לבד ולא מחליף נתיב. בתוך צומת, ברוורס ובזווית חדה (באמצע פנייה) אין שום עזרה.
+  if (!key && p.v > 0.5) {
+    const loc = locate(p);
+    if (loc && loc.kind === 'edge') {
+      const e = loc.edge, hd = Math.cos(p.h) * e.d.x + Math.sin(p.h) * e.d.y, dir = hd > 0 ? 1 : -1;
+      const hRoad = Math.atan2(e.d.y * dir, e.d.x * dir), he = angNorm(p.h - hRoad);
+      if (laneCount(e, dir) > 0 && Math.abs(he) < 0.7) {
+        const { s } = edgeLocal(e, p), lane = laneFromST(e, dir, s * dir).idx;
+        const errT = (s - laneS(e, dir, lane)) * dir;   // חיובי = ימינה ממרכז הנתיב
+        // כיוון רצוי: מתקן בעדינות לכיוון מרכז הנתיב
+        const hWant = -Math.max(-0.25, Math.min(0.25, errT * 0.35));
+        const yaw = (hWant - he) * 1.8;                 // קצב סיבוב רצוי
+        target = Math.max(-0.62, Math.min(0.62, Math.atan(yaw * p.wb / Math.max(p.v, 1))));
+        rate = 2.0;
+      }
+    }
+  }
   const ds = target - p.steer;
   p.steer += Math.sign(ds) * Math.min(Math.abs(ds), rate * dt);
-  p.steer = Math.max(-maxSteer, Math.min(maxSteer, p.steer));
+  p.steer = Math.max(-0.62, Math.min(0.62, p.steer));
 
   p.h = angNorm(p.h + p.v / p.wb * Math.tan(p.steer) * dt);
   p.x += Math.cos(p.h) * p.v * dt;

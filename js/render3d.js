@@ -58,8 +58,8 @@ const View3D = {
     sun.shadow.bias = -0.0006;
 
     // קרקע ודשא
-    const ground = new T.Mesh(new T.PlaneGeometry(6000, 6000), this.mat(0x6f9a4a));
-    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05; ground.receiveShadow = true;
+    const ground = new T.Mesh(new T.PlaneGeometry(6000, 6000, 40, 40), this.mat(0x6f9a4a));
+    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.4; ground.receiveShadow = true;   // מתחת לכביש, כדי שלא יבצבץ מעליו
     scene.add(ground);
 
     // טקסטורת הכביש של כל המפה (רזולוציה בינונית, לנוף הרחוק)
@@ -300,11 +300,21 @@ const View3D = {
       }
     }
     const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace;
-    const sky = new T.Mesh(new T.SphereGeometry(800, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new T.MeshBasicMaterial({ map: tex, side: T.BackSide, fog: false, depthWrite: false }));
+    const sky = new T.Mesh(new T.SphereGeometry(800, 48, 16, 0, Math.PI * 2, 0, Math.PI / 2), new T.MeshBasicMaterial({ map: tex, side: T.BackSide, fog: false, depthWrite: false }));
     sky.position.set((WORLD.minX + WORLD.maxX) / 2, -5, (WORLD.minY + WORLD.maxY) / 2);
     sky.renderOrder = -1;
     this.sky = sky;
     this.scene.add(sky);
+    // שמיים מצילום אמיתי של עננים (נטען ברקע)
+    if (typeof SKY_JPG !== 'undefined') {
+      const apply = t => { sky.material.map = t; sky.material.needsUpdate = true; };
+      if (this.skyPhoto) apply(this.skyPhoto);
+      else {
+        const img = new Image();
+        img.onload = () => { const t = new T.Texture(img); t.colorSpace = T.SRGBColorSpace; t.needsUpdate = true; t.userData.cached = true; this.skyPhoto = t; if (this.sky) { this.sky.material.map = t; this.sky.material.needsUpdate = true; } };
+        img.src = SKY_JPG;
+      }
+    }
     const hc = document.createElement('canvas'); hc.width = 2048; hc.height = 64;
     const hg = hc.getContext('2d');
     for (const [col, base, amp, f] of [['#9fb3a6', 30, 18, 3], ['#8aa38c', 42, 14, 5]]) {
@@ -378,6 +388,17 @@ const View3D = {
 
   // בניינים בסגנון ישראלי: אבן ירושלמית או טיח, תריסים, מרפסות, חנויות עם סוככים ושלטים,
   // ודודי שמש וקולטים על הגג
+  // מפת חספוס לחזית: הזכוכית חלקה ומשקפת, הקיר מחוספס (באותם מקומות כמו החלונות בטקסטורה)
+  glassRough() {
+    if (this.texCache.glassRough) return this.texCache.glassRough;
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const g = c.getContext('2d');
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, 256, 256);
+    g.fillStyle = '#1a1a1a';
+    for (let r = 0; r < 2; r++) for (let q = 0; q < 2; q++) g.fillRect(28 + q * 128, 30 + r * 128, 72, 74);
+    const tex = new THREE.CanvasTexture(c); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.userData.cached = true;
+    return (this.texCache.glassRough = tex);
+  },
   facadeTex(style) {
     const key = 'facade:' + style;
     if (this.texCache[key]) return this.texCache[key];
@@ -443,9 +464,10 @@ const View3D = {
     const T = THREE, rnd = seeded(77);
     const styles = ['stone', 'stone', 'stone2', 'plaster', 'shikun'];
     const wallMat = {};
-    for (const st of styles) wallMat[st] = wallMat[st] || new T.MeshStandardMaterial({ map: this.facadeTex(st), emissiveMap: this.litTex(st), emissive: 0x000000, roughness: 0.88 });
+    for (const st of styles) wallMat[st] = wallMat[st] || new T.MeshStandardMaterial({ map: this.facadeTex(st), emissiveMap: this.litTex(st), emissive: 0x000000, roughness: 1, roughnessMap: this.glassRough(), metalness: 0.05 });
     this.wallMats = Object.values(wallMat);
     const roofMat = this.mat(0xb9b6ae), slabMat = this.mat(0xe9e5dc), railMat = this.mat(0xf4f4f2);
+    const trimMat = this.mat(0xd9d2c1), plinthMat = this.mat(0x8f8676), doorMat = new T.MeshStandardMaterial({ color: 0x3a2a1c, roughness: 0.5, metalness: 0.2 });
     const glassMat = this.mat(0x2a3a46), heaterMat = this.mat(0xf2f2f2), panelMat = this.mat(0x1f3d66), acMat = this.mat(0xe7e7e7);
     const SHOPS = [['מכולת', '#1b5e20', '#fff'], ['פלאפל', '#f9a825', '#3e2723'], ['מספרה', '#283593', '#fff'], ['פיצה', '#c62828', '#fff'], ['קפה', '#4e342e', '#ffe0b2'],
       ['בית מרקחת', '#00695c', '#fff'], ['סופר', '#e65100', '#fff'], ['שווארמה', '#6a1b9a', '#fff'], ['פרחים', '#ad1457', '#fff'], ['חומרי בניין', '#37474f', '#ffeb3b'],
@@ -469,8 +491,20 @@ const View3D = {
       const walls = new T.Mesh(geo, wallMat[st]); walls.position.y = hgt / 2; grp.add(walls);
       const roof = new T.Mesh(box(b.w + 0.3, 0.35, b.h + 0.3), roofMat); roof.position.y = hgt + 0.1; grp.add(roof);
       const f = b.f || 1, fz = f * (b.h / 2);
+      // מעקה סביב הגג, בסיס אבן כהה וכרכובים דקים בין הקומות (נותנים לחזית עומק)
+      for (const [w, d, x, z] of [[b.w + 0.3, 0.18, 0, b.h / 2 + 0.06], [b.w + 0.3, 0.18, 0, -b.h / 2 - 0.06], [0.18, b.h + 0.3, b.w / 2 + 0.06, 0], [0.18, b.h + 0.3, -b.w / 2 - 0.06, 0]]) {
+        const pr = new T.Mesh(box(w, 0.9, d), trimMat); pr.position.set(x, hgt + 0.55, z); grp.add(pr);
+      }
+      const plinth = new T.Mesh(box(b.w + 0.12, 0.7, b.h + 0.12), plinthMat); plinth.position.y = 0.35; grp.add(plinth);
+      for (let fl = 1; fl < floors; fl++) { const cb = new T.Mesh(box(b.w + 0.1, 0.12, 0.14), trimMat); cb.position.set(0, fl * 3 - 0.05, fz + f * 0.05); grp.add(cb); }
       // חנויות בקומת הקרקע בצד הרחוב
       const shop = rnd() < 0.7;
+      if (!shop) {
+        // כניסה לבניין: דלת, גגון ומנורה
+        const door = new T.Mesh(box(1.4, 2.3, 0.08), doorMat); door.position.set(0, 1.15, fz + f * 0.03); grp.add(door);
+        const canopy = new T.Mesh(box(2.2, 0.1, 1.1), trimMat); canopy.position.set(0, 2.6, fz + f * 0.55); grp.add(canopy);
+        const num = new T.Mesh(box(0.3, 0.22, 0.04), this.mat(0x1d4f91)); num.position.set(1.0, 2.0, fz + f * 0.04); grp.add(num);
+      }
       if (shop) {
         const front = new T.Mesh(box(b.w - 1.2, 2.6, 0.12), glassMat); front.position.set(0, 1.35, fz + f * 0.04); grp.add(front);
         const awn = new T.Mesh(box(b.w - 0.6, 0.12, 1.6), awnCols[Math.floor(rnd() * awnCols.length)]);
@@ -692,13 +726,33 @@ const View3D = {
     const list = [];
     for (const t of scenery.trees) (rndp() < 0.25 ? scenery.palms : list).push(t);
     if (!list.length) return;
-    const trunk = new T.InstancedMesh(new T.CylinderGeometry(0.18, 0.25, 2.2, 6), this.mat(0x6b4f35), list.length);
-    const crown = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), this.mat(0x447a2e), list.length);
-    const m = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3();
+    // עלווה: כדור עם בליטות לא סדירות (אותה הזזה לכל נקודה באותו מקום, כדי שלא ייפתחו חורים)
+    const leafGeo = new T.IcosahedronGeometry(1, 2), pos = leafGeo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      const n = 1 + 0.18 * Math.sin(x * 5.1 + y * 3.7) * Math.cos(z * 4.3 - x * 2.1) + 0.1 * Math.sin(y * 9.3 + z * 7.7);
+      pos.setXYZ(i, x * n, y * n * 0.85, z * n);
+    }
+    Models.smoothNormals(leafGeo, 1.2);
+    const CL = 4;   // גושים לכל עץ
+    const trunk = new T.InstancedMesh(new T.CylinderGeometry(0.14, 0.26, 3.2, 8), this.mat(0x5e4630), list.length);
+    const crown = new T.InstancedMesh(leafGeo, new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 }), list.length * CL);
+    const m = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3(), col = new T.Color(), rnd = seeded(404);
+    const greens = [0x3f6f2a, 0x4a7d31, 0x56893a, 0x355f24, 0x5f8f3f];
+    let k = 0;
     list.forEach((t, i) => {
-      m.compose(new T.Vector3(t.x, 1.1, t.y), q, sc.set(1, 1, 1)); trunk.setMatrixAt(i, m);
-      m.compose(new T.Vector3(t.x, 2.2 + t.r * 0.7, t.y), q, sc.set(t.r * 0.9, t.r, t.r * 0.9)); crown.setMatrixAt(i, m);
+      m.compose(new T.Vector3(t.x, 1.6, t.y), q, sc.set(1, 1, 1)); trunk.setMatrixAt(i, m);
+      const base = greens[Math.floor(rnd() * greens.length)];
+      for (let j = 0; j < CL; j++) {
+        const a = rnd() * Math.PI * 2, d = j ? t.r * (0.35 + rnd() * 0.3) : 0, r = t.r * (j ? 0.55 + rnd() * 0.25 : 0.8);
+        q.setFromAxisAngle(new T.Vector3(0, 1, 0), rnd() * 6);
+        m.compose(new T.Vector3(t.x + Math.cos(a) * d, 2.9 + t.r * 0.55 + (j ? (rnd() - 0.3) * t.r * 0.6 : 0), t.y + Math.sin(a) * d), q, sc.set(r, r, r));
+        crown.setMatrixAt(k, m);
+        col.setHex(base).offsetHSL((rnd() - 0.5) * 0.04, (rnd() - 0.5) * 0.1, (rnd() - 0.5) * 0.08); crown.setColorAt(k, col);
+        k++;
+      }
     });
+    q.identity();
     trunk.castShadow = crown.castShadow = true;
     this.scene.add(trunk, crown);
   },
@@ -795,6 +849,18 @@ const View3D = {
       const top = Models.CAR_TYPES.hatch.cab[1][1];
       sign.position.set(-0.6, top + 0.24, 0);
       car.cabin.add(sign);
+      // שלט "לימוד נהיגה" על שתי הדלתות
+      const dc = document.createElement('canvas'); dc.width = 256; dc.height = 64;
+      const dg = dc.getContext('2d');
+      dg.fillStyle = '#ffffff'; dg.fillRect(0, 0, 256, 64); dg.strokeStyle = '#c62828'; dg.lineWidth = 6; dg.strokeRect(3, 3, 250, 58);
+      dg.fillStyle = '#c62828'; dg.font = 'bold 34px Arial'; dg.textAlign = 'center'; dg.textBaseline = 'middle'; dg.direction = 'rtl'; dg.fillText('לימוד נהיגה', 128, 34);
+      const dtex = new THREE.CanvasTexture(dc); dtex.colorSpace = THREE.SRGBColorSpace;
+      const P = Models.CAR_TYPES.hatch;
+      for (const z of [1, -1]) {
+        const d = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.25), new THREE.MeshStandardMaterial({ map: dtex, roughness: 0.4 }));
+        d.position.set(0.1, 0.62, z * (P.W / 2 + 0.012)); d.rotation.y = z > 0 ? 0 : Math.PI;
+        car.group.add(d);
+      }
     }
     return car;
   },

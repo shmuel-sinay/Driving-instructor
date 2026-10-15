@@ -189,10 +189,15 @@ function startLesson(L) {
   loadMap(validateMap(map).map);
   const e = edgeById[L.start.road];
   if (e) {
-    if (!assist.on) toggleSteer();
+    // מציבים את הרכב בעזרת הנהיגה המסייעת; בשיעורים בלי חניה חוזרים להיגוי ידני
+    const wasManual = !assist.on;
+    assist.on = true;
     const t = L.start.dir > 0 ? e.t0 + L.start.from : e.t1 - L.start.from;
     apStartEdge(e, L.start.dir, L.start.lane, t);
     apPlace(Math.atan2(e.d.y * L.start.dir, e.d.x * L.start.dir), true);
+    const needsAssist = L.steps.some(s => s.park || s.unpark || s.reverse);
+    if (wasManual && !needsAssist) { assist.on = false; assist.st = null; }
+    if (typeof showSteer === 'function') showSteer();
     player.v = 0; player.gear = 'D'; player.blinker = 0;
     cam.x = player.x; cam.y = player.y; cam.rot = -Math.PI / 2 - player.h;
   }

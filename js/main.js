@@ -44,7 +44,7 @@ const act = {
   blink(side) { setBlinker(side); tick(true); },
   blinkOff() { if (player.blinker) { player.blinker = 0; tick(false); } },
   lane(side) { if (assist.on) apLane(side); },
-  park(side) { if (assist.on) apPark(side); else Rules.onEvent('good', { text: 'חניה אוטומטית עובדת בהיגוי אוטומטי' }); },
+  park(side) { if (assist.on) apPark(side); else Rules.onEvent('good', { text: 'בהיגוי ידני חונים לבד: מאותתים, מאטים ונכנסים למקום בעזרת החיצים' }); },
   gear() { if (!toggleGear()) Rules.onEvent('good', { text: 'עצור לגמרי לפני החלפת הילוך' }); else tick(false); },
   horn(on) { player.horn = on; truckHorn(on); },
   reset() { resetPlayer(); Rules.loc = null; Rules.entry = null; Rules.rb = null; },
@@ -138,9 +138,14 @@ function toggleSteer() {
     assist.on = true;
   } else { assist.on = false; assist.st = null; }
   for (const k in input) input[k] = false;
-  $('btnSteer').textContent = assist.on ? 'היגוי: אוטומטי' : 'היגוי: ידני';
+  try { localStorage.setItem('driving-practice.steer', assist.on ? 'auto' : 'manual'); } catch (e) { /* לא חובה */ }
+  showSteer();
+}
+function showSteer() {
+  $('btnSteer').textContent = assist.on ? 'היגוי: אוטומטי (רכב בוחר נתיב ופנייה)' : 'היגוי: ידני (עם שמירת נתיב)';
   document.body.classList.toggle('manual', !assist.on);
 }
+showSteer();
 function toggleInstructor() {
   Rules.instructorOn = !Rules.instructorOn;
   $('btnInstr').textContent = Rules.instructorOn ? 'הוראות בוחן: פועל' : 'הוראות בוחן: כבוי';

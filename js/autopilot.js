@@ -8,7 +8,8 @@
 // - Q / E: איתות בלבד (לחיצה נוספת מכבה). האיתות לא מזיז את הרכב, והבוחן בודק אותו.
 // - P / O: חניה בצד ימין / שמאל במקום הפנוי הבא. גז מתוך חניה = יציאה מהחניה.
 
-const assist = { on: true, st: null, hint: null, hintUntil: 0, intent: null };
+// ברירת המחדל: היגוי ידני עם שמירת נתיב בלבד. אפשר לעבור להיגוי אוטומטי בהגדרות
+const assist = { on: (() => { try { return localStorage.getItem('driving-practice.steer') === 'auto'; } catch (e) { return false; } })(), st: null, hint: null, hintUntil: 0, intent: null };
 
 function apLaneCount(e, dir) { return Math.max(1, laneCount(e, dir)); }
 // היסט הנתיב; גם בנסיעה נגד הכיוון בחד-סטרי
@@ -81,11 +82,17 @@ function apLane(side) {
   }
   if (st.kind !== 'edge') return;
   // ביטול פנייה שנבחרה
-  if (assist.intent && assist.intent !== name) { assist.intent = null; return; }
+  if (assist.intent && assist.intent !== name) { assist.intent = null; apHint('הפנייה בוטלה: ממשיכים ישר'); return; }
+  // ליד צומת (45 מ' לפניו) החץ הוא פנייה בצומת; בשאר הכביש החץ מחליף נתיב
+  const rem = ((st.dir > 0 ? st.e.t1 : st.e.t0) - st.t) * st.dir;
+  const node = toNodeOf(st.e, st.dir);
+  const junction = node.edges.length >= 3 || node.type === 'roundabout';
+  if (junction && rem < 45 && node.type !== 'roundabout') { assist.intent = name; apHint(name === 'right' ? 'פונה ימינה בצומת' : 'פונה שמאלה בצומת'); return; }
   const n = apLaneCount(st.e, st.dir);
   const target = st.lane + side;
   if (target >= 0 && target < n) { st.lane = target; return; }
   assist.intent = name;   // אין נתיב נוסף: זו פנייה בצומת הבא
+  apHint(name === 'right' ? 'פונה ימינה בצומת הבא' : 'פונה שמאלה בצומת הבא');
 }
 
 function apPark(side) {

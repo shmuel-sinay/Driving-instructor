@@ -335,3 +335,6 @@ body.view3d .toast { padding: 6px 12px; font-size: 15px; }
 .toasts { left: auto; right: 16px; transform: none; top: calc(var(--top) + 64px); width: min(330px, calc(100% - 32px)); align-items: stretch; }
 .toast { font-size: 14px; padding: 6px 10px; }
 .toast .why { display: none; }
+
+/* במבט נהג רואים את השעונים האמיתיים של הרכב, אז מסתירים את לוח המהירות של המסך */
+body.view3d.drivercam .dash .cluster { display: none; }

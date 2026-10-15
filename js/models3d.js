@@ -218,7 +218,14 @@ const Models = {
   // הנהג יושב משמאל: עין בגובה 1.3 מ', 0.2 מ' לפני מרכז הרכב ו-0.38 מ' שמאלה (z שלילי).
   cockpit(g, P, paint) {
     const T = THREE, dash = new T.Group(), W = P.W - 0.1;
-    const plastic = this.mat(0x24272b), soft = this.mat(0x2e3237), trim = this.mat(0x3a3f45), roofIn = this.basic(0x8f8b84);
+    const plastic = this.mat(0x24272b), trim = this.mat(0x3a3f45), roofIn = this.basic(0x8f8b84);
+    // פלסטיק רך עם מרקם עדין ותפר, כמו בלוח של רכב אמיתי
+    const gr = document.createElement('canvas'); gr.width = gr.height = 128;
+    const gx = gr.getContext('2d'), rr = Math.random;
+    gx.fillStyle = '#34383d'; gx.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 2500; i++) { gx.fillStyle = `rgba(${rr() < 0.5 ? '0,0,0' : '255,255,255'},${rr() * 0.06})`; gx.fillRect(rr() * 128, rr() * 128, 1, 1); }
+    const grain = new T.CanvasTexture(gr); grain.wrapS = grain.wrapT = T.RepeatWrapping; grain.repeat.set(6, 6); grain.colorSpace = T.SRGBColorSpace;
+    const soft = new T.MeshStandardMaterial({ map: grain, roughness: 0.75 });
     // מכסה מנוע שנראה מעבר ללוח
     dash.add(new T.Mesh(this.extrude([[1.25, 0.88], [2.15, 0.8], [2.25, 0.7], [1.25, 0.7]], W, 0.05), paint));
     // הלוח (טמבון) לכל רוחב הרכב
@@ -252,6 +259,17 @@ const Models = {
       beam(new T.Vector3(1.3, 0.97, z), new T.Vector3(0.62, 1.47, z * 0.95), 0.035, plastic);
       beam(new T.Vector3(1.0, 0.98, z), new T.Vector3(-0.6, 0.98, z), 0.07, soft);   // אדן החלון
     }
+    // מראות צד: גוף בצבע הרכב וזכוכית כהה משקפת, משני הצדדים
+    for (const z of [1, -1]) {
+      const housing = new T.Mesh(this.geo('sideMirror', () => new T.BoxGeometry(0.1, 0.13, 0.22)), plastic);
+      housing.position.set(1.05, 1.14, z * (P.W / 2 + 0.16)); housing.scale.setScalar(0.75); dash.add(housing);
+      const glassM = new T.Mesh(this.geo('sideMirrorGlass', () => new T.PlaneGeometry(0.19, 0.1)), this.pbr(0x8fa3b5, 1, 0.05));
+      glassM.position.set(1.01, 1.14, z * (P.W / 2 + 0.16)); glassM.scale.setScalar(0.75); glassM.rotation.y = -Math.PI / 2; dash.add(glassM);
+      const arm = new T.Mesh(this.geo('mirrorArm', () => new T.BoxGeometry(0.06, 0.03, 0.12)), plastic); arm.position.set(1.07, 1.1, z * (P.W / 2 + 0.06)); dash.add(arm);
+    }
+    // ידית הילוכים וקונסולה מרכזית
+    const console1 = new T.Mesh(new T.BoxGeometry(0.6, 0.18, 0.22), soft); console1.position.set(0.25, 0.82, 0.02); dash.add(console1);
+    const knob = new T.Mesh(new T.SphereGeometry(0.035, 12, 8), this.pbr(0x111111, 0.3, 0.4)); knob.position.set(0.15, 0.97, 0.02); dash.add(knob);
     const header = new T.Mesh(new T.BoxGeometry(0.4, 0.03, W), roofIn); header.position.set(0.4, 1.5, 0); dash.add(header);
     // קווי עזר על הכביש: איפה הרכב נגמר מימין, משמאל ומלפנים (כמו מצלמת חניה)
     const guideMat = new T.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.7, depthWrite: false });
