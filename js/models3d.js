@@ -128,7 +128,7 @@ const Models = {
   // הנהג יושב משמאל: עין בגובה 1.3 מ', 0.2 מ' לפני מרכז הרכב ו-0.38 מ' שמאלה (z שלילי).
   cockpit(g, P, paint) {
     const T = THREE, dash = new T.Group(), W = P.W - 0.1;
-    const plastic = this.mat(0x24272b), soft = this.mat(0x2e3237), trim = this.mat(0x3a3f45), roofIn = this.mat(0xbdb9b0);
+    const plastic = this.mat(0x24272b), soft = this.mat(0x2e3237), trim = this.mat(0x3a3f45), roofIn = this.basic(0x8f8b84);
     // מכסה מנוע שנראה מעבר ללוח
     dash.add(new T.Mesh(this.extrude([[1.25, 0.88], [2.15, 0.8], [2.25, 0.7], [1.25, 0.7]], W, 0.05), paint));
     // הלוח (טמבון) לכל רוחב הרכב
@@ -141,16 +141,16 @@ const Models = {
     const gauge = new T.Mesh(new T.PlaneGeometry(0.42, 0.13), new T.MeshBasicMaterial({ map: gtex }));
     gauge.position.set(0.69, 1.02, -0.38); gauge.rotation.y = -Math.PI / 2; gauge.rotateX(-0.35); dash.add(gauge);
     // מסך מולטימדיה במרכז ופתחי מיזוג
-    const scr = new T.Mesh(new T.PlaneGeometry(0.24, 0.14), new T.MeshBasicMaterial({ color: 0x1b3a5c }));
+    const scr = new T.Mesh(new T.PlaneGeometry(0.2, 0.11), new T.MeshBasicMaterial({ color: 0x0f2236 }));
     scr.position.set(0.8, 1.06, 0.02); scr.rotation.y = -Math.PI / 2; scr.rotateX(-0.25); dash.add(scr);
     for (const z of [-0.72, -0.08, 0.12, 0.7]) { const v = new T.Mesh(new T.BoxGeometry(0.02, 0.05, 0.13), trim); v.position.set(0.63, 0.96, z); dash.add(v); }
     // הגה: מסתובב לפי ההיגוי
-    const wheelG = new T.Group(); wheelG.position.set(0.5, 0.97, -0.38); wheelG.rotation.z = -0.45;
+    const wheelG = new T.Group(); wheelG.position.set(0.6, 0.92, -0.38); wheelG.rotation.z = -0.5;
     const spin = new T.Group(); wheelG.add(spin);
-    const rim = new T.Mesh(new T.TorusGeometry(0.19, 0.024, 8, 32), this.mat(0x15171a)); rim.rotation.y = Math.PI / 2; spin.add(rim);
+    const rim = new T.Mesh(new T.TorusGeometry(0.17, 0.02, 8, 32), this.mat(0x15171a)); rim.rotation.y = Math.PI / 2; spin.add(rim);
     const hub = new T.Mesh(new T.CylinderGeometry(0.06, 0.06, 0.05, 16), trim); hub.rotation.z = Math.PI / 2; spin.add(hub);
-    const sp1 = new T.Mesh(new T.BoxGeometry(0.02, 0.025, 0.36), plastic); spin.add(sp1);
-    const sp2 = new T.Mesh(new T.BoxGeometry(0.02, 0.17, 0.035), plastic); sp2.position.y = -0.09; spin.add(sp2);
+    const sp1 = new T.Mesh(new T.BoxGeometry(0.02, 0.022, 0.32), plastic); spin.add(sp1);
+    const sp2 = new T.Mesh(new T.BoxGeometry(0.02, 0.15, 0.03), plastic); sp2.position.y = -0.08; spin.add(sp2);
     const logo = new T.Mesh(new T.CircleGeometry(0.025, 16), this.mat(0xc0c4c8)); logo.position.x = -0.03; logo.rotation.y = -Math.PI / 2; spin.add(logo);
     dash.add(wheelG);
     // עמודי השמשה, תקרה ואדני החלונות
@@ -159,10 +159,10 @@ const Models = {
       m.position.copy(a).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()); dash.add(m);
     };
     for (const z of [W / 2 - 0.03, -(W / 2 - 0.03)]) {
-      beam(new T.Vector3(1.22, 0.97, z), new T.Vector3(0.6, 1.43, z * 0.93), 0.055, plastic);
+      beam(new T.Vector3(1.3, 0.97, z), new T.Vector3(0.62, 1.47, z * 0.95), 0.035, plastic);
       beam(new T.Vector3(1.0, 0.98, z), new T.Vector3(-0.6, 0.98, z), 0.07, soft);   // אדן החלון
     }
-    const header = new T.Mesh(new T.BoxGeometry(0.5, 0.04, W), roofIn); header.position.set(0.35, 1.45, 0); dash.add(header);
+    const header = new T.Mesh(new T.BoxGeometry(0.4, 0.03, W), roofIn); header.position.set(0.4, 1.5, 0); dash.add(header);
     g.add(dash);
     dash.userData = { wheel: spin, gauge: { ctx: gc.getContext('2d'), tex: gtex } };
     return dash;
