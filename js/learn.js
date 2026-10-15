@@ -132,7 +132,23 @@ function showQuizStart() {
     b.addEventListener('click', () => startQuiz('practice', c));
     box.appendChild(b);
   }
+  updateMistakesBtn();
   $('quizBest').textContent = (() => { try { const v = localStorage.getItem('driving-practice.quizBest'); return v ? `השיא שלך במבחן: ${v}/30` : ''; } catch (e) { return ''; } })();
+}
+
+// ===== מחברת טעויות: שאלות שטעית בהן נשמרות עד שעונים עליהן נכון =====
+const MISTAKES_KEY = 'driving-practice.mistakes';
+function loadMistakes() { try { return JSON.parse(localStorage.getItem(MISTAKES_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function saveMistakes(m) { try { localStorage.setItem(MISTAKES_KEY, JSON.stringify(m)); } catch (e) { /* לא חובה */ } }
+function markMistake(n, wrong) {
+  const m = loadMistakes();
+  if (wrong) m[n] = (m[n] || 0) + 1; else delete m[n];
+  saveMistakes(m);
+}
+function updateMistakesBtn() {
+  const n = Object.keys(loadMistakes()).length;
+  $('btnQuizMistakes').hidden = !n;
+  $('btnQuizMistakes').textContent = `השאלות שטעיתי בהן (${n})`;
 }
 
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
@@ -144,8 +160,13 @@ function startQuiz(mode, cat) {
     // כמו במבחן האמיתי: 30 שאלות מכל הנושאים
     const by = c => shuffle(THEORY.filter(t => t.cat === c));
     pool = shuffle([].concat(by('חוקי התנועה').slice(0, 12), by('תמרורים').slice(0, 9), by('בטיחות').slice(0, 7), by('הכרת הרכב').slice(0, 2)));
+  } else if (mode === 'mistakes') {
+    const m = loadMistakes();
+    // קודם השאלות שטעית בהן הכי הרבה פעמים
+    pool = shuffle(THEORY.filter(t => m[t.n])).sort((a, b) => m[b.n] - m[a.n]).slice(0, 20);
   } else pool = shuffle(pool).slice(0, 20);
-  Object.assign(Quiz, { list: pool, i: 0, right: 0, wrong: [], answered: false, cat });
+  if (!pool.length) { showQuizStart(); return; }
+  Object.assign(Quiz, { list: pool, i: 0, right: 0, wrong: [], answered: false, cat, endsAt: mode === 'exam' ? Date.now() + 40 * 60000 : 0 });
   $('quizStart').hidden = true; $('quizEnd').hidden = true; $('quizRun').hidden = false;
   showQuestion();
 }
@@ -153,7 +174,7 @@ function startQuiz(mode, cat) {
 function showQuestion() {
   const t = Quiz.list[Quiz.i];
   Quiz.answered = false;
-  $('quizProgress').textContent = `שאלה ${Quiz.i + 1} מתוך ${Quiz.list.length} · ${t.cat} · נכונות: ${Quiz.right}`;
+  quizProgressText();
   $('quizQ').textContent = t.q;
   const imgBox = $('quizImg'); imgBox.innerHTML = '';
   if (t.img) imgBox.appendChild(theoryImg(t));
@@ -170,12 +191,36 @@ function showQuestion() {
   $('quizNext').hidden = true; $('quizFeedback').textContent = '';
 }
 
+// במבחן מלא יש 40 דקות, כמו במבחן האמיתי
+function quizProgressText() {
+  const t = Quiz.list[Quiz.i];
+  let txt = `שאלה ${Quiz.i + 1} מתוך ${Quiz.list.length} · ${t.cat} · נכונות: ${Quiz.right}`;
+  if (Quiz.endsAt) {
+    const left = Math.max(0, Math.round((Quiz.endsAt - Date.now()) / 1000));
+    txt += ` · זמן: ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  }
+  $('quizProgress').textContent = txt;
+}
+setInterval(() => {
+  if (!Quiz.endsAt || $('quizRun').hidden) return;
+  quizProgressText();
+  if (Date.now() >= Quiz.endsAt) {
+    // נגמר הזמן: כל מה שלא נענה נחשב טעות
+    Quiz.endsAt = 0;
+    for (let i = Quiz.i + (Quiz.answered ? 1 : 0); i < Quiz.list.length; i++) Quiz.wrong.push({ t: Quiz.list[i], k: -1 });
+    Quiz.i = Quiz.list.length - 1;
+    nextQuestion();
+    $('quizVerdict').textContent = 'נגמר הזמן! ' + $('quizVerdict').textContent;
+  }
+}, 1000);
+
 function answer(k, btn) {
   if (Quiz.answered) return;
   Quiz.answered = true;
   const t = Quiz.list[Quiz.i];
   const ok = k === t.c;
   if (ok) Quiz.right++; else Quiz.wrong.push({ t, k });
+  markMistake(t.n, !ok);
   for (const b of $('quizAnswers').children) {
     if (+b.dataset.k === t.c) b.classList.add('right');
     else if (b === btn) b.classList.add('wrong');
@@ -191,6 +236,7 @@ function answer(k, btn) {
 function nextQuestion() {
   if (Quiz.i + 1 < Quiz.list.length) { Quiz.i++; showQuestion(); return; }
   $('quizRun').hidden = true; $('quizEnd').hidden = false;
+  Quiz.endsAt = 0;
   const n = Quiz.list.length, r = Quiz.right;
   const pass = Quiz.mode === 'exam' ? r >= 26 : r / n >= 0.85;
   $('quizScore').textContent = `${r}/${n}`;
@@ -200,7 +246,7 @@ function nextQuestion() {
   for (const t of Quiz.list) { cats[t.cat] = cats[t.cat] || [0, 0]; cats[t.cat][1]++; }
   for (const w of Quiz.wrong) cats[w.t.cat][0]--;
   for (const c in cats) cats[c][0] += cats[c][1];
-  addHistory({ type: 'quiz', name: Quiz.mode === 'exam' ? 'מבחן מלא' : (Quiz.cat || 'תרגול'), right: r, total: n, passed: pass, cats });
+  addHistory({ type: 'quiz', name: Quiz.mode === 'exam' ? 'מבחן מלא' : Quiz.mode === 'mistakes' ? 'מחברת טעויות' : (Quiz.cat || 'תרגול'), right: r, total: n, passed: pass, cats });
   if (Quiz.mode === 'exam') { try { const best = +localStorage.getItem('driving-practice.quizBest') || 0; if (r > best) localStorage.setItem('driving-practice.quizBest', r); } catch (e) { /* לא חובה */ } }
   const box = $('quizWrong'); box.innerHTML = '';
   if (Quiz.wrong.length) {
@@ -221,6 +267,7 @@ $('btnQuiz').addEventListener('click', openQuiz);
 $('btnCloseQuiz').addEventListener('click', closeQuiz);
 $('btnQuizExam').addEventListener('click', () => startQuiz('exam'));
 $('btnQuizAll').addEventListener('click', () => startQuiz('practice'));
+$('btnQuizMistakes').addEventListener('click', () => startQuiz('mistakes'));
 $('quizNext').addEventListener('click', nextQuestion);
 $('btnQuizAgain').addEventListener('click', showQuizStart);
 window.addEventListener('keydown', e => {
