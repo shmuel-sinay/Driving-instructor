@@ -482,6 +482,15 @@ function warnTriangle(ctx, r) {
 
 // ===== רכבים והולכי רגל =====
 function drawCar(ctx, v, color, opts = {}) {
+  if (v.rider) {
+    // רוכב: כלי צר ואדם עם קסדה
+    ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.h);
+    ctx.fillStyle = '#222'; roundRect(ctx, -v.len / 2, -0.12, v.len, 0.24, 0.1); ctx.fill();
+    ctx.fillStyle = color; circle(ctx, -0.1, 0, 0.32); ctx.fill();
+    ctx.fillStyle = v.rider === 'bike' ? '#fff' : '#111'; circle(ctx, -0.05, 0, 0.17); ctx.fill();
+    ctx.restore();
+    return;
+  }
   ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.h);
   const L = v.len, Wd = v.wid;
   ctx.fillStyle = 'rgba(0,0,0,0.3)'; roundRect(ctx, -L / 2 + 0.25, -Wd / 2 + 0.3, L, Wd, 0.5); ctx.fill();

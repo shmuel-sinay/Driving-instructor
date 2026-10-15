@@ -772,7 +772,8 @@ const View3D = {
     for (const n of list) {
       seen.add(n);
       let car = this.npcMeshes.get(n);
-      if (!car) { car = n.siren ? Models.emergency(n.siren) : n.type === 'bus' ? Models.bus(new THREE.Color(n.color)) : this.makeCar(new THREE.Color(n.color), false, n.type); this.scene.add(car.group); this.npcMeshes.set(n, car); }
+      if (!car) { car = n.rider ? Models.rider(n.rider, new THREE.Color(n.color).getHex()) : n.siren ? Models.emergency(n.siren) : n.type === 'bus' ? Models.bus(new THREE.Color(n.color)) : this.makeCar(new THREE.Color(n.color), false, n.type); this.scene.add(car.group); this.npcMeshes.set(n, car); }
+      if (car.person) Models.walk(car.person, n.phase, n.rider === 'bike' && n.v > 0.5);
       if (car.bar) { const ph = (performance.now() / 250 | 0) % 2; car.bar.forEach((L, i) => { L.m.material = (i === ph) ? L.on : L.off; }); }
       this.syncCar(car, n, { braking: n.braking, blinker: n.blinker, blinkOn });
     }

@@ -239,6 +239,7 @@ function loadMap(map) {
   Rules.reset(); Rules.lastLim = START.lim;
   resetPlayer();
   npcs = spawnNPCs(map.traffic == null ? 12 : map.traffic, player);
+  npcs.push(...spawnRiders(map.riders == null ? 3 : map.riders, player));
   parkedList = parkedCars();
   cam.x = player.x; cam.y = player.y; cam.rot = cam.mode === 'north' ? 0 : -Math.PI / 2 - player.h;
   lastLimit = null; time = 0;

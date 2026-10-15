@@ -159,6 +159,35 @@ const Models = {
     return car;
   },
 
+  // רוכב אופניים או קורקינט חשמלי (עם קסדה)
+  rider(kind, color) {
+    const T = THREE, g = new T.Group();
+    const dark = this.mat(0x222222), frame = this.mat(color);
+    const p = this.human({ shirt: color });
+    const parts = [];
+    if (kind === 'bike') {
+      const wheel = this.geo('bikeWheel', () => new T.TorusGeometry(0.33, 0.035, 6, 16));
+      for (const x of [0.55, -0.55]) { const w = new T.Mesh(wheel, dark); w.position.set(x, 0.35, 0); parts.push(w); }
+      const bar = new T.Mesh(this.geo('bikeFrame', () => new T.BoxGeometry(1.0, 0.05, 0.05)), frame); bar.position.set(0, 0.62, 0); bar.rotation.z = -0.15; parts.push(bar);
+      const fork = new T.Mesh(this.geo('bikeFork', () => new T.BoxGeometry(0.05, 0.6, 0.05)), frame); fork.position.set(0.5, 0.62, 0); fork.rotation.z = 0.25; parts.push(fork);
+      const hb = new T.Mesh(this.geo('handle', () => new T.BoxGeometry(0.05, 0.05, 0.55)), dark); hb.position.set(0.45, 0.95, 0); parts.push(hb);
+      // יושב על האוכף ונוטה קדימה
+      p.group.position.set(-0.2, -0.25, 0); p.group.rotation.z = -0.35;
+    } else {
+      const wheel = this.geo('scWheel', () => new T.CylinderGeometry(0.1, 0.1, 0.06, 12));
+      for (const x of [0.5, -0.5]) { const w = new T.Mesh(wheel, dark); w.rotation.x = Math.PI / 2; w.position.set(x, 0.1, 0); parts.push(w); }
+      const deck = new T.Mesh(this.geo('scDeck', () => new T.BoxGeometry(1.0, 0.06, 0.18)), dark); deck.position.set(0, 0.16, 0); parts.push(deck);
+      const pole = new T.Mesh(this.geo('scPole', () => new T.CylinderGeometry(0.025, 0.025, 1.0, 6)), this.mat(0x9e9e9e)); pole.position.set(0.48, 0.65, 0); pole.rotation.z = 0.1; parts.push(pole);
+      const hb = new T.Mesh(this.geo('handle', () => new T.BoxGeometry(0.05, 0.05, 0.55)), dark); hb.position.set(0.44, 1.14, 0); parts.push(hb);
+      p.group.position.set(-0.05, 0.19, 0);
+    }
+    const helmet = new T.Mesh(this.geo('helmet', () => new T.SphereGeometry(0.15, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2)), this.mat(kind === 'bike' ? 0xffffff : 0x111111));
+    helmet.position.y = 1.66; p.group.add(helmet);
+    g.add(p.group, ...parts);
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    return { group: g, person: p, body: g, cabin: g, tails: [], tailOn: null, tailOff: null, blink: { '1': [], '-1': [] } };
+  },
+
   // רכב ביטחון: אמבולנס (לבן עם פס אדום) או ניידת (לבנה עם פס כחול), עם מתקן אורות על הגג
   emergency(kind) {
     const T = THREE, type = kind === 'police' ? 'sedan' : 'van';

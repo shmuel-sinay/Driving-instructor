@@ -49,6 +49,7 @@ const Rules = {
 
     const kmh = Math.abs(p.v) * 3.6;
     this.emergencyChecks(dt, time, p, vehicles, loc);
+    this.riderChecks(time, p, vehicles);
     if (loc && loc.kind === 'edge') this.edgeChecks(loc, dt, time, p, kmh);
     else this.overTimer = 0;
     if (loc && loc.kind === 'node') this.nodeChecks(loc.node, dt, time, p, kmh);
@@ -81,6 +82,26 @@ const Rules = {
     this.checkReverseTask(time, p);
     this.updateInstructor(time, p);
     Plugins.tick(time, dt, p, vehicles);
+  },
+
+  // עקיפת רוכב אופניים / קורקינט: משמאלו ורחוק ככל האפשר
+  riderChecks(time, p, vehicles) {
+    this.riderSide = this.riderSide || new Map();
+    const hx = Math.cos(p.h), hy = Math.sin(p.h);
+    for (const o of vehicles) {
+      if (!o.rider) continue;
+      const rx = o.x - p.x, ry = o.y - p.y;
+      if (rx * rx + ry * ry > 900) { this.riderSide.delete(o); continue; }
+      const fwd = rx * hx + ry * hy, lat = -rx * hy + ry * hx;
+      const prev = this.riderSide.get(o);
+      this.riderSide.set(o, { fwd, lat: prev && prev.fwd > 0 ? Math.min(Math.abs(lat), prev.lat) : Math.abs(lat) });
+      // בדיוק עברנו אותו (היה לפנינו ועכשיו מאחורינו) באותו כיוון נסיעה
+      if (prev && prev.fwd > 0 && fwd <= 0 && Math.cos(o.h - p.h) > 0.7 && p.v > 3) {
+        const gap = Math.min(prev.lat, Math.abs(lat)) - (p.wid + o.wid) / 2;
+        if (gap < 1.0) this.report('cyclistpass', `עקפת ${o.rider === 'bike' ? 'רוכב אופניים' : 'רוכב קורקינט'} קרוב מדי (${Math.max(0, gap).toFixed(1)} מ'). עוקפים משמאלו ורחוק ככל האפשר, ואם אין מקום מחכים מאחוריו`, false, time, 8);
+        else this.praise(`עקיפה בטוחה של ${o.rider === 'bike' ? 'רוכב אופניים' : 'רוכב קורקינט'}`);
+      }
+    }
   },
 
   // רכב ביטחון עם סירנה: מפנים את הדרך (סוטים ימינה ומאטים/עוצרים), ואחריו שומרים 100 מ'

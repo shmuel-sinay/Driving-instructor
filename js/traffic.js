@@ -142,6 +142,7 @@ class NPC {
       vT = leg.node.type === 'roundabout' ? 7 : (this.next.turn === 'straight' ? 11 : 6);
       if (leg.node.type === 'roundabout') this.blinker = this.s > leg.path.len - 14 ? 1 : 0;
     }
+    if (this.rider) vT = Math.min(vT, this.maxV);
     // רכב מלפנים
     const hx = Math.cos(this.h), hy = Math.sin(this.h);
     for (const o of vehicles) {
@@ -151,6 +152,8 @@ class NPC {
       if (fwd <= 0 || fwd > 32) continue;
       const lat = Math.abs(-rx * hy + ry * hx);
       const sameDir = Math.cos(o.h - this.h) > 0.2;
+      if (o.rider && !this.rider && lat > 1.3) continue;   // רכב חולף על פני רוכב בצד הנתיב
+      if (this.rider && !o.isPlayer && lat > (this.wid + (o.wid || 1.8)) / 2 + 0.1) continue;   // רוכב בצד הנתיב נחסם רק ממה שבקו שלו
       if (lat < (o.isPlayer ? 2.6 : 2.0) && (sameDir || o.isPlayer)) stopDist = Math.min(stopDist, fwd - 2.6 - (this.len + (o.len || 4.4)) / 2);
       // רכב רגיל שרכב ביטחון מאחוריו מאט (נותן לו לעבור)
     }
@@ -200,6 +203,38 @@ class Emergency extends NPC {
     this.off += Math.max(-dt * 1.6, Math.min(dt * 1.6, want - this.off));
     super.update(dt, time, vehicles);
   }
+}
+// ===== רוכבי אופניים וקורקינטים חשמליים: נוסעים לאט בצד ימין של הנתיב הימני =====
+class Rider extends NPC {
+  constructor(edge, dir, lane, t, kind) {
+    super(edge, dir, lane, t);
+    this.rider = kind; this.type = null;
+    this.len = 1.8; this.wid = 0.7;
+    this.maxV = (kind === 'bike' ? 18 : 22) / 3.6;
+    this.color = ['#e53935', '#1e88e5', '#43a047', '#fdd835', '#212121'][Math.floor(Math.random() * 5)];
+    this.off = 0; this.phase = 0;
+  }
+  update(dt, time, vehicles) {
+    // על הכביש: צמוד לימין (0.3 מ' משפת הנתיב); בצומת: במרכז המסלול
+    const want = this.leg.kind === 'edge' ? -(LW / 2 - 0.3 - this.wid / 2) : 0;
+    this.off += Math.max(-dt * 1.2, Math.min(dt * 1.2, want - this.off));
+    this.phase += dt * this.v * 2.2;
+    super.update(dt, time, vehicles);
+  }
+}
+function spawnRiders(count, player) {
+  const list = [];
+  for (let tries = 0; list.length < count && tries < 300; tries++) {
+    const e = edges[Math.floor(Math.random() * edges.length)];
+    const dir = e.oneway ? 1 : (Math.random() < 0.5 ? 1 : -1);
+    const n = laneCount(e, dir);
+    if (!n || e.lim > 60 || e.t1 - e.t0 < 60) continue;
+    const t = 10 + Math.random() * (e.t1 - e.t0 - 40);
+    const p = edgePoint(e, dir > 0 ? e.t0 + t : e.t1 - t, laneS(e, dir, n - 1));
+    if (Math.hypot(p.x - player.x, p.y - player.y) < 60) continue;
+    list.push(new Rider(e, dir, n - 1, t, Math.random() < 0.55 ? 'scooter' : 'bike'));
+  }
+  return list;
 }
 function emergencyDone(em, player) {
   return em.age > 120 || (em.passed && Math.hypot(em.x - player.x, em.y - player.y) > 220);

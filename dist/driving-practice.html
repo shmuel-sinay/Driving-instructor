@@ -749,7 +749,7 @@ const RULEBOOK = [
   { id: 'crosswalk-slow', cat: 'הולכי רגל ורוכבי אופניים', title: 'מאטים לפני כל מעבר חצייה', text: 'בהתקרבות למעבר חצייה מאטים ומוודאים שאין הולכי רגל שמתכוונים לחצות.', src: [893], keys: ['pedwait'] },
   { id: 'crosswalk-yield', cat: 'הולכי רגל ורוכבי אופניים', title: 'זכות קדימה להולכי רגל', text: 'כשהולכי רגל חוצים במעבר, מאטים ועוצרים ומאפשרים להם להשלים את החצייה בבטחה.', src: [189, 594], keys: ['ped', 'pedhit'] },
   { id: 'crosswalk-overtake', cat: 'הולכי רגל ורוכבי אופניים', title: 'לא עוקפים לפני מעבר חצייה', text: 'אסור לעקוף לפני מעבר חצייה בכל מקרה, ובמיוחד רכב שעצר לפניו.', src: [1785, 1536] },
-  { id: 'cyclists', cat: 'הולכי רגל ורוכבי אופניים', title: 'רוכבי אופניים', text: 'חולפים על פני רוכב אופניים משמאלו ורחוק ככל האפשר, ושומרים רווח צד מתאים. בפנייה ימינה מביאים בחשבון רוכב שיופיע מימין.', src: [1183, 907, 879] },
+  { id: 'cyclists', cat: 'הולכי רגל ורוכבי אופניים', title: 'רוכבי אופניים', text: 'חולפים על פני רוכב אופניים משמאלו ורחוק ככל האפשר, ושומרים רווח צד מתאים. בפנייה ימינה מביאים בחשבון רוכב שיופיע מימין.', src: [1183, 907, 879], keys: ['cyclistpass'] },
 
   // ----- עצירה וחניה -----
   { id: 'park-junction', cat: 'עצירה וחניה', title: '12 מטר מצומת', text: 'אסור להעמיד רכב בתחום 12 מטרים מצומת, אלא אם תמרור או סימון מתירים.', src: [203, 207], keys: ['parkspot'] },
@@ -2040,6 +2040,7 @@ class NPC {
       vT = leg.node.type === 'roundabout' ? 7 : (this.next.turn === 'straight' ? 11 : 6);
       if (leg.node.type === 'roundabout') this.blinker = this.s > leg.path.len - 14 ? 1 : 0;
     }
+    if (this.rider) vT = Math.min(vT, this.maxV);
     // רכב מלפנים
     const hx = Math.cos(this.h), hy = Math.sin(this.h);
     for (const o of vehicles) {
@@ -2049,6 +2050,8 @@ class NPC {
       if (fwd <= 0 || fwd > 32) continue;
       const lat = Math.abs(-rx * hy + ry * hx);
       const sameDir = Math.cos(o.h - this.h) > 0.2;
+      if (o.rider && !this.rider && lat > 1.3) continue;   // רכב חולף על פני רוכב בצד הנתיב
+      if (this.rider && !o.isPlayer && lat > (this.wid + (o.wid || 1.8)) / 2 + 0.1) continue;   // רוכב בצד הנתיב נחסם רק ממה שבקו שלו
       if (lat < (o.isPlayer ? 2.6 : 2.0) && (sameDir || o.isPlayer)) stopDist = Math.min(stopDist, fwd - 2.6 - (this.len + (o.len || 4.4)) / 2);
       // רכב רגיל שרכב ביטחון מאחוריו מאט (נותן לו לעבור)
     }
@@ -2098,6 +2101,38 @@ class Emergency extends NPC {
     this.off += Math.max(-dt * 1.6, Math.min(dt * 1.6, want - this.off));
     super.update(dt, time, vehicles);
   }
+}
+// ===== רוכבי אופניים וקורקינטים חשמליים: נוסעים לאט בצד ימין של הנתיב הימני =====
+class Rider extends NPC {
+  constructor(edge, dir, lane, t, kind) {
+    super(edge, dir, lane, t);
+    this.rider = kind; this.type = null;
+    this.len = 1.8; this.wid = 0.7;
+    this.maxV = (kind === 'bike' ? 18 : 22) / 3.6;
+    this.color = ['#e53935', '#1e88e5', '#43a047', '#fdd835', '#212121'][Math.floor(Math.random() * 5)];
+    this.off = 0; this.phase = 0;
+  }
+  update(dt, time, vehicles) {
+    // על הכביש: צמוד לימין (0.3 מ' משפת הנתיב); בצומת: במרכז המסלול
+    const want = this.leg.kind === 'edge' ? -(LW / 2 - 0.3 - this.wid / 2) : 0;
+    this.off += Math.max(-dt * 1.2, Math.min(dt * 1.2, want - this.off));
+    this.phase += dt * this.v * 2.2;
+    super.update(dt, time, vehicles);
+  }
+}
+function spawnRiders(count, player) {
+  const list = [];
+  for (let tries = 0; list.length < count && tries < 300; tries++) {
+    const e = edges[Math.floor(Math.random() * edges.length)];
+    const dir = e.oneway ? 1 : (Math.random() < 0.5 ? 1 : -1);
+    const n = laneCount(e, dir);
+    if (!n || e.lim > 60 || e.t1 - e.t0 < 60) continue;
+    const t = 10 + Math.random() * (e.t1 - e.t0 - 40);
+    const p = edgePoint(e, dir > 0 ? e.t0 + t : e.t1 - t, laneS(e, dir, n - 1));
+    if (Math.hypot(p.x - player.x, p.y - player.y) < 60) continue;
+    list.push(new Rider(e, dir, n - 1, t, Math.random() < 0.55 ? 'scooter' : 'bike'));
+  }
+  return list;
 }
 function emergencyDone(em, player) {
   return em.age > 120 || (em.passed && Math.hypot(em.x - player.x, em.y - player.y) > 220);
@@ -2674,6 +2709,7 @@ const Rules = {
 
     const kmh = Math.abs(p.v) * 3.6;
     this.emergencyChecks(dt, time, p, vehicles, loc);
+    this.riderChecks(time, p, vehicles);
     if (loc && loc.kind === 'edge') this.edgeChecks(loc, dt, time, p, kmh);
     else this.overTimer = 0;
     if (loc && loc.kind === 'node') this.nodeChecks(loc.node, dt, time, p, kmh);
@@ -2706,6 +2742,26 @@ const Rules = {
     this.checkReverseTask(time, p);
     this.updateInstructor(time, p);
     Plugins.tick(time, dt, p, vehicles);
+  },
+
+  // עקיפת רוכב אופניים / קורקינט: משמאלו ורחוק ככל האפשר
+  riderChecks(time, p, vehicles) {
+    this.riderSide = this.riderSide || new Map();
+    const hx = Math.cos(p.h), hy = Math.sin(p.h);
+    for (const o of vehicles) {
+      if (!o.rider) continue;
+      const rx = o.x - p.x, ry = o.y - p.y;
+      if (rx * rx + ry * ry > 900) { this.riderSide.delete(o); continue; }
+      const fwd = rx * hx + ry * hy, lat = -rx * hy + ry * hx;
+      const prev = this.riderSide.get(o);
+      this.riderSide.set(o, { fwd, lat: prev && prev.fwd > 0 ? Math.min(Math.abs(lat), prev.lat) : Math.abs(lat) });
+      // בדיוק עברנו אותו (היה לפנינו ועכשיו מאחורינו) באותו כיוון נסיעה
+      if (prev && prev.fwd > 0 && fwd <= 0 && Math.cos(o.h - p.h) > 0.7 && p.v > 3) {
+        const gap = Math.min(prev.lat, Math.abs(lat)) - (p.wid + o.wid) / 2;
+        if (gap < 1.0) this.report('cyclistpass', `עקפת ${o.rider === 'bike' ? 'רוכב אופניים' : 'רוכב קורקינט'} קרוב מדי (${Math.max(0, gap).toFixed(1)} מ'). עוקפים משמאלו ורחוק ככל האפשר, ואם אין מקום מחכים מאחוריו`, false, time, 8);
+        else this.praise(`עקיפה בטוחה של ${o.rider === 'bike' ? 'רוכב אופניים' : 'רוכב קורקינט'}`);
+      }
+    }
   },
 
   // רכב ביטחון עם סירנה: מפנים את הדרך (סוטים ימינה ומאטים/עוצרים), ואחריו שומרים 100 מ'
@@ -4088,6 +4144,15 @@ function warnTriangle(ctx, r) {
 
 // ===== רכבים והולכי רגל =====
 function drawCar(ctx, v, color, opts = {}) {
+  if (v.rider) {
+    // רוכב: כלי צר ואדם עם קסדה
+    ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.h);
+    ctx.fillStyle = '#222'; roundRect(ctx, -v.len / 2, -0.12, v.len, 0.24, 0.1); ctx.fill();
+    ctx.fillStyle = color; circle(ctx, -0.1, 0, 0.32); ctx.fill();
+    ctx.fillStyle = v.rider === 'bike' ? '#fff' : '#111'; circle(ctx, -0.05, 0, 0.17); ctx.fill();
+    ctx.restore();
+    return;
+  }
   ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.h);
   const L = v.len, Wd = v.wid;
   ctx.fillStyle = 'rgba(0,0,0,0.3)'; roundRect(ctx, -L / 2 + 0.25, -Wd / 2 + 0.3, L, Wd, 0.5); ctx.fill();
@@ -4366,6 +4431,35 @@ const Models = {
     g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     Models.merge(g, [...tails, ...car.blink['1'], ...car.blink['-1']]);
     return car;
+  },
+
+  // רוכב אופניים או קורקינט חשמלי (עם קסדה)
+  rider(kind, color) {
+    const T = THREE, g = new T.Group();
+    const dark = this.mat(0x222222), frame = this.mat(color);
+    const p = this.human({ shirt: color });
+    const parts = [];
+    if (kind === 'bike') {
+      const wheel = this.geo('bikeWheel', () => new T.TorusGeometry(0.33, 0.035, 6, 16));
+      for (const x of [0.55, -0.55]) { const w = new T.Mesh(wheel, dark); w.position.set(x, 0.35, 0); parts.push(w); }
+      const bar = new T.Mesh(this.geo('bikeFrame', () => new T.BoxGeometry(1.0, 0.05, 0.05)), frame); bar.position.set(0, 0.62, 0); bar.rotation.z = -0.15; parts.push(bar);
+      const fork = new T.Mesh(this.geo('bikeFork', () => new T.BoxGeometry(0.05, 0.6, 0.05)), frame); fork.position.set(0.5, 0.62, 0); fork.rotation.z = 0.25; parts.push(fork);
+      const hb = new T.Mesh(this.geo('handle', () => new T.BoxGeometry(0.05, 0.05, 0.55)), dark); hb.position.set(0.45, 0.95, 0); parts.push(hb);
+      // יושב על האוכף ונוטה קדימה
+      p.group.position.set(-0.2, -0.25, 0); p.group.rotation.z = -0.35;
+    } else {
+      const wheel = this.geo('scWheel', () => new T.CylinderGeometry(0.1, 0.1, 0.06, 12));
+      for (const x of [0.5, -0.5]) { const w = new T.Mesh(wheel, dark); w.rotation.x = Math.PI / 2; w.position.set(x, 0.1, 0); parts.push(w); }
+      const deck = new T.Mesh(this.geo('scDeck', () => new T.BoxGeometry(1.0, 0.06, 0.18)), dark); deck.position.set(0, 0.16, 0); parts.push(deck);
+      const pole = new T.Mesh(this.geo('scPole', () => new T.CylinderGeometry(0.025, 0.025, 1.0, 6)), this.mat(0x9e9e9e)); pole.position.set(0.48, 0.65, 0); pole.rotation.z = 0.1; parts.push(pole);
+      const hb = new T.Mesh(this.geo('handle', () => new T.BoxGeometry(0.05, 0.05, 0.55)), dark); hb.position.set(0.44, 1.14, 0); parts.push(hb);
+      p.group.position.set(-0.05, 0.19, 0);
+    }
+    const helmet = new T.Mesh(this.geo('helmet', () => new T.SphereGeometry(0.15, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2)), this.mat(kind === 'bike' ? 0xffffff : 0x111111));
+    helmet.position.y = 1.66; p.group.add(helmet);
+    g.add(p.group, ...parts);
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    return { group: g, person: p, body: g, cabin: g, tails: [], tailOn: null, tailOff: null, blink: { '1': [], '-1': [] } };
   },
 
   // רכב ביטחון: אמבולנס (לבן עם פס אדום) או ניידת (לבנה עם פס כחול), עם מתקן אורות על הגג
@@ -5210,7 +5304,8 @@ const View3D = {
     for (const n of list) {
       seen.add(n);
       let car = this.npcMeshes.get(n);
-      if (!car) { car = n.siren ? Models.emergency(n.siren) : n.type === 'bus' ? Models.bus(new THREE.Color(n.color)) : this.makeCar(new THREE.Color(n.color), false, n.type); this.scene.add(car.group); this.npcMeshes.set(n, car); }
+      if (!car) { car = n.rider ? Models.rider(n.rider, new THREE.Color(n.color).getHex()) : n.siren ? Models.emergency(n.siren) : n.type === 'bus' ? Models.bus(new THREE.Color(n.color)) : this.makeCar(new THREE.Color(n.color), false, n.type); this.scene.add(car.group); this.npcMeshes.set(n, car); }
+      if (car.person) Models.walk(car.person, n.phase, n.rider === 'bike' && n.v > 0.5);
       if (car.bar) { const ph = (performance.now() / 250 | 0) % 2; car.bar.forEach((L, i) => { L.m.material = (i === ph) ? L.on : L.off; }); }
       this.syncCar(car, n, { braking: n.braking, blinker: n.blinker, blinkOn });
     }
@@ -5531,6 +5626,7 @@ function loadMap(map) {
   Rules.reset(); Rules.lastLim = START.lim;
   resetPlayer();
   npcs = spawnNPCs(map.traffic == null ? 12 : map.traffic, player);
+  npcs.push(...spawnRiders(map.riders == null ? 3 : map.riders, player));
   parkedList = parkedCars();
   cam.x = player.x; cam.y = player.y; cam.rot = cam.mode === 'north' ? 0 : -Math.PI / 2 - player.h;
   lastLimit = null; time = 0;
