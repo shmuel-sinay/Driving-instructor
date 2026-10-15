@@ -68,13 +68,14 @@ function apLane(side) {
   if (!st) return;
   const name = side < 0 ? 'left' : 'right';
   if (st.kind === 'ring') {
+    // בכיכר החיצים רק מחליפים נתיב. יוצאים עם איתות ימינה (כמו במציאות)
+    const two = st.node.rbLanes === 2;
     if (side < 0) {
-      if (st.node.rbLanes === 2 && st.ringLane === 'outer') { st.ringLane = 'inner'; st.exitNext = false; st.exit = null; }
-      else if (st.exitNext) { st.exitNext = false; st.exit = null; }
-      else apHint(st.node.rbLanes === 2 ? 'אתה כבר בנתיב הפנימי' : 'בכיכר הזאת יש נתיב אחד');
+      if (two && st.ringLane === 'outer') st.ringLane = 'inner';
+      else apHint(two ? 'אתה כבר בנתיב הפנימי' : 'בכיכר הזאת יש נתיב אחד');
     } else {
-      if (st.node.rbLanes === 2 && st.ringLane === 'inner') st.ringLane = 'outer';
-      else st.exitNext = true;
+      if (two && st.ringLane === 'inner') st.ringLane = 'outer';
+      else apHint('כדי לצאת מהכיכר: אותת ימינה (C), והרכב ייצא ביציאה הבאה');
     }
     return;
   }
@@ -247,7 +248,9 @@ function apStep(dist) {
       st.th -= dth; st.traveled += dth;
       const targetR = ringRadius(node, st.ringLane);
       st.r += (targetR - st.r) * Math.min(1, dist / 6);
-      // בחירת היציאה הבאה כשלוחצים →
+      // יציאה ביציאה הבאה כשהאיתות ימינה דולק; כיבוי האיתות לפני היציאה מבטל אותה
+      if (p.blinker === 1) st.exitNext = true;
+      else if (st.exit && !st.exitLocked) { st.exitNext = false; st.exit = null; }
       if (st.exitNext && !st.exit) {
         let best = null;
         for (const x of node.edges) {
@@ -267,6 +270,7 @@ function apStep(dist) {
       const p1 = edgePoint(x, d > 0 ? x.t0 : x.t1, apLaneS(x, d, lane2));
       const thx = Math.atan2(p1.y - node.y, p1.x - node.x) + 0.32;
       const dlt = angNorm(st.th - thx);
+      if (dlt > -0.6 && dlt <= 0) st.exitLocked = true;   // כבר ממש ביציאה
       if (st.traveled > 0.4 && dlt <= 0 && dlt > -0.3) {
         const q = apPos();
         const tan = { x: Math.sin(st.th), y: -Math.cos(st.th) };
@@ -339,7 +343,7 @@ function apPlanText() {
   if (st.kind === 'park-out') return 'יוצא מהחניה';
   if (st.kind === 'ring') {
     const lane = st.node.rbLanes === 2 ? (st.ringLane === 'inner' ? 'נתיב פנימי · ' : 'נתיב חיצוני · ') : '';
-    return lane + (st.exitNext ? 'יוצא ביציאה הבאה' : 'לחץ → כדי לצאת ביציאה הבאה');
+    return lane + (st.exit ? 'יוצא ביציאה הבאה' : 'אותת ימינה (C) כדי לצאת ביציאה הבאה');
   }
   if (st.kind === 'edge') {
     if (assist.waiting) return 'אין דרך ישר: בחר כיוון בחיצים ← או →';

@@ -416,7 +416,7 @@ body.view3d .toast { padding: 6px 12px; font-size: 15px; }
   <canvas id="minimap" class="minimap" aria-label="מפה"></canvas>
 
   <div class="dash">
-    <div id="gearWarn" class="gearwarn" hidden>הילוך אחורי (R): ↓ נוסע אחורה · ↑ חוזר לנסיעה קדימה</div>
+    <div id="gearWarn" class="gearwarn" hidden>הילוך אחורי (M): ↓ נוסע אחורה · ↑ חוזר לנסיעה קדימה</div>
     <div id="plan" class="plan" hidden></div>
     <div id="nextBox" class="next">
       <span class="k">לפניך</span>
@@ -424,7 +424,7 @@ body.view3d .toast { padding: 6px 12px; font-size: 15px; }
       <span id="nextDist" class="dist"></span>
     </div>
     <div class="cluster">
-      <button id="blinkR" class="blink right" type="button" aria-label="איתות ימינה (E)">
+      <button id="blinkR" class="blink right" type="button" aria-label="איתות ימינה (C)">
         <svg viewBox="0 0 24 24"><path d="M4 9h9V4l8 8-8 8v-5H4z"/></svg>
       </button>
       <div id="speedBox" class="speedo">
@@ -433,8 +433,8 @@ body.view3d .toast { padding: 6px 12px; font-size: 15px; }
         <span id="gear" class="gear">D</span>
       </div>
       <canvas id="limitSign" class="limit" width="64" height="64" aria-label="המהירות המותרת"></canvas>
-      <button id="blinkCancel" class="blinkcancel" type="button" hidden title="ביטול איתות (רווח)">בטל איתות</button>
-      <button id="blinkL" class="blink left" type="button" aria-label="איתות שמאלה (Q)">
+      <button id="blinkCancel" class="blinkcancel" type="button" hidden title="ביטול איתות (X)">בטל איתות</button>
+      <button id="blinkL" class="blink left" type="button" aria-label="איתות שמאלה (Z)">
         <svg viewBox="0 0 24 24"><path d="M20 9h-9V4l-8 8 8 8v-5h9z"/></svg>
       </button>
     </div>
@@ -442,15 +442,15 @@ body.view3d .toast { padding: 6px 12px; font-size: 15px; }
 
   <div class="controls" aria-label="לוח שליטה">
     <div class="pad drive">
-      <button id="cBlinkL" type="button" class="sig" title="איתות שמאלה (Q)">⇦<small>איתות · Q</small></button>
-      <button id="cBlinkOff" type="button" class="cancel" title="ביטול איתות (רווח)">✕<small>בטל · רווח</small></button>
-      <button id="cBlinkR" type="button" class="sig" title="איתות ימינה (E)">⇨<small>איתות · E</small></button>
+      <button id="cBlinkL" type="button" class="sig" title="איתות שמאלה (Z)">⇦<small>איתות · Z</small></button>
+      <button id="cBlinkOff" type="button" class="cancel" title="ביטול איתות (X)">✕<small>בטל · X</small></button>
+      <button id="cBlinkR" type="button" class="sig" title="איתות ימינה (C)">⇨<small>איתות · C</small></button>
       <button data-steer="-1" type="button" title="נתיב / פנייה שמאלה (←)">◀<small>נתיב · ←</small></button>
-      <button id="cHorn" type="button" title="צופר (H)">📯<small>צופר · H</small></button>
+      <button id="cHorn" type="button" title="צופר (רווח)">📯<small>צופר · רווח</small></button>
       <button data-steer="1" type="button" title="נתיב / פנייה ימינה (→)">▶<small>נתיב · →</small></button>
-      <button id="cParkL" type="button" title="חניה בצד שמאל (O)">P◀<small>חנה · O</small></button>
-      <button id="cGear" type="button" title="הילוך D / R (R)">D/R<small>הילוך · R</small></button>
-      <button id="cParkR" type="button" title="חניה בצד ימין (P)">▶P<small>חנה · P</small></button>
+      <button id="cParkL" type="button" title="חניה בצד שמאל (B)">P◀<small>חנה · B</small></button>
+      <button id="cGear" type="button" title="הילוך D / R (M)">D/R<small>הילוך · M</small></button>
+      <button id="cParkR" type="button" title="חניה בצד ימין (N)">▶P<small>חנה · N</small></button>
     </div>
     <div class="pad pedals">
       <button data-hold="down" type="button" class="brake" title="בלם (↓)">בלם<small>↓</small></button>
@@ -468,15 +468,14 @@ body.view3d .toast { padding: 6px 12px; font-size: 15px; }
         <div>
           <h3>שליטה</h3>
           <dl class="keys">
-            <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>גז ובלם</dd>
-            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>החלפת נתיב. בנתיב הקיצוני: פנייה בצומת הבא. בכיכר: → יוצא ביציאה הבאה</dd>
-            <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>איתות שמאלה / ימינה (לחיצה נוספת מכבה)</dd>
-            <dt><kbd>רווח</kbd></dt><dd>ביטול איתות (גם <kbd>X</kbd>)</dd>
-            <dt><kbd>P</kbd> <kbd>O</kbd></dt><dd>חניה בצד ימין / שמאל. גז מתוך חניה = יציאה</dd>
-            <dt><kbd>R</kbd></dt><dd>הילוך אחורי (בעצירה). ברוורס <kbd>↓</kbd> נוסע אחורה ו-<kbd>↑</kbd> מחזיר לנסיעה קדימה</dd>
-            <dt><kbd>C</kbd></dt><dd>מבט: נהג, מאחורי הרכב, מלמעלה, מפה</dd>
-            <dt><kbd>H</kbd></dt><dd>צופר</dd>
-            <dt><kbd>G</kbd></dt><dd>היגוי אוטומטי / ידני</dd>
+            <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>גז ובלם. ברוורס <kbd>↓</kbd> נוסע אחורה ו-<kbd>↑</kbd> חוזר לנסיעה קדימה</dd>
+            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>החלפת נתיב. בנתיב הקיצוני: פנייה בצומת הבא. בכיכר: מעבר בין הנתיב הפנימי לחיצוני</dd>
+            <dt><kbd>Z</kbd> <kbd>C</kbd></dt><dd>איתות שמאלה / ימינה. בכיכר: איתות ימינה = יציאה ביציאה הבאה</dd>
+            <dt><kbd>X</kbd></dt><dd>ביטול איתות</dd>
+            <dt><kbd>רווח</kbd></dt><dd>צופר</dd>
+            <dt><kbd>V</kbd></dt><dd>מבט: נהג, מאחורי הרכב, מלמעלה, מפה</dd>
+            <dt><kbd>B</kbd> <kbd>N</kbd></dt><dd>חניה בצד שמאל / ימין. גז מתוך חניה = יציאה</dd>
+            <dt><kbd>M</kbd></dt><dd>הילוך אחורי / קדימה (בעצירה)</dd>
             <dt><kbd>Esc</kbd></dt><dd>השהיה</dd>
           </dl>
         </div>
@@ -2415,13 +2414,14 @@ function apLane(side) {
   if (!st) return;
   const name = side < 0 ? 'left' : 'right';
   if (st.kind === 'ring') {
+    // בכיכר החיצים רק מחליפים נתיב. יוצאים עם איתות ימינה (כמו במציאות)
+    const two = st.node.rbLanes === 2;
     if (side < 0) {
-      if (st.node.rbLanes === 2 && st.ringLane === 'outer') { st.ringLane = 'inner'; st.exitNext = false; st.exit = null; }
-      else if (st.exitNext) { st.exitNext = false; st.exit = null; }
-      else apHint(st.node.rbLanes === 2 ? 'אתה כבר בנתיב הפנימי' : 'בכיכר הזאת יש נתיב אחד');
+      if (two && st.ringLane === 'outer') st.ringLane = 'inner';
+      else apHint(two ? 'אתה כבר בנתיב הפנימי' : 'בכיכר הזאת יש נתיב אחד');
     } else {
-      if (st.node.rbLanes === 2 && st.ringLane === 'inner') st.ringLane = 'outer';
-      else st.exitNext = true;
+      if (two && st.ringLane === 'inner') st.ringLane = 'outer';
+      else apHint('כדי לצאת מהכיכר: אותת ימינה (C), והרכב ייצא ביציאה הבאה');
     }
     return;
   }
@@ -2594,7 +2594,9 @@ function apStep(dist) {
       st.th -= dth; st.traveled += dth;
       const targetR = ringRadius(node, st.ringLane);
       st.r += (targetR - st.r) * Math.min(1, dist / 6);
-      // בחירת היציאה הבאה כשלוחצים →
+      // יציאה ביציאה הבאה כשהאיתות ימינה דולק; כיבוי האיתות לפני היציאה מבטל אותה
+      if (p.blinker === 1) st.exitNext = true;
+      else if (st.exit && !st.exitLocked) { st.exitNext = false; st.exit = null; }
       if (st.exitNext && !st.exit) {
         let best = null;
         for (const x of node.edges) {
@@ -2614,6 +2616,7 @@ function apStep(dist) {
       const p1 = edgePoint(x, d > 0 ? x.t0 : x.t1, apLaneS(x, d, lane2));
       const thx = Math.atan2(p1.y - node.y, p1.x - node.x) + 0.32;
       const dlt = angNorm(st.th - thx);
+      if (dlt > -0.6 && dlt <= 0) st.exitLocked = true;   // כבר ממש ביציאה
       if (st.traveled > 0.4 && dlt <= 0 && dlt > -0.3) {
         const q = apPos();
         const tan = { x: Math.sin(st.th), y: -Math.cos(st.th) };
@@ -2686,7 +2689,7 @@ function apPlanText() {
   if (st.kind === 'park-out') return 'יוצא מהחניה';
   if (st.kind === 'ring') {
     const lane = st.node.rbLanes === 2 ? (st.ringLane === 'inner' ? 'נתיב פנימי · ' : 'נתיב חיצוני · ') : '';
-    return lane + (st.exitNext ? 'יוצא ביציאה הבאה' : 'לחץ → כדי לצאת ביציאה הבאה');
+    return lane + (st.exit ? 'יוצא ביציאה הבאה' : 'אותת ימינה (C) כדי לצאת ביציאה הבאה');
   }
   if (st.kind === 'edge') {
     if (assist.waiting) return 'אין דרך ישר: בחר כיוון בחיצים ← או →';
@@ -4678,7 +4681,7 @@ const Models = {
       out.setAttribute(name, new T.BufferAttribute(arr, k));
     }
     geos.forEach(q => q.dispose());
-    if (!this._skinMat) { this._skinMat = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }); this._skinMat.userData.shared = true; }
+    if (!this._skinMat) { this._skinMat = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.7 }); this._skinMat.userData.shared = true; }
     const mesh = new T.Mesh(out, this._skinMat);
     mesh.castShadow = true;
     return mesh;
@@ -4700,24 +4703,40 @@ const Models = {
     const dress = female && Math.random() < 0.3, skirt = dress || (female && Math.random() < 0.4), longSleeve = Math.random() < 0.35;
     const hairStyle = female ? P(['long', 'long', 'ponytail', 'bun', 'wavy']) : (Math.random() < 0.12 ? 'bald' : 'short');
     const h = opts.height || (female ? 1.58 + Math.random() * 0.15 : 1.68 + Math.random() * 0.2), sc = h / 1.75;
-    const cap = (r, l) => this.geo('cap' + r + ':' + l, () => new T.CapsuleGeometry(r, l, 4, 10));
-    const sph = r => this.geo('sph' + r, () => new T.SphereGeometry(r, 14, 10));
+    const cap = (r, l) => this.geo('cap' + r + ':' + l, () => new T.CapsuleGeometry(r, l, 6, 14));
+    const sph = r => this.geo('sph' + r, () => new T.SphereGeometry(r, 18, 12));
     const M = this.M.bind(this);
     // גוף, צוואר, ראש, פנים ושיער (חלק אחד שלא זז)
+    const W = female ? 0.9 : 1;   // רוחב כתפיים
     const body = [
-      { g: cap(0.16, 0.26), c: shirt, m: M(0, 1.29, 0, 0, 0, 0, female ? 0.66 : 0.74, 1, female ? 0.98 : 1.2) },
-      { g: cap(0.13, 0.12), c: skirt ? shirt : pants, m: M(0, 0.98, 0, Math.PI / 2, 0, 0, 0.85, 1, 1) },
-      { g: this.geo('neck', () => new T.CylinderGeometry(0.048, 0.055, 0.12, 10)), c: skin, m: M(0, 1.54, 0) },
-      { g: sph(0.105), c: skin, m: M(0, 1.67, 0, 0, 0, 0, 1, 1.15, 0.95) },
-      { g: this.geo('nose', () => new T.ConeGeometry(0.018, 0.045, 6)), c: skin, m: M(0.105, 1.66, 0, 0, 0, -Math.PI / 2) },
-      { g: sph(0.013), c: 0x1a1a1a, m: M(0.094, 1.695, 0.036) }, { g: sph(0.013), c: 0x1a1a1a, m: M(0.094, 1.695, -0.036) },
+      // חזה וכתפיים, מותניים (צרים יותר אצל נשים) ואגן
+      { g: cap(0.15, 0.16), c: shirt, m: M(0, 1.34, 0, 0, 0, 0, 0.72, 1, 1.22 * W) },
+      { g: cap(female ? 0.11 : 0.13, 0.1), c: shirt, m: M(0, 1.13, 0, 0, 0, 0, 0.78, 1, female ? 1.05 : 1.12) },
+      { g: cap(female ? 0.14 : 0.13, 0.1), c: skirt ? shirt : pants, m: M(0, 0.97, 0, Math.PI / 2, 0, 0, 0.82, female ? 1.15 : 1.05, 1) },
+      { g: sph(0.06), c: shirt, m: M(0, 1.43, 0.2 * W) }, { g: sph(0.06), c: shirt, m: M(0, 1.43, -0.2 * W) },
+      { g: this.geo('neck', () => new T.CylinderGeometry(0.045, 0.052, 0.13, 14)), c: skin, m: M(0, 1.54, 0) },
+      // ראש בצורת ביצה, לסת, אוזניים
+      { g: sph(0.1), c: skin, m: M(0, 1.675, 0, 0, 0, 0, 1.02, 1.2, 0.92) },
+      { g: sph(0.06), c: skin, m: M(0.018, 1.612, 0, 0, 0, 0, 0.9, 0.75, 1.05) },
+      { g: sph(0.022), c: skin, m: M(-0.005, 1.67, 0.092, 0, 0, 0, 0.6, 1.2, 0.5) }, { g: sph(0.022), c: skin, m: M(-0.005, 1.67, -0.092, 0, 0, 0, 0.6, 1.2, 0.5) },
+      // אף, עיניים (לבן + אישון), גבות
+      { g: this.geo('nose2', () => new T.ConeGeometry(0.014, 0.04, 8)), c: skin, m: M(0.1, 1.665, 0, 0, 0, -Math.PI / 2) },
+      { g: sph(0.016), c: 0xf5f5f5, m: M(0.086, 1.695, 0.034, 0, 0, 0, 0.5, 0.75, 1) }, { g: sph(0.016), c: 0xf5f5f5, m: M(0.086, 1.695, -0.034, 0, 0, 0, 0.5, 0.75, 1) },
+      { g: sph(0.008), c: P([0x3b2a1e, 0x2f5d8a, 0x3f6b45, 0x1a1a1a]), m: M(0.094, 1.695, 0.034) }, { g: sph(0.008), c: 0x2a1c12, m: M(0.094, 1.695, -0.034) },
+      { g: this.geo('brow', () => new T.BoxGeometry(0.008, 0.007, 0.034)), c: hair, m: M(0.09, 1.72, 0.035, 0.12) }, { g: this.geo('brow', () => new T.BoxGeometry(0.008, 0.007, 0.034)), c: hair, m: M(0.09, 1.72, -0.035, -0.12) },
     ];
+    if (!female) body.push({ g: this.geo('mouthM', () => new T.BoxGeometry(0.006, 0.006, 0.032)), c: 0x8a4a3a, m: M(0.088, 1.625, 0) });
+    else {
+      // שיער נשי מלא: צדדים, גב, ולפעמים פוני
+      if (hairStyle === 'long' || hairStyle === 'wavy') for (const z of [0.075, -0.075]) body.push({ g: cap(0.04, 0.16), c: hair, m: M(-0.01, 1.6, z, 0, 0, 0, 0.9, 1, 1) });
+      if (Math.random() < 0.4 && hairStyle !== 'bun') body.push({ g: this.geo('bangs', () => new T.SphereGeometry(0.104, 14, 6, -Math.PI / 2.4, Math.PI / 1.2, 0, Math.PI * 0.32)), c: hair, m: M(0.012, 1.7, 0, 0, Math.PI / 2, 0.2) });
+    }
     if (hairStyle !== 'bald') body.push({ g: this.geo('hairCap', () => new T.SphereGeometry(0.113, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.55)), c: hair, m: M(-0.012, 1.69, 0, 0, 0, 0.25, 1, 1.12, 1) });
     if (hairStyle === 'long') body.push({ g: cap(0.085, 0.24), c: hair, m: M(-0.07, 1.55, 0, 0, 0, 0, 0.8, 1, 1.25) });
     if (hairStyle === 'wavy') body.push({ g: cap(0.1, 0.16), c: hair, m: M(-0.06, 1.58, 0, 0, 0, 0, 0.9, 1, 1.45) });
     if (hairStyle === 'ponytail') body.push({ g: cap(0.04, 0.2), c: hair, m: M(-0.13, 1.6, 0, 0, 0, -0.35) });
     if (hairStyle === 'bun') body.push({ g: sph(0.06), c: hair, m: M(-0.08, 1.79, 0) });
-    if (female) body.push({ g: this.geo('lips', () => new T.BoxGeometry(0.01, 0.012, 0.04)), c: P([0xb5354a, 0xc4566a, 0x9c3b3b]), m: M(0.1, 1.625, 0) });
+    if (female) body.push({ g: sph(0.012), c: P([0xb5354a, 0xc4566a, 0x9c3b3b, 0xd47a7a]), m: M(0.088, 1.625, 0, 0, 0, 0, 0.6, 0.55, 1.7) });
     // שמלה: אותו צבע כמו החולצה; חצאית: צבע משלה
     if (skirt) body.push({ g: this.geo('skirt', () => new T.CylinderGeometry(0.14, 0.26, 0.46, 16, 1, true)), c: dress ? shirt : P([0x6b4f8a, 0x1f2937, 0xa8552c, 0x2f5d8a, 0xd96c8a, 0x222222]), m: M(0, 0.77, 0) });
     // תיק צד
@@ -5759,29 +5778,22 @@ window.addEventListener('keydown', e => {
   }
   if (k) { input[k] = true; e.preventDefault(); }
   if (e.repeat) return;
+  // שליטה רק בחיצים, ברווח ובשורת המקשים שמעליו (Z X C V B N M)
   switch (e.code) {
-    case 'KeyQ': case 'Comma': act.blink(-1); break;
-    case 'KeyE': case 'Period': act.blink(1); break;
-    case 'KeyX': act.blinkOff(); break;
-    case 'KeyH': act.horn(true); break;
-    case 'KeyR': act.gear(); break;
-    case 'KeyP': act.park('right'); break;
-    case 'KeyO': act.park('left'); break;
-    case 'KeyC': toggleCamera(); break;
-    case 'KeyG': toggleSteer(); break;
-    case 'KeyV': toggleVoice(); break;
-    case 'KeyI': toggleInstructor(); break;
-    case 'KeyL': toggleLog(); break;
-    case 'Backspace': act.reset(); e.preventDefault(); break;
+    case 'KeyZ': act.blink(-1); break;              // איתות שמאלה
+    case 'KeyX': act.blinkOff(); break;             // ביטול איתות
+    case 'KeyC': act.blink(1); break;               // איתות ימינה
+    case 'KeyV': toggleCamera(); break;             // מבט
+    case 'KeyB': act.park('left'); break;           // חניה משמאל
+    case 'KeyN': act.park('right'); break;          // חניה מימין
+    case 'KeyM': act.gear(); break;                 // הילוך אחורי / קדימה
+    case 'Space': e.preventDefault(); act.horn(true); break;   // צופר
     case 'Escape': if (!$('help').hidden) startDriving(); else showHelp(); break;
-    case 'Equal': case 'NumpadAdd': cam.userZoom = Math.min(2, cam.userZoom * 1.15); break;
-    case 'Minus': case 'NumpadSubtract': cam.userZoom = Math.max(0.45, cam.userZoom / 1.15); break;
-    case 'Space': e.preventDefault(); act.blinkOff(); break;
   }
 });
 window.addEventListener('keyup', e => {
   if (keyMap[e.code]) input[keyMap[e.code]] = false;
-  if (e.code === 'KeyH') act.horn(false);
+  if (e.code === 'Space') act.horn(false);
 });
 window.addEventListener('blur', () => { for (const k in input) input[k] = false; });
 canvas.addEventListener('wheel', e => { e.preventDefault(); cam.userZoom = Math.max(0.45, Math.min(2, cam.userZoom * (e.deltaY > 0 ? 0.9 : 1.1))); }, { passive: false });
@@ -6235,7 +6247,7 @@ function updateHUD(dt) {
   if (Rules.instr) {
     ins.hidden = false;
     // הוראת חניה: אומרים בדיוק מה ללחוץ
-    const how = Rules.instr.kind === 'park' ? (Rules.instr.side === 'right' ? ' (מקשים: E לאיתות, ואז P)' : ' (מקשים: Q לאיתות, ואז O)') : Rules.instr.kind === 'unpark' ? ' (איתות לכיוון הכביש ואז ↑)' : Rules.instr.kind === 'reverse' ? ' (R ואז ↓)' : '';
+    const how = Rules.instr.kind === 'park' ? (Rules.instr.side === 'right' ? ' (מקשים: C לאיתות, ואז N)' : ' (מקשים: Z לאיתות, ואז B)') : Rules.instr.kind === 'unpark' ? ' (איתות לכיוון הכביש ואז ↑)' : Rules.instr.kind === 'reverse' ? ' (M ואז ↓)' : '';
     $('instrText').textContent = Rules.instr.text + how;
   }
   else ins.hidden = true;
@@ -6678,7 +6690,7 @@ const LESSONS = [
     id: 'l2-right-light', title: 'פנייה ימינה ברמזור', map: 'מסלול טסט',
     start: { road: 'A-B', dir: 1, lane: 0, from: 40 },
     brief: [
-      'אתה מתחיל בנתיב השמאלי. עבור לנתיב הימני עם איתות ימינה (E, ואז החץ →).',
+      'אתה מתחיל בנתיב השמאלי. עבור לנתיב הימני עם איתות ימינה (C, ואז החץ →).',
       'מאותתים לפני הצומת, מאטים מתחת ל-30 קמ"ש ופונים מהנתיב הימני לנתיב הימני.',
       'ברמזור אדום עוצרים לפני הקו, וממשיכים רק בירוק.',
     ],
@@ -6700,8 +6712,8 @@ const LESSONS = [
     id: 'l4-rb-uturn', title: 'כיכר דו-נתיבית: פרסה מהנתיב הפנימי', map: 'מסלול טסט',
     start: { road: 'B-C', dir: 1, lane: 1, from: 30 },
     brief: [
-      'ליציאה השלישית ומעלה (שמאלה או פרסה) נכנסים מהנתיב השמאלי ונוסעים בנתיב הפנימי. עבור לנתיב השמאלי לפני הכיכר (Q ואז ←).',
-      'לפני היציאה: מאותתים ימינה, עוברים לנתיב החיצוני בזהירות (→) ויוצאים (→ שוב).',
+      'ליציאה השלישית ומעלה (שמאלה או פרסה) נכנסים מהנתיב השמאלי ונוסעים בנתיב הפנימי. עבור לנתיב השמאלי לפני הכיכר (Z ואז ←).',
+      'לפני היציאה: מאותתים ימינה (C), עוברים לנתיב החיצוני בזהירות (→), והרכב יוצא ביציאה הבאה כל עוד האיתות דולק.',
       'אסור לחתוך רכב שנוסע בנתיב החיצוני.',
     ],
     steps: [{ rb: 3 }],
@@ -6733,7 +6745,7 @@ const LESSONS = [
     id: 'l7-left-multi', title: 'פנייה שמאלה מכביש עם שני נתיבים', map: 'מסלול טסט',
     start: { road: 'C-H', dir: 1, lane: 1, from: 30 },
     brief: [
-      'פונים שמאלה מהנתיב השמאלי: מאותתים שמאלה (Q), בודקים ועוברים נתיב (←).',
+      'פונים שמאלה מהנתיב השמאלי: מאותתים שמאלה (Z), בודקים ועוברים נתיב (←).',
       'הפונה שמאלה נותן זכות קדימה לבאים ממול.',
       'אחרי הפנייה נכנסים לנתיב השמאלי, וכשאפשר חוזרים ימינה.',
     ],
@@ -6744,7 +6756,7 @@ const LESSONS = [
     id: 'l8-park-right', title: 'חניה בצד ימין ויציאה מחניה', map: 'מסלול טסט',
     start: { road: 'A-B', dir: 1, lane: 1, from: 20 },
     brief: [
-      'כשהבוחן אומר "עצור בבטחה בצד הדרך": מאותתים ימינה (E), מאטים מתחת ל-30 ולוחצים P.',
+      'כשהבוחן אומר "עצור בבטחה בצד הדרך": מאותתים ימינה (C), מאטים מתחת ל-30 ולוחצים N.',
       'שים לב לאבני השפה: אדום-לבן אסור (12 מטר מצומת ולפני מעבר חציה), כחול-לבן מותר.',
       'ביציאה מהחניה: מאותתים שמאלה, מוודאים שאין רכב שמתקרב, ורק אז לוחצים גז.',
     ],
@@ -6755,8 +6767,8 @@ const LESSONS = [
     id: 'l9-park-left', title: 'חניה בצד שמאל ונסיעה לאחור', map: 'מסלול טסט',
     start: { road: 'N-G', dir: 1, lane: 0, from: 15 },
     brief: [
-      'ברחוב חד-סטרי מותר לחנות גם בצד שמאל. מאותתים שמאלה (Q) ולוחצים O.',
-      'נסיעה לאחור לאורך המדרכה: עוברים להילוך R, נוסעים לאט לפחות 6 מטר ועוצרים. בסוף חוזרים ל-D.',
+      'ברחוב חד-סטרי מותר לחנות גם בצד שמאל. מאותתים שמאלה (Z) ולוחצים B.',
+      'נסיעה לאחור לאורך המדרכה: עוברים להילוך R (מקש M), נוסעים לאט עם ↓ לפחות 6 מטר ועוצרים. בסוף חוזרים ל-D.',
       'יציאה מחניה בצד שמאל: מאותתים ימינה.',
     ],
     steps: [{ park: 'left' }, { reverse: true }, { unpark: true }],

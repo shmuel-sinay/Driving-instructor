@@ -77,7 +77,7 @@
   <canvas id="minimap" class="minimap" aria-label="מפה"></canvas>
 
   <div class="dash">
-    <div id="gearWarn" class="gearwarn" hidden>הילוך אחורי (R): ↓ נוסע אחורה · ↑ חוזר לנסיעה קדימה</div>
+    <div id="gearWarn" class="gearwarn" hidden>הילוך אחורי (M): ↓ נוסע אחורה · ↑ חוזר לנסיעה קדימה</div>
     <div id="plan" class="plan" hidden></div>
     <div id="nextBox" class="next">
       <span class="k">לפניך</span>
@@ -85,7 +85,7 @@
       <span id="nextDist" class="dist"></span>
     </div>
     <div class="cluster">
-      <button id="blinkR" class="blink right" type="button" aria-label="איתות ימינה (E)">
+      <button id="blinkR" class="blink right" type="button" aria-label="איתות ימינה (C)">
         <svg viewBox="0 0 24 24"><path d="M4 9h9V4l8 8-8 8v-5H4z"/></svg>
       </button>
       <div id="speedBox" class="speedo">
@@ -94,8 +94,8 @@
         <span id="gear" class="gear">D</span>
       </div>
       <canvas id="limitSign" class="limit" width="64" height="64" aria-label="המהירות המותרת"></canvas>
-      <button id="blinkCancel" class="blinkcancel" type="button" hidden title="ביטול איתות (רווח)">בטל איתות</button>
-      <button id="blinkL" class="blink left" type="button" aria-label="איתות שמאלה (Q)">
+      <button id="blinkCancel" class="blinkcancel" type="button" hidden title="ביטול איתות (X)">בטל איתות</button>
+      <button id="blinkL" class="blink left" type="button" aria-label="איתות שמאלה (Z)">
         <svg viewBox="0 0 24 24"><path d="M20 9h-9V4l-8 8 8 8v-5h9z"/></svg>
       </button>
     </div>
@@ -103,15 +103,15 @@
 
   <div class="controls" aria-label="לוח שליטה">
     <div class="pad drive">
-      <button id="cBlinkL" type="button" class="sig" title="איתות שמאלה (Q)">⇦<small>איתות · Q</small></button>
-      <button id="cBlinkOff" type="button" class="cancel" title="ביטול איתות (רווח)">✕<small>בטל · רווח</small></button>
-      <button id="cBlinkR" type="button" class="sig" title="איתות ימינה (E)">⇨<small>איתות · E</small></button>
+      <button id="cBlinkL" type="button" class="sig" title="איתות שמאלה (Z)">⇦<small>איתות · Z</small></button>
+      <button id="cBlinkOff" type="button" class="cancel" title="ביטול איתות (X)">✕<small>בטל · X</small></button>
+      <button id="cBlinkR" type="button" class="sig" title="איתות ימינה (C)">⇨<small>איתות · C</small></button>
       <button data-steer="-1" type="button" title="נתיב / פנייה שמאלה (←)">◀<small>נתיב · ←</small></button>
-      <button id="cHorn" type="button" title="צופר (H)">📯<small>צופר · H</small></button>
+      <button id="cHorn" type="button" title="צופר (רווח)">📯<small>צופר · רווח</small></button>
       <button data-steer="1" type="button" title="נתיב / פנייה ימינה (→)">▶<small>נתיב · →</small></button>
-      <button id="cParkL" type="button" title="חניה בצד שמאל (O)">P◀<small>חנה · O</small></button>
-      <button id="cGear" type="button" title="הילוך D / R (R)">D/R<small>הילוך · R</small></button>
-      <button id="cParkR" type="button" title="חניה בצד ימין (P)">▶P<small>חנה · P</small></button>
+      <button id="cParkL" type="button" title="חניה בצד שמאל (B)">P◀<small>חנה · B</small></button>
+      <button id="cGear" type="button" title="הילוך D / R (M)">D/R<small>הילוך · M</small></button>
+      <button id="cParkR" type="button" title="חניה בצד ימין (N)">▶P<small>חנה · N</small></button>
     </div>
     <div class="pad pedals">
       <button data-hold="down" type="button" class="brake" title="בלם (↓)">בלם<small>↓</small></button>
@@ -129,15 +129,14 @@
         <div>
           <h3>שליטה</h3>
           <dl class="keys">
-            <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>גז ובלם</dd>
-            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>החלפת נתיב. בנתיב הקיצוני: פנייה בצומת הבא. בכיכר: → יוצא ביציאה הבאה</dd>
-            <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>איתות שמאלה / ימינה (לחיצה נוספת מכבה)</dd>
-            <dt><kbd>רווח</kbd></dt><dd>ביטול איתות (גם <kbd>X</kbd>)</dd>
-            <dt><kbd>P</kbd> <kbd>O</kbd></dt><dd>חניה בצד ימין / שמאל. גז מתוך חניה = יציאה</dd>
-            <dt><kbd>R</kbd></dt><dd>הילוך אחורי (בעצירה). ברוורס <kbd>↓</kbd> נוסע אחורה ו-<kbd>↑</kbd> מחזיר לנסיעה קדימה</dd>
-            <dt><kbd>C</kbd></dt><dd>מבט: נהג, מאחורי הרכב, מלמעלה, מפה</dd>
-            <dt><kbd>H</kbd></dt><dd>צופר</dd>
-            <dt><kbd>G</kbd></dt><dd>היגוי אוטומטי / ידני</dd>
+            <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>גז ובלם. ברוורס <kbd>↓</kbd> נוסע אחורה ו-<kbd>↑</kbd> חוזר לנסיעה קדימה</dd>
+            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>החלפת נתיב. בנתיב הקיצוני: פנייה בצומת הבא. בכיכר: מעבר בין הנתיב הפנימי לחיצוני</dd>
+            <dt><kbd>Z</kbd> <kbd>C</kbd></dt><dd>איתות שמאלה / ימינה. בכיכר: איתות ימינה = יציאה ביציאה הבאה</dd>
+            <dt><kbd>X</kbd></dt><dd>ביטול איתות</dd>
+            <dt><kbd>רווח</kbd></dt><dd>צופר</dd>
+            <dt><kbd>V</kbd></dt><dd>מבט: נהג, מאחורי הרכב, מלמעלה, מפה</dd>
+            <dt><kbd>B</kbd> <kbd>N</kbd></dt><dd>חניה בצד שמאל / ימין. גז מתוך חניה = יציאה</dd>
+            <dt><kbd>M</kbd></dt><dd>הילוך אחורי / קדימה (בעצירה)</dd>
             <dt><kbd>Esc</kbd></dt><dd>השהיה</dd>
           </dl>
         </div>

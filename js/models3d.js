@@ -358,7 +358,7 @@ const Models = {
       out.setAttribute(name, new T.BufferAttribute(arr, k));
     }
     geos.forEach(q => q.dispose());
-    if (!this._skinMat) { this._skinMat = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }); this._skinMat.userData.shared = true; }
+    if (!this._skinMat) { this._skinMat = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.7 }); this._skinMat.userData.shared = true; }
     const mesh = new T.Mesh(out, this._skinMat);
     mesh.castShadow = true;
     return mesh;
@@ -380,24 +380,40 @@ const Models = {
     const dress = female && Math.random() < 0.3, skirt = dress || (female && Math.random() < 0.4), longSleeve = Math.random() < 0.35;
     const hairStyle = female ? P(['long', 'long', 'ponytail', 'bun', 'wavy']) : (Math.random() < 0.12 ? 'bald' : 'short');
     const h = opts.height || (female ? 1.58 + Math.random() * 0.15 : 1.68 + Math.random() * 0.2), sc = h / 1.75;
-    const cap = (r, l) => this.geo('cap' + r + ':' + l, () => new T.CapsuleGeometry(r, l, 4, 10));
-    const sph = r => this.geo('sph' + r, () => new T.SphereGeometry(r, 14, 10));
+    const cap = (r, l) => this.geo('cap' + r + ':' + l, () => new T.CapsuleGeometry(r, l, 6, 14));
+    const sph = r => this.geo('sph' + r, () => new T.SphereGeometry(r, 18, 12));
     const M = this.M.bind(this);
     // גוף, צוואר, ראש, פנים ושיער (חלק אחד שלא זז)
+    const W = female ? 0.9 : 1;   // רוחב כתפיים
     const body = [
-      { g: cap(0.16, 0.26), c: shirt, m: M(0, 1.29, 0, 0, 0, 0, female ? 0.66 : 0.74, 1, female ? 0.98 : 1.2) },
-      { g: cap(0.13, 0.12), c: skirt ? shirt : pants, m: M(0, 0.98, 0, Math.PI / 2, 0, 0, 0.85, 1, 1) },
-      { g: this.geo('neck', () => new T.CylinderGeometry(0.048, 0.055, 0.12, 10)), c: skin, m: M(0, 1.54, 0) },
-      { g: sph(0.105), c: skin, m: M(0, 1.67, 0, 0, 0, 0, 1, 1.15, 0.95) },
-      { g: this.geo('nose', () => new T.ConeGeometry(0.018, 0.045, 6)), c: skin, m: M(0.105, 1.66, 0, 0, 0, -Math.PI / 2) },
-      { g: sph(0.013), c: 0x1a1a1a, m: M(0.094, 1.695, 0.036) }, { g: sph(0.013), c: 0x1a1a1a, m: M(0.094, 1.695, -0.036) },
+      // חזה וכתפיים, מותניים (צרים יותר אצל נשים) ואגן
+      { g: cap(0.15, 0.16), c: shirt, m: M(0, 1.34, 0, 0, 0, 0, 0.72, 1, 1.22 * W) },
+      { g: cap(female ? 0.11 : 0.13, 0.1), c: shirt, m: M(0, 1.13, 0, 0, 0, 0, 0.78, 1, female ? 1.05 : 1.12) },
+      { g: cap(female ? 0.14 : 0.13, 0.1), c: skirt ? shirt : pants, m: M(0, 0.97, 0, Math.PI / 2, 0, 0, 0.82, female ? 1.15 : 1.05, 1) },
+      { g: sph(0.06), c: shirt, m: M(0, 1.43, 0.2 * W) }, { g: sph(0.06), c: shirt, m: M(0, 1.43, -0.2 * W) },
+      { g: this.geo('neck', () => new T.CylinderGeometry(0.045, 0.052, 0.13, 14)), c: skin, m: M(0, 1.54, 0) },
+      // ראש בצורת ביצה, לסת, אוזניים
+      { g: sph(0.1), c: skin, m: M(0, 1.675, 0, 0, 0, 0, 1.02, 1.2, 0.92) },
+      { g: sph(0.06), c: skin, m: M(0.018, 1.612, 0, 0, 0, 0, 0.9, 0.75, 1.05) },
+      { g: sph(0.022), c: skin, m: M(-0.005, 1.67, 0.092, 0, 0, 0, 0.6, 1.2, 0.5) }, { g: sph(0.022), c: skin, m: M(-0.005, 1.67, -0.092, 0, 0, 0, 0.6, 1.2, 0.5) },
+      // אף, עיניים (לבן + אישון), גבות
+      { g: this.geo('nose2', () => new T.ConeGeometry(0.014, 0.04, 8)), c: skin, m: M(0.1, 1.665, 0, 0, 0, -Math.PI / 2) },
+      { g: sph(0.016), c: 0xf5f5f5, m: M(0.086, 1.695, 0.034, 0, 0, 0, 0.5, 0.75, 1) }, { g: sph(0.016), c: 0xf5f5f5, m: M(0.086, 1.695, -0.034, 0, 0, 0, 0.5, 0.75, 1) },
+      { g: sph(0.008), c: P([0x3b2a1e, 0x2f5d8a, 0x3f6b45, 0x1a1a1a]), m: M(0.094, 1.695, 0.034) }, { g: sph(0.008), c: 0x2a1c12, m: M(0.094, 1.695, -0.034) },
+      { g: this.geo('brow', () => new T.BoxGeometry(0.008, 0.007, 0.034)), c: hair, m: M(0.09, 1.72, 0.035, 0.12) }, { g: this.geo('brow', () => new T.BoxGeometry(0.008, 0.007, 0.034)), c: hair, m: M(0.09, 1.72, -0.035, -0.12) },
     ];
+    if (!female) body.push({ g: this.geo('mouthM', () => new T.BoxGeometry(0.006, 0.006, 0.032)), c: 0x8a4a3a, m: M(0.088, 1.625, 0) });
+    else {
+      // שיער נשי מלא: צדדים, גב, ולפעמים פוני
+      if (hairStyle === 'long' || hairStyle === 'wavy') for (const z of [0.075, -0.075]) body.push({ g: cap(0.04, 0.16), c: hair, m: M(-0.01, 1.6, z, 0, 0, 0, 0.9, 1, 1) });
+      if (Math.random() < 0.4 && hairStyle !== 'bun') body.push({ g: this.geo('bangs', () => new T.SphereGeometry(0.104, 14, 6, -Math.PI / 2.4, Math.PI / 1.2, 0, Math.PI * 0.32)), c: hair, m: M(0.012, 1.7, 0, 0, Math.PI / 2, 0.2) });
+    }
     if (hairStyle !== 'bald') body.push({ g: this.geo('hairCap', () => new T.SphereGeometry(0.113, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.55)), c: hair, m: M(-0.012, 1.69, 0, 0, 0, 0.25, 1, 1.12, 1) });
     if (hairStyle === 'long') body.push({ g: cap(0.085, 0.24), c: hair, m: M(-0.07, 1.55, 0, 0, 0, 0, 0.8, 1, 1.25) });
     if (hairStyle === 'wavy') body.push({ g: cap(0.1, 0.16), c: hair, m: M(-0.06, 1.58, 0, 0, 0, 0, 0.9, 1, 1.45) });
     if (hairStyle === 'ponytail') body.push({ g: cap(0.04, 0.2), c: hair, m: M(-0.13, 1.6, 0, 0, 0, -0.35) });
     if (hairStyle === 'bun') body.push({ g: sph(0.06), c: hair, m: M(-0.08, 1.79, 0) });
-    if (female) body.push({ g: this.geo('lips', () => new T.BoxGeometry(0.01, 0.012, 0.04)), c: P([0xb5354a, 0xc4566a, 0x9c3b3b]), m: M(0.1, 1.625, 0) });
+    if (female) body.push({ g: sph(0.012), c: P([0xb5354a, 0xc4566a, 0x9c3b3b, 0xd47a7a]), m: M(0.088, 1.625, 0, 0, 0, 0, 0.6, 0.55, 1.7) });
     // שמלה: אותו צבע כמו החולצה; חצאית: צבע משלה
     if (skirt) body.push({ g: this.geo('skirt', () => new T.CylinderGeometry(0.14, 0.26, 0.46, 16, 1, true)), c: dress ? shirt : P([0x6b4f8a, 0x1f2937, 0xa8552c, 0x2f5d8a, 0xd96c8a, 0x222222]), m: M(0, 0.77, 0) });
     // תיק צד

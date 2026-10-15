@@ -67,29 +67,22 @@ window.addEventListener('keydown', e => {
   }
   if (k) { input[k] = true; e.preventDefault(); }
   if (e.repeat) return;
+  // שליטה רק בחיצים, ברווח ובשורת המקשים שמעליו (Z X C V B N M)
   switch (e.code) {
-    case 'KeyQ': case 'Comma': act.blink(-1); break;
-    case 'KeyE': case 'Period': act.blink(1); break;
-    case 'KeyX': act.blinkOff(); break;
-    case 'KeyH': act.horn(true); break;
-    case 'KeyR': act.gear(); break;
-    case 'KeyP': act.park('right'); break;
-    case 'KeyO': act.park('left'); break;
-    case 'KeyC': toggleCamera(); break;
-    case 'KeyG': toggleSteer(); break;
-    case 'KeyV': toggleVoice(); break;
-    case 'KeyI': toggleInstructor(); break;
-    case 'KeyL': toggleLog(); break;
-    case 'Backspace': act.reset(); e.preventDefault(); break;
+    case 'KeyZ': act.blink(-1); break;              // איתות שמאלה
+    case 'KeyX': act.blinkOff(); break;             // ביטול איתות
+    case 'KeyC': act.blink(1); break;               // איתות ימינה
+    case 'KeyV': toggleCamera(); break;             // מבט
+    case 'KeyB': act.park('left'); break;           // חניה משמאל
+    case 'KeyN': act.park('right'); break;          // חניה מימין
+    case 'KeyM': act.gear(); break;                 // הילוך אחורי / קדימה
+    case 'Space': e.preventDefault(); act.horn(true); break;   // צופר
     case 'Escape': if (!$('help').hidden) startDriving(); else showHelp(); break;
-    case 'Equal': case 'NumpadAdd': cam.userZoom = Math.min(2, cam.userZoom * 1.15); break;
-    case 'Minus': case 'NumpadSubtract': cam.userZoom = Math.max(0.45, cam.userZoom / 1.15); break;
-    case 'Space': e.preventDefault(); act.blinkOff(); break;
   }
 });
 window.addEventListener('keyup', e => {
   if (keyMap[e.code]) input[keyMap[e.code]] = false;
-  if (e.code === 'KeyH') act.horn(false);
+  if (e.code === 'Space') act.horn(false);
 });
 window.addEventListener('blur', () => { for (const k in input) input[k] = false; });
 canvas.addEventListener('wheel', e => { e.preventDefault(); cam.userZoom = Math.max(0.45, Math.min(2, cam.userZoom * (e.deltaY > 0 ? 0.9 : 1.1))); }, { passive: false });
@@ -543,7 +536,7 @@ function updateHUD(dt) {
   if (Rules.instr) {
     ins.hidden = false;
     // הוראת חניה: אומרים בדיוק מה ללחוץ
-    const how = Rules.instr.kind === 'park' ? (Rules.instr.side === 'right' ? ' (מקשים: E לאיתות, ואז P)' : ' (מקשים: Q לאיתות, ואז O)') : Rules.instr.kind === 'unpark' ? ' (איתות לכיוון הכביש ואז ↑)' : Rules.instr.kind === 'reverse' ? ' (R ואז ↓)' : '';
+    const how = Rules.instr.kind === 'park' ? (Rules.instr.side === 'right' ? ' (מקשים: C לאיתות, ואז N)' : ' (מקשים: Z לאיתות, ואז B)') : Rules.instr.kind === 'unpark' ? ' (איתות לכיוון הכביש ואז ↑)' : Rules.instr.kind === 'reverse' ? ' (M ואז ↓)' : '';
     $('instrText').textContent = Rules.instr.text + how;
   }
   else ins.hidden = true;
