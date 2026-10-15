@@ -1031,11 +1031,13 @@ const View3D = {
     if (driver) {
       // הנהג יושב משמאל (ישראל)
       const lx = hy, ly = -hx;
-      // זווית ראייה לרוחב של כ-72 מעלות כמו לעין הנהג; במסך רחב מצמצמים את הזווית האנכית כדי שהכביש לא ייראה רחוק וצר
-      cam.fov = Math.max(38, Math.min(58, 2 * Math.atan(Math.tan(36 * Math.PI / 180) / cam.aspect) * 180 / Math.PI));
+      // זווית ראייה לרוחב של כ-84 מעלות; במסך רחב מצמצמים את הזווית האנכית כדי שהכביש לא ייראה רחוק וצר
+      cam.fov = Math.max(42, Math.min(60, 2 * Math.atan(Math.tan(42 * Math.PI / 180) / cam.aspect) * 180 / Math.PI));
       // העיניים קרובות לשמשה, והמבט מעט כלפי מטה כדי שהכביש ייראה מעל לוח המכשירים
       cam.position.set(p.x + lx * 0.38 + hx * 0.85, 1.3 + this.bounce * Math.sin(time * 40) * 0.05, p.y + ly * 0.38 + hy * 0.85);
-      cam.lookAt(p.x + hx * 30 + lx * 0.38, -1.2, p.y + hy * 30 + ly * 0.38);
+      // הצצה לצדדים (גרירה בעכבר): מסובבים את הראש, והמבט חוזר קדימה כשעוזבים
+      const yaw = this.lookYaw || 0, fx = Math.cos(p.h + yaw), fy = Math.sin(p.h + yaw);
+      cam.lookAt(cam.position.x + fx * 30, -1.2 - Math.abs(yaw) * 0.8, cam.position.z + fy * 30);
     } else {
       this.camH += angNorm(p.h - this.camH) * (1 - Math.exp(-dt * 3));
       const ch = Math.cos(this.camH), sh = Math.sin(this.camH);

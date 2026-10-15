@@ -39,6 +39,9 @@ const Cockpit = {
     // מבט מעיני הנהג (יושב משמאל): לוח מכשירים כהה בשליש התחתון, גומחת שעונים והגה גדול מולו,
     // מסך מולטימדיה "צף" באמצע הרכב, ומתחתיו מיזוג, פתחי אוויר וידית ההילוכים
     const top = H * 0.8, cx = W * 0.3;
+    // כשמסובבים את הראש הצידה, פנים הרכב זז לצד השני
+    const shift = -(opts.yaw || 0) / 1.4 * W * 0.9;
+    c.save(); c.translate(shift, 0);
     this.interior(c, W, H, top);
     // --- משטח הלוח העליון: קצה ישר מתחת לשמשה, מעט מתעגל בקצוות לכיוון הדלתות ---
     const edge = x => top + Math.pow(Math.abs(x / W - 0.45) * 2, 3) * H * 0.02;
@@ -170,6 +173,7 @@ const Cockpit = {
     c.beginPath(); c.ellipse(0, 0, wr * 0.09, wr * 0.055, 0, 0, Math.PI * 2); c.stroke();
     c.beginPath(); c.ellipse(0, 0, wr * 0.03, wr * 0.055, 0, 0, Math.PI * 2); c.stroke();
     c.restore();
+    c.restore();
     // מקום פנוי למראות (הן מצוירות בתלת-ממד מתחת ללוח הזה)
     for (const id of ['mirror', 'mirrorL', 'mirrorR']) {
       const el = document.getElementById(id);
@@ -182,6 +186,7 @@ const Cockpit = {
   // הפנים של הרכב סביב השמשה: תקרה בהירה עם מגני שמש, עמודי שמשה רחבים, וזרוע של המראה האחורית
   interior(c, W, H, top) {
     const beige = '#c8bea9', beigeD = '#a99f8a';
+    let gr;
     // תקרה
     const hh = H * 0.055;
     let g = c.createLinearGradient(0, 0, 0, hh * 1.4);
@@ -200,6 +205,21 @@ const Cockpit = {
     const mr = document.getElementById('mirror'), mTop = mr && !mr.hidden ? mr.getBoundingClientRect().top : hh * 1.25;
     const mx = mr && !mr.hidden ? (mr.getBoundingClientRect().left + mr.getBoundingClientRect().right) / 2 : W * 0.6;
     c.fillStyle = '#8f8676'; c.fillRect(mx - 7, 0, 14, Math.max(0, mTop - 2));
+    // הדלתות משני הצדדים (רואים אותן כשמסובבים את הראש): תקרה, חלון צד, אדן ודלת כהה
+    for (const x0 of [-W, W]) {
+      c.fillStyle = beigeD; c.fillRect(x0, 0, W, hh * 1.3);
+      gr = c.createLinearGradient(0, top - H * 0.05, 0, H);
+      gr.addColorStop(0, '#3a3d42'); gr.addColorStop(0.08, '#24262a'); gr.addColorStop(1, '#141517');
+      c.fillStyle = gr; c.fillRect(x0, top - H * 0.05, W, H);
+      c.fillStyle = '#4a4e55'; c.fillRect(x0, top - H * 0.05, W, 4);
+      // ידית ומשענת יד בדלת
+      const hx0 = x0 < 0 ? x0 + W * 0.35 : x0 + W * 0.45;
+      c.fillStyle = '#2e3136'; this.round(c, hx0, top + H * 0.06, W * 0.2, H * 0.05, 10); c.fill();
+      c.fillStyle = '#9aa2aa'; this.round(c, hx0 + W * 0.04, top + H * 0.02, W * 0.05, H * 0.018, 6); c.fill();
+      // עמוד אמצעי (B) בקצה החלון
+      const bx = x0 < 0 ? x0 + W * 0.05 : x0 + W * 0.85;
+      c.fillStyle = beigeD; c.fillRect(bx, 0, W * 0.1, H);
+    }
     // עמודי השמשה: רחבים, בהירים, נוטים פנימה למעלה
     for (const side of [-1, 1]) {
       const xb = side < 0 ? 0 : W, inner = side < 0 ? 1 : -1;

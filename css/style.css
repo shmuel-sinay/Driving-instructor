@@ -355,3 +355,9 @@ body.view3d.drivercam .dash { left: 42%; }
 .fbrow { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
 .fbrow select { font: inherit; padding: 4px 8px; border-radius: 8px; }
 #fbList li { white-space: pre-wrap; }
+
+/* מפה קטנה ולוח כפתורים: מוסתרים כברירת מחדל, ונפתחים בלחיצה */
+body.nominimap .minimap { display: none; }
+body.padhidden .controls .pad { display: none; }
+.controls .padtoggle { position: absolute; right: 16px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 52px; font-size: 20px; }
+body:not(.padhidden) .controls .padtoggle { bottom: calc(14px + 3 * 52px + 2 * 6px + 10px + env(safe-area-inset-bottom, 0px)); }

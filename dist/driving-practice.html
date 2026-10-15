@@ -366,6 +366,12 @@ body.view3d.drivercam .dash { left: 42%; }
 .fbrow select { font: inherit; padding: 4px 8px; border-radius: 8px; }
 #fbList li { white-space: pre-wrap; }
 
+/* מפה קטנה ולוח כפתורים: מוסתרים כברירת מחדל, ונפתחים בלחיצה */
+body.nominimap .minimap { display: none; }
+body.padhidden .controls .pad { display: none; }
+.controls .padtoggle { position: absolute; right: 16px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 52px; font-size: 20px; }
+body:not(.padhidden) .controls .padtoggle { bottom: calc(14px + 3 * 52px + 2 * 6px + 10px + env(safe-area-inset-bottom, 0px)); }
+
 </style>
 </head>
 <body>
@@ -412,6 +418,7 @@ body.view3d.drivercam .dash { left: 42%; }
           <button id="btnEmergency" type="button">רכבי ביטחון: מופיעים</button>
           <button id="btnGuides" type="button">קווי עזר לגבולות הרכב: מוצגים</button>
           <button id="btnHints" type="button">רמזים "לפניך": מוצגים</button>
+          <button id="btnMinimap" type="button">מפה קטנה: מוסתרת</button>
           <button id="btnReset" type="button">חזרה לנקודת ההתחלה</button>
         </div>
       </details>
@@ -465,6 +472,7 @@ body.view3d.drivercam .dash { left: 42%; }
   </div>
 
   <div class="controls" aria-label="לוח שליטה">
+    <button id="btnPad" type="button" class="padtoggle" title="הצג או הסתר את כפתורי השליטה">🎮<small>כפתורים</small></button>
     <div class="pad drive">
       <button id="cBlinkL" type="button" class="sig" title="איתות שמאלה (Z)">⇦<small>איתות · Z</small></button>
       <button id="cBlinkOff" type="button" class="cancel" title="ביטול איתות (X)">✕<small>בטל · X</small></button>
@@ -6090,11 +6098,13 @@ const View3D = {
     if (driver) {
       // הנהג יושב משמאל (ישראל)
       const lx = hy, ly = -hx;
-      // זווית ראייה לרוחב של כ-72 מעלות כמו לעין הנהג; במסך רחב מצמצמים את הזווית האנכית כדי שהכביש לא ייראה רחוק וצר
-      cam.fov = Math.max(38, Math.min(58, 2 * Math.atan(Math.tan(36 * Math.PI / 180) / cam.aspect) * 180 / Math.PI));
+      // זווית ראייה לרוחב של כ-84 מעלות; במסך רחב מצמצמים את הזווית האנכית כדי שהכביש לא ייראה רחוק וצר
+      cam.fov = Math.max(42, Math.min(60, 2 * Math.atan(Math.tan(42 * Math.PI / 180) / cam.aspect) * 180 / Math.PI));
       // העיניים קרובות לשמשה, והמבט מעט כלפי מטה כדי שהכביש ייראה מעל לוח המכשירים
       cam.position.set(p.x + lx * 0.38 + hx * 0.85, 1.3 + this.bounce * Math.sin(time * 40) * 0.05, p.y + ly * 0.38 + hy * 0.85);
-      cam.lookAt(p.x + hx * 30 + lx * 0.38, -1.2, p.y + hy * 30 + ly * 0.38);
+      // הצצה לצדדים (גרירה בעכבר): מסובבים את הראש, והמבט חוזר קדימה כשעוזבים
+      const yaw = this.lookYaw || 0, fx = Math.cos(p.h + yaw), fy = Math.sin(p.h + yaw);
+      cam.lookAt(cam.position.x + fx * 30, -1.2 - Math.abs(yaw) * 0.8, cam.position.z + fy * 30);
     } else {
       this.camH += angNorm(p.h - this.camH) * (1 - Math.exp(-dt * 3));
       const ch = Math.cos(this.camH), sh = Math.sin(this.camH);
@@ -6191,6 +6201,9 @@ const Cockpit = {
     // מבט מעיני הנהג (יושב משמאל): לוח מכשירים כהה בשליש התחתון, גומחת שעונים והגה גדול מולו,
     // מסך מולטימדיה "צף" באמצע הרכב, ומתחתיו מיזוג, פתחי אוויר וידית ההילוכים
     const top = H * 0.8, cx = W * 0.3;
+    // כשמסובבים את הראש הצידה, פנים הרכב זז לצד השני
+    const shift = -(opts.yaw || 0) / 1.4 * W * 0.9;
+    c.save(); c.translate(shift, 0);
     this.interior(c, W, H, top);
     // --- משטח הלוח העליון: קצה ישר מתחת לשמשה, מעט מתעגל בקצוות לכיוון הדלתות ---
     const edge = x => top + Math.pow(Math.abs(x / W - 0.45) * 2, 3) * H * 0.02;
@@ -6322,6 +6335,7 @@ const Cockpit = {
     c.beginPath(); c.ellipse(0, 0, wr * 0.09, wr * 0.055, 0, 0, Math.PI * 2); c.stroke();
     c.beginPath(); c.ellipse(0, 0, wr * 0.03, wr * 0.055, 0, 0, Math.PI * 2); c.stroke();
     c.restore();
+    c.restore();
     // מקום פנוי למראות (הן מצוירות בתלת-ממד מתחת ללוח הזה)
     for (const id of ['mirror', 'mirrorL', 'mirrorR']) {
       const el = document.getElementById(id);
@@ -6334,6 +6348,7 @@ const Cockpit = {
   // הפנים של הרכב סביב השמשה: תקרה בהירה עם מגני שמש, עמודי שמשה רחבים, וזרוע של המראה האחורית
   interior(c, W, H, top) {
     const beige = '#c8bea9', beigeD = '#a99f8a';
+    let gr;
     // תקרה
     const hh = H * 0.055;
     let g = c.createLinearGradient(0, 0, 0, hh * 1.4);
@@ -6352,6 +6367,21 @@ const Cockpit = {
     const mr = document.getElementById('mirror'), mTop = mr && !mr.hidden ? mr.getBoundingClientRect().top : hh * 1.25;
     const mx = mr && !mr.hidden ? (mr.getBoundingClientRect().left + mr.getBoundingClientRect().right) / 2 : W * 0.6;
     c.fillStyle = '#8f8676'; c.fillRect(mx - 7, 0, 14, Math.max(0, mTop - 2));
+    // הדלתות משני הצדדים (רואים אותן כשמסובבים את הראש): תקרה, חלון צד, אדן ודלת כהה
+    for (const x0 of [-W, W]) {
+      c.fillStyle = beigeD; c.fillRect(x0, 0, W, hh * 1.3);
+      gr = c.createLinearGradient(0, top - H * 0.05, 0, H);
+      gr.addColorStop(0, '#3a3d42'); gr.addColorStop(0.08, '#24262a'); gr.addColorStop(1, '#141517');
+      c.fillStyle = gr; c.fillRect(x0, top - H * 0.05, W, H);
+      c.fillStyle = '#4a4e55'; c.fillRect(x0, top - H * 0.05, W, 4);
+      // ידית ומשענת יד בדלת
+      const hx0 = x0 < 0 ? x0 + W * 0.35 : x0 + W * 0.45;
+      c.fillStyle = '#2e3136'; this.round(c, hx0, top + H * 0.06, W * 0.2, H * 0.05, 10); c.fill();
+      c.fillStyle = '#9aa2aa'; this.round(c, hx0 + W * 0.04, top + H * 0.02, W * 0.05, H * 0.018, 6); c.fill();
+      // עמוד אמצעי (B) בקצה החלון
+      const bx = x0 < 0 ? x0 + W * 0.05 : x0 + W * 0.85;
+      c.fillStyle = beigeD; c.fillRect(bx, 0, W * 0.1, H);
+    }
     // עמודי השמשה: רחבים, בהירים, נוטים פנימה למעלה
     for (const side of [-1, 1]) {
       const xb = side < 0 ? 0 : W, inner = side < 0 ? 1 : -1;
@@ -6504,6 +6534,17 @@ window.addEventListener('keyup', e => {
   if (e.code === 'Space') act.horn(false);
 });
 window.addEventListener('blur', () => { for (const k in input) input[k] = false; });
+// ===== הצצה לצדדים במבט נהג: גוררים את העכבר (או האצבע) על המסך שמאלה או ימינה =====
+const look = { yaw: 0, drag: false, x0: 0, y0: 0 };
+window.addEventListener('pointerdown', e => {
+  if (cam.mode !== 'driver' || e.target.tagName !== 'CANVAS' || e.target.id === 'minimap') return;
+  look.drag = true; look.x0 = e.clientX - look.yaw / 1.4 * innerWidth / 2;
+});
+window.addEventListener('pointermove', e => {
+  if (!look.drag) return;
+  look.yaw = Math.max(-1.4, Math.min(1.4, (e.clientX - look.x0) / (innerWidth / 2) * 1.4));
+});
+for (const ev of ['pointerup', 'pointercancel', 'blur']) window.addEventListener(ev, () => { look.drag = false; });
 canvas.addEventListener('wheel', e => { e.preventDefault(); cam.userZoom = Math.max(0.45, Math.min(2, cam.userZoom * (e.deltaY > 0 ? 0.9 : 1.1))); }, { passive: false });
 
 // ===== לוח כפתורים (עכבר ומגע) =====
@@ -6608,6 +6649,15 @@ showEmergency();
 $('mainMenu').addEventListener('click', e => { if (e.target.closest('button') && !e.target.closest('#settings')) $('mainMenu').open = false; });
 // רמזים "לפניך": אפשר לכבות כדי לזהות לבד רמזורים ותמרורים
 let hintsOn = (() => { try { return localStorage.getItem('driving-practice.hints') !== 'off'; } catch (e) { return true; } })();
+// מפה קטנה ולוח כפתורים: מוסתרים כברירת מחדל, והבחירה נשמרת
+// במסך מגע (טלפון) הכפתורים מוצגים, כי אין מקלדת
+let minimapOn = false, padOn = matchMedia('(pointer: coarse)').matches;
+try { minimapOn = localStorage.getItem('driving-practice.minimap') === 'on'; const pd = localStorage.getItem('driving-practice.pad'); padOn = pd ? pd === 'on' : matchMedia('(pointer: coarse)').matches; } catch (e) { /* לא חובה */ }
+function showMinimap() { document.body.classList.toggle('nominimap', !minimapOn); $('btnMinimap').textContent = minimapOn ? 'מפה קטנה: מוצגת' : 'מפה קטנה: מוסתרת'; }
+function showPad() { document.body.classList.toggle('padhidden', !padOn); }
+$('btnMinimap').addEventListener('click', () => { minimapOn = !minimapOn; try { localStorage.setItem('driving-practice.minimap', minimapOn ? 'on' : 'off'); } catch (e) { /* לא חובה */ } showMinimap(); });
+$('btnPad').addEventListener('click', () => { padOn = !padOn; try { localStorage.setItem('driving-practice.pad', padOn ? 'on' : 'off'); } catch (e) { /* לא חובה */ } showPad(); });
+showMinimap(); showPad();
 function showHints() { $('btnHints').textContent = hintsOn ? 'רמזים "לפניך": מוצגים' : 'רמזים "לפניך": מוסתרים (מזהים לבד)'; $('nextBox').hidden = !hintsOn; }
 $('btnHints').addEventListener('click', () => { hintsOn = !hintsOn; try { localStorage.setItem('driving-practice.hints', hintsOn ? 'on' : 'off'); } catch (e) { /* לא חובה */ } showHints(); });
 showHints();
@@ -7024,10 +7074,13 @@ function frame(now) {
     renderWorld(ctx, W, H, time, npcs);
   }
   // לוח מחוונים אמיתי במבט נהג
-  if (cam.mode === 'driver' && View3D.ok) Cockpit.draw(dt, { gas: player.gear === 'R' ? input.down : input.up, blinkOn: (time % 0.8) < 0.45, lim: Rules.lastLim, lights: View3D.weather === 'night' });
+  // הצצה לצדדים: בזמן גרירה המבט עוקב אחרי העכבר, ואחרי שעוזבים הוא חוזר בהדרגה קדימה
+  if (!look.drag) look.yaw *= Math.exp(-dt * 2.5);
+  View3D.lookYaw = cam.mode === 'driver' ? look.yaw : 0;
+  if (cam.mode === 'driver' && View3D.ok) Cockpit.draw(dt, { yaw: look.yaw, gas: player.gear === 'R' ? input.down : input.up, blinkOn: (time % 0.8) < 0.45, lim: Rules.lastLim, lights: View3D.weather === 'night' });
   else Cockpit.hide();
   mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  renderMinimap(mctx, mini.clientWidth, mini.clientHeight, npcs);
+  if (minimapOn) renderMinimap(mctx, mini.clientWidth, mini.clientHeight, npcs);
   updateHUD(dt);
   updateSiren();
   requestAnimationFrame(frame);

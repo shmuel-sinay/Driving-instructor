@@ -92,6 +92,17 @@ window.addEventListener('keyup', e => {
   if (e.code === 'Space') act.horn(false);
 });
 window.addEventListener('blur', () => { for (const k in input) input[k] = false; });
+// ===== הצצה לצדדים במבט נהג: גוררים את העכבר (או האצבע) על המסך שמאלה או ימינה =====
+const look = { yaw: 0, drag: false, x0: 0, y0: 0 };
+window.addEventListener('pointerdown', e => {
+  if (cam.mode !== 'driver' || e.target.tagName !== 'CANVAS' || e.target.id === 'minimap') return;
+  look.drag = true; look.x0 = e.clientX - look.yaw / 1.4 * innerWidth / 2;
+});
+window.addEventListener('pointermove', e => {
+  if (!look.drag) return;
+  look.yaw = Math.max(-1.4, Math.min(1.4, (e.clientX - look.x0) / (innerWidth / 2) * 1.4));
+});
+for (const ev of ['pointerup', 'pointercancel', 'blur']) window.addEventListener(ev, () => { look.drag = false; });
 canvas.addEventListener('wheel', e => { e.preventDefault(); cam.userZoom = Math.max(0.45, Math.min(2, cam.userZoom * (e.deltaY > 0 ? 0.9 : 1.1))); }, { passive: false });
 
 // ===== לוח כפתורים (עכבר ומגע) =====
@@ -196,6 +207,15 @@ showEmergency();
 $('mainMenu').addEventListener('click', e => { if (e.target.closest('button') && !e.target.closest('#settings')) $('mainMenu').open = false; });
 // רמזים "לפניך": אפשר לכבות כדי לזהות לבד רמזורים ותמרורים
 let hintsOn = (() => { try { return localStorage.getItem('driving-practice.hints') !== 'off'; } catch (e) { return true; } })();
+// מפה קטנה ולוח כפתורים: מוסתרים כברירת מחדל, והבחירה נשמרת
+// במסך מגע (טלפון) הכפתורים מוצגים, כי אין מקלדת
+let minimapOn = false, padOn = matchMedia('(pointer: coarse)').matches;
+try { minimapOn = localStorage.getItem('driving-practice.minimap') === 'on'; const pd = localStorage.getItem('driving-practice.pad'); padOn = pd ? pd === 'on' : matchMedia('(pointer: coarse)').matches; } catch (e) { /* לא חובה */ }
+function showMinimap() { document.body.classList.toggle('nominimap', !minimapOn); $('btnMinimap').textContent = minimapOn ? 'מפה קטנה: מוצגת' : 'מפה קטנה: מוסתרת'; }
+function showPad() { document.body.classList.toggle('padhidden', !padOn); }
+$('btnMinimap').addEventListener('click', () => { minimapOn = !minimapOn; try { localStorage.setItem('driving-practice.minimap', minimapOn ? 'on' : 'off'); } catch (e) { /* לא חובה */ } showMinimap(); });
+$('btnPad').addEventListener('click', () => { padOn = !padOn; try { localStorage.setItem('driving-practice.pad', padOn ? 'on' : 'off'); } catch (e) { /* לא חובה */ } showPad(); });
+showMinimap(); showPad();
 function showHints() { $('btnHints').textContent = hintsOn ? 'רמזים "לפניך": מוצגים' : 'רמזים "לפניך": מוסתרים (מזהים לבד)'; $('nextBox').hidden = !hintsOn; }
 $('btnHints').addEventListener('click', () => { hintsOn = !hintsOn; try { localStorage.setItem('driving-practice.hints', hintsOn ? 'on' : 'off'); } catch (e) { /* לא חובה */ } showHints(); });
 showHints();
@@ -612,10 +632,13 @@ function frame(now) {
     renderWorld(ctx, W, H, time, npcs);
   }
   // לוח מחוונים אמיתי במבט נהג
-  if (cam.mode === 'driver' && View3D.ok) Cockpit.draw(dt, { gas: player.gear === 'R' ? input.down : input.up, blinkOn: (time % 0.8) < 0.45, lim: Rules.lastLim, lights: View3D.weather === 'night' });
+  // הצצה לצדדים: בזמן גרירה המבט עוקב אחרי העכבר, ואחרי שעוזבים הוא חוזר בהדרגה קדימה
+  if (!look.drag) look.yaw *= Math.exp(-dt * 2.5);
+  View3D.lookYaw = cam.mode === 'driver' ? look.yaw : 0;
+  if (cam.mode === 'driver' && View3D.ok) Cockpit.draw(dt, { yaw: look.yaw, gas: player.gear === 'R' ? input.down : input.up, blinkOn: (time % 0.8) < 0.45, lim: Rules.lastLim, lights: View3D.weather === 'night' });
   else Cockpit.hide();
   mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  renderMinimap(mctx, mini.clientWidth, mini.clientHeight, npcs);
+  if (minimapOn) renderMinimap(mctx, mini.clientWidth, mini.clientHeight, npcs);
   updateHUD(dt);
   updateSiren();
   requestAnimationFrame(frame);
