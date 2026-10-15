@@ -89,6 +89,18 @@ function updatePlayer(dt) {
         target = Math.max(-0.62, Math.min(0.62, Math.atan(yaw * p.wb / Math.max(p.v, 1))));
         rate = 2.0;
       }
+    } else if (loc && loc.kind === 'node' && loc.node.type === 'roundabout') {
+      // בכיכר: הרכב ממשיך סביב האי בנתיב שהוא נמצא בו (פנימי או חיצוני). יוצאים מהכיכר עם החץ הימני
+      const n = loc.node, dx = p.x - n.x, dy = p.y - n.y, r = Math.hypot(dx, dy), th = Math.atan2(dy, dx);
+      const he = angNorm(p.h - (th - Math.PI / 2));            // סטייה מכיוון הנסיעה בטבעת
+      if (r > RB_IN + 0.5 && Math.abs(he) < 0.7) {
+        const rT = n.rbLanes === 2 ? (r < (ringRadius(n, 'inner') + ringRadius(n, 'outer')) / 2 ? ringRadius(n, 'inner') : ringRadius(n, 'outer')) : RB_RING;
+        const errT = r - rT;                                     // חיובי = החוצה (ימינה מכיוון הנסיעה)
+        const hWant = -Math.max(-0.25, Math.min(0.25, errT * 0.35));
+        const yaw = -p.v / rT + (hWant - he) * 1.8;               // סיבוב קבוע שמאלה סביב האי + תיקון
+        target = Math.max(-0.62, Math.min(0.62, Math.atan(yaw * p.wb / Math.max(p.v, 1))));
+        rate = 2.0;
+      }
     }
   }
   const ds = target - p.steer;

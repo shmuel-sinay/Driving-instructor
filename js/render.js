@@ -77,7 +77,7 @@ function buildSigns() {
       if (ctrl === 'stop') add(at(tEnd), { kind: 'stop', dir, edge: e });
       else if (ctrl === 'yield') add(at(tEnd), { kind: 'yield', dir, edge: e });
       else if (ctrl === 'roundabout') { add(at(back(4)), { kind: 'roundabout', dir, edge: e }); add(at(tEnd), { kind: 'yield', dir, edge: e }); }
-      else if (ctrl === 'light') add(at(dir > 0 ? e.t1 - 1 : e.t0 + 1, -0.4), { kind: 'light', node, edge: e, dir, ang: Math.atan2(e.d.y * dir, e.d.x * dir) });
+      else if (ctrl === 'light') add(at(dir > 0 ? e.t1 - 1 : e.t0 + 1, 2.2), { kind: 'light', node, edge: e, dir, ang: Math.atan2(e.d.y * dir, e.d.x * dir) });
       // איסורי פנייה
       const bans = dir > 0 ? e.banTo : e.banFrom;
       bans.forEach((turn, i) => add(at(back(10 + i * 3)), { kind: 'ban', val: turn, dir, edge: e }));
@@ -139,6 +139,20 @@ function drawRoads(ctx) {
     ctx.fillStyle = COL.asphaltNode;
     if (n.type === 'roundabout') { circle(ctx, n.x, n.y, RB_OUT); ctx.fill(); }
     else ctx.fillRect(n.x - n.hx, n.y - n.hy, 2 * n.hx, 2 * n.hy);
+  }
+  drawFillets(ctx, COL.sidewalk, COL.asphaltNode);
+}
+
+// פינות מעוגלות בצמתים: רבע עיגול של מדרכה, ומחוצה לו אספלט עד לפינת הצומת
+function drawFillets(ctx, walkFill, roadFill) {
+  for (const n of nodeList) for (const f of n.fillets || []) {
+    const x0 = n.x + f.sx * n.hx, y0 = n.y + f.sy * n.hy, R = f.R;
+    if (walkFill) { ctx.fillStyle = walkFill; ctx.fillRect(Math.min(x0, x0 + f.sx * R), Math.min(y0, y0 + f.sy * R), R, R); }
+    ctx.fillStyle = roadFill;
+    const a0 = Math.atan2(-f.sy, 0), a1 = Math.atan2(0, -f.sx);
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + f.sx * R, y0);
+    ctx.arc(f.cx, f.cy, R, a0, a1, f.sx * f.sy > 0);
+    ctx.closePath(); ctx.fill();
   }
 }
 
@@ -247,25 +261,36 @@ function curbSegments(e, key) {
   const hasStrip = key === 'f' ? e.pf : e.pb;
   const tdir = key === 'f' || e.oneway ? 1 : -1;
   const out = [];
-  let segStart = e.t0, prev = null;
+  const sSide = key === 'f' ? e.sMax : e.sMin, ta = e.t0 + filletTrim(e, 'a', sSide), tb = e.t1 - filletTrim(e, 'b', sSide);
+  let segStart = ta, prev = null;
   const flush = t => {
     if (prev === null) return;
     const col = prev ? 'red' : hasStrip ? 'blue' : null;
     if (col) out.push({ t0: segStart, t1: t, col });
     segStart = t;
   };
-  for (let t = e.t0; t <= e.t1 + 0.01; t += 1) {
+  for (let t = ta; t <= tb + 0.01; t += 1) {
     const rule = !!parkingRule(e, t, tdir) && (hasStrip || t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION || e.crosswalks.some(c => { const a = (c.t - t) * tdir; return a > -2.5 && a < NO_PARK_CROSSWALK; }));
     if (prev !== null && rule !== prev) flush(t);
     prev = rule;
   }
-  flush(e.t1);
+  flush(tb);
   return out;
 }
 const CURB_COL = { red: '#d23b2f', blue: '#2f6fd2' };
 
 // אבני שפה: אדום-לבן = אסור לחנות, כחול-לבן = חניה מותרת. וגם סימון מקומות החניה
 function drawCurbsAndParking(ctx) {
+  // אבני שפה אדום-לבן לאורך הפינות המעוגלות
+  for (const n of nodeList) for (const f of n.fillets || []) {
+    const a0 = Math.atan2(-f.sy, 0), a1 = Math.atan2(0, -f.sx), ccw = f.sx * f.sy > 0;
+    ctx.lineWidth = 0.32;
+    for (const [col, dash] of [['#f2f0ea', []], [CURB_COL.red, [0.9, 0.9]]]) {
+      ctx.strokeStyle = col; ctx.setLineDash(dash);
+      ctx.beginPath(); ctx.arc(f.cx, f.cy, f.R - 0.15, a0, a1, ccw); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
   for (const e of edges) {
     for (const key of ['f', 'b']) {
       const hasStrip = key === 'f' ? e.pf : e.pb;

@@ -368,6 +368,23 @@ const Rules = {
     if ((ctrl === 'stop' || ctrl === 'yield' || ctrl === 'roundabout') && hasConflict(node, edge, p, vehicles)) {
       this.report('yield', ctrl === 'roundabout' ? 'לא נתת זכות קדימה לרכב בתוך הכיכר' : 'לא נתת זכות קדימה לרכב בדרך הראשית', true, time, 5);
     }
+    if (node.type !== 'roundabout') {
+      // רכבים שמתקרבים לצומת בדרך אחרת: מימין, וממול (לבדיקה של פנייה שמאלה)
+      const fromDir = (o, want) => {
+        if (o === p || o.isParked || !(o.v > 2.5)) return false;
+        const dist = Math.hypot(o.x - node.x, o.y - node.y);
+        if (dist > Math.max(12, o.v * 3.2 + 6) || nodeContains(node, o)) return false;
+        const hx = Math.cos(o.h), hy = Math.sin(o.h);
+        if (hx * want.x + hy * want.y < 0.8) return false;
+        return (node.x - o.x) * hx + (node.y - o.y) * hy > 0;   // עדיין לפני הצומת
+      };
+      const oncomingDir = { x: -dirIn.x, y: -dirIn.y }, fromRightDir = { x: dirIn.y, y: -dirIn.x };
+      this.entry.oncoming = ctrl !== 'stop' && ctrl !== 'yield' && vehicles.some(o => fromDir(o, oncomingDir));
+      // צומת בלי תמרור ובלי רמזור: זכות קדימה לבא מימין
+      if (ctrl === 'none' && node.type === 'plain' && vehicles.some(o => fromDir(o, fromRightDir))) {
+        this.report('rightyield', 'בצומת בלי תמרור: לא נתת זכות קדימה לרכב שבא מימין', true, time, 5);
+      }
+    }
   },
 
   exitNode(node, edge, time, p) {
@@ -400,6 +417,7 @@ const Rules = {
         if (turn === 'right' && en.lane !== en.nLanes - 1) this.report('fromlane', 'פנייה ימינה שלא מהנתיב הימני', false, time, 4);
         if ((turn === 'left' || turn === 'uturn') && en.lane !== 0) this.report('fromlane', 'פנייה שמאלה שלא מהנתיב השמאלי', false, time, 4);
       }
+      if ((turn === 'left' || turn === 'uturn') && en.oncoming) this.report('leftyield', 'פנייה שמאלה בלי לתת זכות קדימה לרכב שבא ממול', true, time, 5);
       if ((turn === 'left' || turn === 'right') && (en.maxV || 0) * 3.6 > 32) this.report('turnfast', `פנייה מהירה מדי (${Math.round(en.maxV * 3.6)} קמ"ש): מאטים לפני הפנייה`, false, time, 5);
       const nOut = laneCount(edge, exitDirFrom(node, edge));
       if (nOut > 1 && (turn === 'right' || turn === 'left')) this.pendingLane = { edge, side: turn === 'right' ? 1 : -1 };

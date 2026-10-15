@@ -201,6 +201,7 @@ const View3D = {
       if (n.type === 'roundabout') { circle(c, n.x, n.y, RB_OUT); c.fill(); }
       else c.fillRect(n.x - n.hx, n.y - n.hy, 2 * n.hx, 2 * n.hy);
     }
+    drawFillets(c, null, c.fillStyle);
     // עקבות צמיגים כהים במרכז כל נתיב
     c.strokeStyle = 'rgba(0,0,0,0.13)'; c.lineWidth = 0.55;
     c.beginPath();
@@ -337,10 +338,20 @@ const View3D = {
       const s = key === 'f' ? e.sMax + 0.1 : e.sMin - 0.1;
       const segs = curbSegments(e, key);
       const colorAt = t => { const sg = segs.find(q => t >= q.t0 && t < q.t1); return sg ? (Math.floor((t - sg.t0) / 0.9) % 2 ? white : cols[sg.col]) : grey; };
-      for (let t = e.t0; t < e.t1 - 0.05; t += 0.9) {
-        const len = Math.min(0.9, e.t1 - t);
+      const ta = e.t0 + filletTrim(e, 'a', s), tb = e.t1 - filletTrim(e, 'b', s);
+      for (let t = ta; t < tb - 0.05; t += 0.9) {
+        const len = Math.min(0.9, tb - t);
         const mid = edgePoint(e, t + len / 2, s);
         list.push({ x: mid.x, y: mid.y, len, ang: Math.atan2(e.d.y, e.d.x), c: colorAt(t + 0.01) });
+      }
+    }
+    // אבני שפה לאורך הפינות המעוגלות בצמתים (אדום-לבן: אסור לחנות ליד צומת)
+    for (const n of nodeList) for (const f of n.fillets || []) {
+      const a0 = Math.atan2(-f.sy, 0), steps = 10, r = f.R - 0.1;
+      let a1 = Math.atan2(0, -f.sx); if (f.sx * f.sy > 0) { if (a1 > a0) a1 -= 2 * Math.PI; } else if (a1 < a0) a1 += 2 * Math.PI;
+      for (let i = 0; i < steps; i++) {
+        const am = a0 + (a1 - a0) * (i + 0.5) / steps;
+        list.push({ x: f.cx + Math.cos(am) * r, y: f.cy + Math.sin(am) * r, len: Math.abs(a1 - a0) * r / steps + 0.05, ang: am + Math.PI / 2, c: i % 2 ? white : cols.red });
       }
     }
     const mesh = new T.InstancedMesh(new T.BoxGeometry(1, 0.16, 0.22), this.mat(0xffffff), list.length);
@@ -351,14 +362,26 @@ const View3D = {
     // מדרכה מעט מוגבהת
     const walks = [];
     for (const e of edges) for (const [a, b] of [[e.sMax + 0.2, e.sMax + SIDEWALK], [e.sMin - SIDEWALK, e.sMin - 0.2]]) {
-      const len = e.t1 - e.t0; if (len < 2) continue;
-      const mid = edgePoint(e, (e.t0 + e.t1) / 2, (a + b) / 2);
+      const sd = a > 0 ? e.sMax : e.sMin, ta = e.t0 + filletTrim(e, 'a', sd), tb = e.t1 - filletTrim(e, 'b', sd);
+      const len = tb - ta; if (len < 2) continue;
+      const mid = edgePoint(e, (ta + tb) / 2, (a + b) / 2);
       walks.push({ x: mid.x, y: mid.y, len, w: b - a, ang: Math.atan2(e.d.y, e.d.x) });
     }
     const wm = new T.InstancedMesh(new T.BoxGeometry(1, 0.1, 1), this.mat(0xc9c4b8), walks.length);
     walks.forEach((c, i) => { q.setFromAxisAngle(up, -c.ang); m.compose(new T.Vector3(c.x, 0.05, c.y), q, new T.Vector3(c.len, 1, c.w)); wm.setMatrixAt(i, m); });
     wm.receiveShadow = true;
     this.scene.add(wm);
+    // מדרכה מוגבהת ברבע עיגול בכל פינה מעוגלת (מרכז הקשת = מרכז העיגול, והמדרכה פונה לכיוון פינת הצומת)
+    const fm = this.mat(0xc9c4b8);
+    for (const n of nodeList) for (const f of n.fillets || []) {
+      const q = new T.Shape(), R = f.R - 0.2, pt = (dx, dz) => [dx, -dz];
+      q.moveTo(...pt(0, 0));
+      for (let i = 0; i <= 12; i++) { const a = i / 12 * Math.PI / 2; q.lineTo(...pt(-f.sx * R * Math.sin(a), -f.sy * R * Math.cos(a))); }
+      q.closePath();
+      const mesh = new T.Mesh(new T.ShapeGeometry(q), fm);
+      mesh.rotation.x = -Math.PI / 2; mesh.position.set(f.cx, 0.1, f.cy); mesh.receiveShadow = true;
+      this.scene.add(mesh);
+    }
   },
 
   // עמודי תאורה לאורך הרחובות, לסירוגין משני הצדדים
@@ -797,7 +820,7 @@ const View3D = {
   // רמזור: עמוד בצד הדרך ועוד ראש רמזור על זרוע מעל הנתיבים, עם הילה זוהרת לאור הדולק
   buildLight(s, face) {
     const T = THREE;
-    const g = new T.Group();
+    let g = new T.Group();
     const poleMat = this.mat(0x3a3f44), boxMat = this.mat(0x1d1f22);
     if (!this.haloTex) {
       const c = document.createElement('canvas'); c.width = c.height = 64;
@@ -810,7 +833,7 @@ const View3D = {
     pole.position.y = 2.8; g.add(pole);
     // הזרוע מעל הכביש (לכיוון מרכז הכביש = x שלילי)
     const loc = s.edge ? edgeLocal(s.edge, s) : { s: 6 };
-    const arm = Math.max(2.5, Math.min(7, Math.abs(loc.s) - 1.5));
+    const arm = Math.max(2.5, Math.min(9, Math.abs(loc.s) - 1.5));
     const beam = new T.Mesh(new T.CylinderGeometry(0.07, 0.07, arm, 6), poleMat);
     beam.rotation.z = Math.PI / 2; beam.position.set(-arm / 2, 5.5, 0); g.add(beam);
     const head = (x, y, scale) => {
@@ -834,6 +857,19 @@ const View3D = {
     g.rotation.y = face;
     this.scene.add(g);
     this.lights.push({ node: s.node, edge: s.edge, lamps: lamps1 }, { node: s.node, edge: s.edge, lamps: lamps2 });
+    // רמזור נוסף בצד הרחוק של הצומת (מימין, אחרי הצומת), כמו בישראל: נראה גם כשעומדים צמוד לקו העצירה
+    const n = s.node;
+    if (n && n.type !== 'roundabout') {
+      const v = dirVec(s.edge, s.dir || 1), along = Math.abs(v.x) > 0.5 ? n.hx : n.hy, across = Math.abs(v.x) > 0.5 ? n.hy : n.hx;
+      const g2 = new T.Group();
+      const pole2 = new T.Mesh(new T.CylinderGeometry(0.09, 0.11, 3.2, 8), poleMat);
+      pole2.position.y = 1.6; g2.add(pole2);
+      const save = g; g = g2; const lamps3 = head(0, 3.0, 1); g = save;
+      g2.position.set(n.x + v.x * (along + 3) - v.y * (across + 1.5), 0, n.y + v.y * (along + 3) + v.x * (across + 1.5));
+      g2.rotation.y = face;
+      this.scene.add(g2);
+      this.lights.push({ node: s.node, edge: s.edge, lamps: lamps3 });
+    }
   },
 
   makeCar(color, isPlayer, type) {
@@ -995,11 +1031,11 @@ const View3D = {
     if (driver) {
       // הנהג יושב משמאל (ישראל)
       const lx = hy, ly = -hx;
-      // זווית ראייה לרוחב של כ-80 מעלות כמו לעין הנהג; במסך רחב מצמצמים את הזווית האנכית כדי שהכביש לא ייראה רחוק וצר
-      cam.fov = Math.max(38, Math.min(58, 2 * Math.atan(Math.tan(40 * Math.PI / 180) / cam.aspect) * 180 / Math.PI));
+      // זווית ראייה לרוחב של כ-72 מעלות כמו לעין הנהג; במסך רחב מצמצמים את הזווית האנכית כדי שהכביש לא ייראה רחוק וצר
+      cam.fov = Math.max(38, Math.min(58, 2 * Math.atan(Math.tan(36 * Math.PI / 180) / cam.aspect) * 180 / Math.PI));
       // העיניים קרובות לשמשה, והמבט מעט כלפי מטה כדי שהכביש ייראה מעל לוח המכשירים
-      cam.position.set(p.x + lx * 0.38 + hx * 0.45, 1.3 + this.bounce * Math.sin(time * 40) * 0.05, p.y + ly * 0.38 + hy * 0.45);
-      cam.lookAt(p.x + hx * 30 + lx * 0.38, -0.3, p.y + hy * 30 + ly * 0.38);
+      cam.position.set(p.x + lx * 0.38 + hx * 0.85, 1.3 + this.bounce * Math.sin(time * 40) * 0.05, p.y + ly * 0.38 + hy * 0.85);
+      cam.lookAt(p.x + hx * 30 + lx * 0.38, -1.2, p.y + hy * 30 + ly * 0.38);
     } else {
       this.camH += angNorm(p.h - this.camH) * (1 - Math.exp(-dt * 3));
       const ch = Math.cos(this.camH), sh = Math.sin(this.camH);

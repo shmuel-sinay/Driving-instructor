@@ -56,6 +56,7 @@
           <button id="btnReset" type="button">חזרה לנקודת ההתחלה</button>
         </div>
       </details>
+      <button id="btnFeedback" type="button">משוב והערות</button>
       <button id="btnHelp" type="button">עזרה</button>
       <button id="btnFinish" type="button" class="primary">סיום מבחן</button>
     </nav>
@@ -291,6 +292,33 @@
     </div>
   </section>
 
+  <section id="feedback" class="modal" hidden>
+    <div class="card">
+      <p class="eyebrow">משוב והערות</p>
+      <h2>מה כדאי לשפר?</h2>
+      <p class="muted">כתוב מה לא עבד, מה חסר או איזה חוק לא נכון. ההערות נשמרות ברשימה במחשב שלך, ואפשר לשלוח אותן לגיטהוב, להעתיק או להוריד כקובץ.</p>
+      <label class="fbrow">סוג:
+        <select id="fbKind">
+          <option>תקלה</option><option>רעיון לשיפור</option><option>חוק לא נכון</option><option>מראה וגרפיקה</option><option>אחר</option>
+        </select>
+      </label>
+      <textarea id="fbText" class="fbtext" rows="6" placeholder="למשל: בכיכר השנייה הרכב עולה על המדרכה כשאני יוצא ימינה"></textarea>
+      <label class="fbrow"><input id="fbInfo" type="checkbox" checked> לצרף פרטים על הנסיעה (מפה, ציון, עבירות אחרונות)</label>
+      <div class="row">
+        <button id="fbSave" type="button" class="primary">שמור ברשימה</button>
+        <button id="fbGithub" type="button">שלח בגיטהוב</button>
+        <button id="fbCopy" type="button">העתק</button>
+      </div>
+      <h3 class="sec">הרשימה שלי (<span id="fbCount">0</span>)</h3>
+      <ul id="fbList" class="sumlist"></ul>
+      <div class="row">
+        <button id="fbDownload" type="button">הורד את כל הרשימה כקובץ</button>
+        <button id="fbClear" type="button">מחק את הרשימה</button>
+        <button id="fbClose" type="button">סגור</button>
+      </div>
+    </div>
+  </section>
+
   <section id="book" class="modal" hidden>
     <div class="card wide">
       <p class="eyebrow">ספר החוקים של המורה</p>
@@ -379,5 +407,6 @@
 <script src="js/learn.js"></script>
 <script src="js/lessons.js"></script>
 <script src="js/progress.js"></script>
+<script src="js/feedback.js"></script>
 </body>
 </html>

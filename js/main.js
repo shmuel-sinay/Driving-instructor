@@ -27,6 +27,7 @@ window.addEventListener('resize', resize);
 resize();
 
 let npcs = [];
+let trafficBase = 16;   // כמות הרכבים הבסיסית במפה (מנהל התנועה מוסיף עוד ליד הצמתים)
 let emergencyOn = (() => { try { return localStorage.getItem('driving-practice.emergency') !== 'off'; } catch (e) { return true; } })();
 let parkedList = [];
 // מיקום המראה האחורית על המסך (לפי האלמנט #mirror)
@@ -61,6 +62,7 @@ window.addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('textarea, input')) return;
   if (!$('maps').hidden) { if (e.code === 'Escape') closeMaps(); return; }
   if (!$('plugins').hidden) { if (e.code === 'Escape') closePlugins(); return; }
+  if ($('feedback') && !$('feedback').hidden) { if (e.code === 'Escape') closeFeedback(); return; }
   if (!$('book').hidden) { if (e.code === 'Escape') closeBook(); return; }
   if (!$('quiz').hidden) { if (e.code === 'Escape') closeQuiz(); return; }
   const k = keyMap[e.code];
@@ -259,7 +261,8 @@ function loadMap(map) {
   View3D.build();
   Rules.reset(); Rules.lastLim = START.lim;
   resetPlayer();
-  npcs = spawnNPCs(map.traffic == null ? 12 : map.traffic, player);
+  trafficBase = map.traffic == null ? 16 : map.traffic;
+  npcs = spawnNPCs(trafficBase, player);
   npcs.push(...spawnRiders(map.riders == null ? 3 : map.riders, player));
   parkedList = parkedCars();
   cam.x = player.x; cam.y = player.y; cam.rot = cam.mode === 'north' ? 0 : -Math.PI / 2 - player.h;
@@ -595,6 +598,7 @@ function frame(now) {
       const vehicles = [player, ...npcs, ...parkedList];
       for (const n of npcs) n.update(h, time, vehicles);
       emergencyTick(h);
+      trafficDirector(h, player, npcs, trafficBase);
       // רכב שהיה מעורב בתאונה מפנה את הכביש אחרי שתי שניות, כדי שלא ניתקע צמודים
       for (let j = npcs.length - 1; j >= 0; j--) if (npcs[j].crashedAt && time - npcs[j].crashedAt > 2) npcs.splice(j, 1);
       updatePeds(h, player);

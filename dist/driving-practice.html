@@ -349,16 +349,22 @@ body.view3d .toast { padding: 6px 12px; font-size: 15px; }
 /* ===== לוח המחוונים במבט נהג ===== */
 .cockpit { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 body.view3d.drivercam .dash .cluster { display: none; }
-body.view3d.drivercam .dash { bottom: calc(38% + 40px); }
+body.view3d.drivercam .dash { bottom: calc(26% + 40px); }
 
 /* ===== מראות צד במבט נהג ===== */
-.sidemirror { position: absolute; top: 52%; width: min(12vw, 190px); aspect-ratio: 1.55; border: 7px solid #15181b; box-shadow: 0 6px 18px rgba(0,0,0,.4); pointer-events: none; }
+.sidemirror { position: absolute; top: 60%; width: min(10vw, 160px); aspect-ratio: 1.55; border: 7px solid #15181b; box-shadow: 0 6px 18px rgba(0,0,0,.4); pointer-events: none; }
 .sidemirror.left { left: 0.6%; border-radius: 34px 14px 22px 46px; }
 .sidemirror.right { right: 0.6%; border-radius: 14px 34px 46px 22px; }
 
 /* המראה האחורית באמצע הרכב, כלומר מעט מימין לנהג */
 body.view3d.drivercam .mirror { left: 60%; }
 body.view3d.drivercam .dash { left: 42%; }
+
+/* משוב והערות */
+.fbtext { width: 100%; box-sizing: border-box; margin: 8px 0; padding: 10px; border-radius: 10px; border: 1px solid var(--line, #ccc); font: inherit; resize: vertical; direction: rtl; }
+.fbrow { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+.fbrow select { font: inherit; padding: 4px 8px; border-radius: 8px; }
+#fbList li { white-space: pre-wrap; }
 
 </style>
 </head>
@@ -409,6 +415,7 @@ body.view3d.drivercam .dash { left: 42%; }
           <button id="btnReset" type="button">חזרה לנקודת ההתחלה</button>
         </div>
       </details>
+      <button id="btnFeedback" type="button">משוב והערות</button>
       <button id="btnHelp" type="button">עזרה</button>
       <button id="btnFinish" type="button" class="primary">סיום מבחן</button>
     </nav>
@@ -644,6 +651,33 @@ body.view3d.drivercam .dash { left: 42%; }
     </div>
   </section>
 
+  <section id="feedback" class="modal" hidden>
+    <div class="card">
+      <p class="eyebrow">משוב והערות</p>
+      <h2>מה כדאי לשפר?</h2>
+      <p class="muted">כתוב מה לא עבד, מה חסר או איזה חוק לא נכון. ההערות נשמרות ברשימה במחשב שלך, ואפשר לשלוח אותן לגיטהוב, להעתיק או להוריד כקובץ.</p>
+      <label class="fbrow">סוג:
+        <select id="fbKind">
+          <option>תקלה</option><option>רעיון לשיפור</option><option>חוק לא נכון</option><option>מראה וגרפיקה</option><option>אחר</option>
+        </select>
+      </label>
+      <textarea id="fbText" class="fbtext" rows="6" placeholder="למשל: בכיכר השנייה הרכב עולה על המדרכה כשאני יוצא ימינה"></textarea>
+      <label class="fbrow"><input id="fbInfo" type="checkbox" checked> לצרף פרטים על הנסיעה (מפה, ציון, עבירות אחרונות)</label>
+      <div class="row">
+        <button id="fbSave" type="button" class="primary">שמור ברשימה</button>
+        <button id="fbGithub" type="button">שלח בגיטהוב</button>
+        <button id="fbCopy" type="button">העתק</button>
+      </div>
+      <h3 class="sec">הרשימה שלי (<span id="fbCount">0</span>)</h3>
+      <ul id="fbList" class="sumlist"></ul>
+      <div class="row">
+        <button id="fbDownload" type="button">הורד את כל הרשימה כקובץ</button>
+        <button id="fbClear" type="button">מחק את הרשימה</button>
+        <button id="fbClose" type="button">סגור</button>
+      </div>
+    </div>
+  </section>
+
   <section id="book" class="modal" hidden>
     <div class="card wide">
       <p class="eyebrow">ספר החוקים של המורה</p>
@@ -734,8 +768,8 @@ const RULE_CATS = [
 
 const RULEBOOK = [
   // ----- זכות קדימה וצמתים -----
-  { id: 'right-of-way-right', cat: 'זכות קדימה וצמתים', title: 'בצומת ללא תמרור: זכות קדימה לבא מימין', text: 'בצומת שאין בו תמרור או רמזור, נותנים זכות קדימה לרכב שבא מימין.', src: [1741, 698, 724] },
-  { id: 'left-turn-oncoming', cat: 'זכות קדימה וצמתים', title: 'פנייה שמאלה: זכות קדימה לבא ממול', text: 'בפנייה שמאלה בצומת ללא תמרור נותנים זכות קדימה לרכב הבא ממול, תמיד, וגם לבא מימין.', src: [175, 1779] },
+  { id: 'right-of-way-right', cat: 'זכות קדימה וצמתים', title: 'בצומת ללא תמרור: זכות קדימה לבא מימין', text: 'בצומת שאין בו תמרור או רמזור, נותנים זכות קדימה לרכב שבא מימין.', src: [1741, 698, 724], keys: ['rightyield'] },
+  { id: 'left-turn-oncoming', cat: 'זכות קדימה וצמתים', title: 'פנייה שמאלה: זכות קדימה לבא ממול', text: 'בפנייה שמאלה בצומת ללא תמרור נותנים זכות קדימה לרכב הבא ממול, תמיד, וגם לבא מימין.', src: [175, 1779], keys: ['leftyield'] },
   { id: 'stop-sign', cat: 'זכות קדימה וצמתים', title: 'תמרור "עצור": עצירה מוחלטת', text: 'בתמרור "עצור" עוצרים עצירה מוחלטת לפני קו העצירה, ונותנים זכות קדימה לכל רכב שנכנס לצומת או מתקרב אליו. אם אין שדה ראייה מהקו, עוצרים שוב במקום שממנו רואים את התנועה, בלי להיכנס לצומת.', src: [181, 183], keys: ['stop'] },
   { id: 'stop-left-only', cat: 'זכות קדימה וצמתים', title: 'תמרור "עצור" רק בצד שמאל', text: 'תמרור "עצור" שהוצב רק בצד שמאל של הכביש חל רק על מי שפונה שמאלה או פונה פניית פרסה לשמאל.', src: [536] },
   { id: 'yield-sign', cat: 'זכות קדימה וצמתים', title: 'תמרור "תן זכות קדימה"', text: 'מאטים ונותנים זכות קדימה לתנועה בדרך החוצה. עוצרים רק אם יש תנועה.', src: [443], keys: ['yield'] },
@@ -1010,6 +1044,7 @@ const RB_RING = (RB_OUT + RB_IN) / 2;   // קו האמצע של הטבעת (וק
 const PW = 2.4;          // רוחב רצועת חניה לאורך המדרכה
 const NO_PARK_JUNCTION = 12;   // אסור לחנות פחות מ-12 מ' מצומת
 const NO_PARK_CROSSWALK = 12;  // ולא בטווח 12 מ' ממעבר חציה
+const CORNER_R = 6;      // רדיוס הפינה המעוגלת של המדרכה בצומת
 
 // רדיוס הנסיעה בטבעת: בכיכר דו-נתיבית יש נתיב פנימי וחיצוני
 function ringRadius(node, lane) {
@@ -1085,6 +1120,21 @@ function buildWorld(map) {
       else hx = Math.max(hx, e.half);
     }
     n.hx = hx || hy || LW; n.hy = hy || hx || LW;
+  }
+  // פינות מעוגלות בצמתים: בכל פינה שיש בה כביש משני הצדדים, שפת המדרכה מתעגלת ברדיוס CORNER_R,
+  // כך שאפשר לפנות ימינה בלי לעלות על המדרכה
+  for (const n of nodeList) {
+    n.fillets = [];
+    if (n.type === 'roundabout') continue;
+    const arm = {};
+    for (const e of n.edges) {
+      const out = e.a === n ? 1 : -1, ox = e.d.x * out, oy = e.d.y * out;
+      if (Math.abs(ox) > 0.99) arm['x' + Math.sign(ox)] = true;
+      else if (Math.abs(oy) > 0.99) arm['y' + Math.sign(oy)] = true;
+    }
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      if (arm['x' + sx] && arm['y' + sy]) n.fillets.push({ sx, sy, R: CORNER_R, cx: n.x + sx * (n.hx + CORNER_R), cy: n.y + sy * (n.hy + CORNER_R) });
+    }
   }
   for (const e of edges) {
     e.t0 = trimAt(e.a, e);
@@ -1236,6 +1286,22 @@ function nodeContains(n, p, m = 0) {
   if (n.type === 'roundabout') return Math.hypot(p.x - n.x, p.y - n.y) <= RB_OUT + m;
   return Math.abs(p.x - n.x) <= n.hx + m && Math.abs(p.y - n.y) <= n.hy + m;
 }
+// האם הנקודה על האספלט של פינה מעוגלת בצומת (מחוץ לריבוע הצומת, בין שני הכבישים)
+function inFillet(n, p, m = 0) {
+  if (!n.fillets || !n.fillets.length) return false;
+  for (const f of n.fillets) {
+    const u = (p.x - n.x) * f.sx - n.hx, w = (p.y - n.y) * f.sy - n.hy;
+    if (u >= -m && w >= -m && u <= f.R && w <= f.R && Math.hypot(u - f.R, w - f.R) >= f.R - m) return true;
+  }
+  return false;
+}
+// כמה לקצר את שפת המדרכה בקצה של קטע כביש בגלל פינה מעוגלת (0 אם אין)
+function filletTrim(e, end, s) {
+  const n = end === 'a' ? e.a : e.b, pt = edgePoint(e, end === 'a' ? e.t0 : e.t1, s);
+  if (!n.fillets) return 0;
+  const f = n.fillets.find(f => Math.sign(pt.x - n.x) === f.sx && Math.sign(pt.y - n.y) === f.sy);
+  return f ? f.R : 0;
+}
 function locate(p) {
   for (const n of nodeList) if (nodeContains(n, p)) return { kind: 'node', node: n };
   let best = null, bestEx = Infinity;
@@ -1255,6 +1321,7 @@ function surfaceAt(p) {
       if (r < RB_IN) return 'island';
       if (r <= RB_OUT) return 'road';
     } else if (nodeContains(n, p, 0.15)) return 'road';
+    else if (inFillet(n, p, 0.15)) return 'road';
   }
   for (const e of edges) {
     const { t, s } = edgeLocal(e, p);
@@ -2225,6 +2292,49 @@ function spawnNPCs(count, player) {
   return list;
 }
 
+// ===== מנהל תנועה: רכבים שמגיעים לצומת או לכיכר שהנהג מתקרב אליהם =====
+// כדי שיהיה צריך לתת זכות קדימה כמעט בכל צומת, שולחים רכבים מהכיוונים האחרים כך שיגיעו בערך יחד עם הנהג
+const director = { timer: 2, node: null, sent: 0 };
+function trafficDirector(dt, player, list, base) {
+  director.timer -= dt;
+  if (director.timer > 0) return;
+  director.timer = 1.5;
+  // מחזור: רכב רחוק מאוד מפנה מקום (רק כשיש יותר מהכמות הבסיסית)
+  const plain = list.filter(o => o.constructor === NPC);
+  if (plain.length > base) {
+    const far = plain.find(o => Math.hypot(o.x - player.x, o.y - player.y) > 260);
+    if (far) list.splice(list.indexOf(far), 1);
+  }
+  const loc = locate(player);
+  if (!loc || loc.kind !== 'edge' || player.v < 1) return;
+  const e = loc.edge, hd = Math.cos(player.h) * e.d.x + Math.sin(player.h) * e.d.y, dir = hd > 0 ? 1 : -1;
+  const node = toNodeOf(e, dir);
+  const distP = dir > 0 ? e.t1 - loc.t : loc.t - e.t0;
+  if (distP < 25 || distP > 150) return;
+  if (director.node !== node) { director.node = node; director.sent = 0; }
+  const want = node.type === 'roundabout' ? 3 : 2;
+  if (director.sent >= want || plain.length >= base + 8) return;
+  // רכבים שכבר בדרך לצומת הזה מכיוונים אחרים
+  const coming = list.filter(o => o.leg && o.leg.kind === 'edge' && o.leg.edge !== e && toNodeOf(o.leg.edge, o.leg.dir) === node).length;
+  if (coming >= want) return;
+  const opts = node.edges.filter(x => x !== e && laneCount(x, exitDirFrom(node, x) * -1) > 0);
+  if (!opts.length) return;
+  const ex = opts[Math.floor(Math.random() * opts.length)], d2 = -exitDirFrom(node, ex);
+  const span = ex.t1 - ex.t0;
+  // זמן ההגעה של הנהג, והמרחק שהרכב האחר יעבור באותו זמן
+  const tArrive = distP / Math.max(player.v, 5);
+  const dist = Math.max(30, Math.min(span - 10, tArrive * ex.lim / 3.6 * 0.8 + (Math.random() - 0.3) * 15));
+  if (dist < 25) return;
+  const lane = Math.floor(Math.random() * laneCount(ex, d2));
+  const s0 = laneS(ex, d2, lane), pt = edgePoint(ex, d2 > 0 ? ex.t1 - dist : ex.t0 + dist, s0);
+  if (Math.hypot(pt.x - player.x, pt.y - player.y) < 35) return;
+  if (list.some(o => Math.hypot(o.x - pt.x, o.y - pt.y) < 14)) return;
+  const npc = new NPC(ex, d2, null, span - dist);
+  if (npc.type === 'bus') return;
+  list.push(npc);
+  director.sent++;
+}
+
 // ===== הולכי רגל =====
 const PED_COLORS = ['#e05a47', '#3a7bd5', '#f2c14e', '#7b5ea7', '#2a9d8f', '#f28482'];
 
@@ -2357,6 +2467,18 @@ function updatePlayer(dt) {
         // כיוון רצוי: מתקן בעדינות לכיוון מרכז הנתיב
         const hWant = -Math.max(-0.25, Math.min(0.25, errT * 0.35));
         const yaw = (hWant - he) * 1.8;                 // קצב סיבוב רצוי
+        target = Math.max(-0.62, Math.min(0.62, Math.atan(yaw * p.wb / Math.max(p.v, 1))));
+        rate = 2.0;
+      }
+    } else if (loc && loc.kind === 'node' && loc.node.type === 'roundabout') {
+      // בכיכר: הרכב ממשיך סביב האי בנתיב שהוא נמצא בו (פנימי או חיצוני). יוצאים מהכיכר עם החץ הימני
+      const n = loc.node, dx = p.x - n.x, dy = p.y - n.y, r = Math.hypot(dx, dy), th = Math.atan2(dy, dx);
+      const he = angNorm(p.h - (th - Math.PI / 2));            // סטייה מכיוון הנסיעה בטבעת
+      if (r > RB_IN + 0.5 && Math.abs(he) < 0.7) {
+        const rT = n.rbLanes === 2 ? (r < (ringRadius(n, 'inner') + ringRadius(n, 'outer')) / 2 ? ringRadius(n, 'inner') : ringRadius(n, 'outer')) : RB_RING;
+        const errT = r - rT;                                     // חיובי = החוצה (ימינה מכיוון הנסיעה)
+        const hWant = -Math.max(-0.25, Math.min(0.25, errT * 0.35));
+        const yaw = -p.v / rT + (hWant - he) * 1.8;               // סיבוב קבוע שמאלה סביב האי + תיקון
         target = Math.max(-0.62, Math.min(0.62, Math.atan(yaw * p.wb / Math.max(p.v, 1))));
         rate = 2.0;
       }
@@ -3113,6 +3235,23 @@ const Rules = {
     if ((ctrl === 'stop' || ctrl === 'yield' || ctrl === 'roundabout') && hasConflict(node, edge, p, vehicles)) {
       this.report('yield', ctrl === 'roundabout' ? 'לא נתת זכות קדימה לרכב בתוך הכיכר' : 'לא נתת זכות קדימה לרכב בדרך הראשית', true, time, 5);
     }
+    if (node.type !== 'roundabout') {
+      // רכבים שמתקרבים לצומת בדרך אחרת: מימין, וממול (לבדיקה של פנייה שמאלה)
+      const fromDir = (o, want) => {
+        if (o === p || o.isParked || !(o.v > 2.5)) return false;
+        const dist = Math.hypot(o.x - node.x, o.y - node.y);
+        if (dist > Math.max(12, o.v * 3.2 + 6) || nodeContains(node, o)) return false;
+        const hx = Math.cos(o.h), hy = Math.sin(o.h);
+        if (hx * want.x + hy * want.y < 0.8) return false;
+        return (node.x - o.x) * hx + (node.y - o.y) * hy > 0;   // עדיין לפני הצומת
+      };
+      const oncomingDir = { x: -dirIn.x, y: -dirIn.y }, fromRightDir = { x: dirIn.y, y: -dirIn.x };
+      this.entry.oncoming = ctrl !== 'stop' && ctrl !== 'yield' && vehicles.some(o => fromDir(o, oncomingDir));
+      // צומת בלי תמרור ובלי רמזור: זכות קדימה לבא מימין
+      if (ctrl === 'none' && node.type === 'plain' && vehicles.some(o => fromDir(o, fromRightDir))) {
+        this.report('rightyield', 'בצומת בלי תמרור: לא נתת זכות קדימה לרכב שבא מימין', true, time, 5);
+      }
+    }
   },
 
   exitNode(node, edge, time, p) {
@@ -3145,6 +3284,7 @@ const Rules = {
         if (turn === 'right' && en.lane !== en.nLanes - 1) this.report('fromlane', 'פנייה ימינה שלא מהנתיב הימני', false, time, 4);
         if ((turn === 'left' || turn === 'uturn') && en.lane !== 0) this.report('fromlane', 'פנייה שמאלה שלא מהנתיב השמאלי', false, time, 4);
       }
+      if ((turn === 'left' || turn === 'uturn') && en.oncoming) this.report('leftyield', 'פנייה שמאלה בלי לתת זכות קדימה לרכב שבא ממול', true, time, 5);
       if ((turn === 'left' || turn === 'right') && (en.maxV || 0) * 3.6 > 32) this.report('turnfast', `פנייה מהירה מדי (${Math.round(en.maxV * 3.6)} קמ"ש): מאטים לפני הפנייה`, false, time, 5);
       const nOut = laneCount(edge, exitDirFrom(node, edge));
       if (nOut > 1 && (turn === 'right' || turn === 'left')) this.pendingLane = { edge, side: turn === 'right' ? 1 : -1 };
@@ -3830,7 +3970,7 @@ function buildSigns() {
       if (ctrl === 'stop') add(at(tEnd), { kind: 'stop', dir, edge: e });
       else if (ctrl === 'yield') add(at(tEnd), { kind: 'yield', dir, edge: e });
       else if (ctrl === 'roundabout') { add(at(back(4)), { kind: 'roundabout', dir, edge: e }); add(at(tEnd), { kind: 'yield', dir, edge: e }); }
-      else if (ctrl === 'light') add(at(dir > 0 ? e.t1 - 1 : e.t0 + 1, -0.4), { kind: 'light', node, edge: e, dir, ang: Math.atan2(e.d.y * dir, e.d.x * dir) });
+      else if (ctrl === 'light') add(at(dir > 0 ? e.t1 - 1 : e.t0 + 1, 2.2), { kind: 'light', node, edge: e, dir, ang: Math.atan2(e.d.y * dir, e.d.x * dir) });
       // איסורי פנייה
       const bans = dir > 0 ? e.banTo : e.banFrom;
       bans.forEach((turn, i) => add(at(back(10 + i * 3)), { kind: 'ban', val: turn, dir, edge: e }));
@@ -3892,6 +4032,20 @@ function drawRoads(ctx) {
     ctx.fillStyle = COL.asphaltNode;
     if (n.type === 'roundabout') { circle(ctx, n.x, n.y, RB_OUT); ctx.fill(); }
     else ctx.fillRect(n.x - n.hx, n.y - n.hy, 2 * n.hx, 2 * n.hy);
+  }
+  drawFillets(ctx, COL.sidewalk, COL.asphaltNode);
+}
+
+// פינות מעוגלות בצמתים: רבע עיגול של מדרכה, ומחוצה לו אספלט עד לפינת הצומת
+function drawFillets(ctx, walkFill, roadFill) {
+  for (const n of nodeList) for (const f of n.fillets || []) {
+    const x0 = n.x + f.sx * n.hx, y0 = n.y + f.sy * n.hy, R = f.R;
+    if (walkFill) { ctx.fillStyle = walkFill; ctx.fillRect(Math.min(x0, x0 + f.sx * R), Math.min(y0, y0 + f.sy * R), R, R); }
+    ctx.fillStyle = roadFill;
+    const a0 = Math.atan2(-f.sy, 0), a1 = Math.atan2(0, -f.sx);
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + f.sx * R, y0);
+    ctx.arc(f.cx, f.cy, R, a0, a1, f.sx * f.sy > 0);
+    ctx.closePath(); ctx.fill();
   }
 }
 
@@ -4000,25 +4154,36 @@ function curbSegments(e, key) {
   const hasStrip = key === 'f' ? e.pf : e.pb;
   const tdir = key === 'f' || e.oneway ? 1 : -1;
   const out = [];
-  let segStart = e.t0, prev = null;
+  const sSide = key === 'f' ? e.sMax : e.sMin, ta = e.t0 + filletTrim(e, 'a', sSide), tb = e.t1 - filletTrim(e, 'b', sSide);
+  let segStart = ta, prev = null;
   const flush = t => {
     if (prev === null) return;
     const col = prev ? 'red' : hasStrip ? 'blue' : null;
     if (col) out.push({ t0: segStart, t1: t, col });
     segStart = t;
   };
-  for (let t = e.t0; t <= e.t1 + 0.01; t += 1) {
+  for (let t = ta; t <= tb + 0.01; t += 1) {
     const rule = !!parkingRule(e, t, tdir) && (hasStrip || t - e.t0 < NO_PARK_JUNCTION || e.t1 - t < NO_PARK_JUNCTION || e.crosswalks.some(c => { const a = (c.t - t) * tdir; return a > -2.5 && a < NO_PARK_CROSSWALK; }));
     if (prev !== null && rule !== prev) flush(t);
     prev = rule;
   }
-  flush(e.t1);
+  flush(tb);
   return out;
 }
 const CURB_COL = { red: '#d23b2f', blue: '#2f6fd2' };
 
 // אבני שפה: אדום-לבן = אסור לחנות, כחול-לבן = חניה מותרת. וגם סימון מקומות החניה
 function drawCurbsAndParking(ctx) {
+  // אבני שפה אדום-לבן לאורך הפינות המעוגלות
+  for (const n of nodeList) for (const f of n.fillets || []) {
+    const a0 = Math.atan2(-f.sy, 0), a1 = Math.atan2(0, -f.sx), ccw = f.sx * f.sy > 0;
+    ctx.lineWidth = 0.32;
+    for (const [col, dash] of [['#f2f0ea', []], [CURB_COL.red, [0.9, 0.9]]]) {
+      ctx.strokeStyle = col; ctx.setLineDash(dash);
+      ctx.beginPath(); ctx.arc(f.cx, f.cy, f.R - 0.15, a0, a1, ccw); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
   for (const e of edges) {
     for (const key of ['f', 'b']) {
       const hasStrip = key === 'f' ? e.pf : e.pb;
@@ -5095,6 +5260,7 @@ const View3D = {
       if (n.type === 'roundabout') { circle(c, n.x, n.y, RB_OUT); c.fill(); }
       else c.fillRect(n.x - n.hx, n.y - n.hy, 2 * n.hx, 2 * n.hy);
     }
+    drawFillets(c, null, c.fillStyle);
     // עקבות צמיגים כהים במרכז כל נתיב
     c.strokeStyle = 'rgba(0,0,0,0.13)'; c.lineWidth = 0.55;
     c.beginPath();
@@ -5231,10 +5397,20 @@ const View3D = {
       const s = key === 'f' ? e.sMax + 0.1 : e.sMin - 0.1;
       const segs = curbSegments(e, key);
       const colorAt = t => { const sg = segs.find(q => t >= q.t0 && t < q.t1); return sg ? (Math.floor((t - sg.t0) / 0.9) % 2 ? white : cols[sg.col]) : grey; };
-      for (let t = e.t0; t < e.t1 - 0.05; t += 0.9) {
-        const len = Math.min(0.9, e.t1 - t);
+      const ta = e.t0 + filletTrim(e, 'a', s), tb = e.t1 - filletTrim(e, 'b', s);
+      for (let t = ta; t < tb - 0.05; t += 0.9) {
+        const len = Math.min(0.9, tb - t);
         const mid = edgePoint(e, t + len / 2, s);
         list.push({ x: mid.x, y: mid.y, len, ang: Math.atan2(e.d.y, e.d.x), c: colorAt(t + 0.01) });
+      }
+    }
+    // אבני שפה לאורך הפינות המעוגלות בצמתים (אדום-לבן: אסור לחנות ליד צומת)
+    for (const n of nodeList) for (const f of n.fillets || []) {
+      const a0 = Math.atan2(-f.sy, 0), steps = 10, r = f.R - 0.1;
+      let a1 = Math.atan2(0, -f.sx); if (f.sx * f.sy > 0) { if (a1 > a0) a1 -= 2 * Math.PI; } else if (a1 < a0) a1 += 2 * Math.PI;
+      for (let i = 0; i < steps; i++) {
+        const am = a0 + (a1 - a0) * (i + 0.5) / steps;
+        list.push({ x: f.cx + Math.cos(am) * r, y: f.cy + Math.sin(am) * r, len: Math.abs(a1 - a0) * r / steps + 0.05, ang: am + Math.PI / 2, c: i % 2 ? white : cols.red });
       }
     }
     const mesh = new T.InstancedMesh(new T.BoxGeometry(1, 0.16, 0.22), this.mat(0xffffff), list.length);
@@ -5245,14 +5421,26 @@ const View3D = {
     // מדרכה מעט מוגבהת
     const walks = [];
     for (const e of edges) for (const [a, b] of [[e.sMax + 0.2, e.sMax + SIDEWALK], [e.sMin - SIDEWALK, e.sMin - 0.2]]) {
-      const len = e.t1 - e.t0; if (len < 2) continue;
-      const mid = edgePoint(e, (e.t0 + e.t1) / 2, (a + b) / 2);
+      const sd = a > 0 ? e.sMax : e.sMin, ta = e.t0 + filletTrim(e, 'a', sd), tb = e.t1 - filletTrim(e, 'b', sd);
+      const len = tb - ta; if (len < 2) continue;
+      const mid = edgePoint(e, (ta + tb) / 2, (a + b) / 2);
       walks.push({ x: mid.x, y: mid.y, len, w: b - a, ang: Math.atan2(e.d.y, e.d.x) });
     }
     const wm = new T.InstancedMesh(new T.BoxGeometry(1, 0.1, 1), this.mat(0xc9c4b8), walks.length);
     walks.forEach((c, i) => { q.setFromAxisAngle(up, -c.ang); m.compose(new T.Vector3(c.x, 0.05, c.y), q, new T.Vector3(c.len, 1, c.w)); wm.setMatrixAt(i, m); });
     wm.receiveShadow = true;
     this.scene.add(wm);
+    // מדרכה מוגבהת ברבע עיגול בכל פינה מעוגלת (מרכז הקשת = מרכז העיגול, והמדרכה פונה לכיוון פינת הצומת)
+    const fm = this.mat(0xc9c4b8);
+    for (const n of nodeList) for (const f of n.fillets || []) {
+      const q = new T.Shape(), R = f.R - 0.2, pt = (dx, dz) => [dx, -dz];
+      q.moveTo(...pt(0, 0));
+      for (let i = 0; i <= 12; i++) { const a = i / 12 * Math.PI / 2; q.lineTo(...pt(-f.sx * R * Math.sin(a), -f.sy * R * Math.cos(a))); }
+      q.closePath();
+      const mesh = new T.Mesh(new T.ShapeGeometry(q), fm);
+      mesh.rotation.x = -Math.PI / 2; mesh.position.set(f.cx, 0.1, f.cy); mesh.receiveShadow = true;
+      this.scene.add(mesh);
+    }
   },
 
   // עמודי תאורה לאורך הרחובות, לסירוגין משני הצדדים
@@ -5691,7 +5879,7 @@ const View3D = {
   // רמזור: עמוד בצד הדרך ועוד ראש רמזור על זרוע מעל הנתיבים, עם הילה זוהרת לאור הדולק
   buildLight(s, face) {
     const T = THREE;
-    const g = new T.Group();
+    let g = new T.Group();
     const poleMat = this.mat(0x3a3f44), boxMat = this.mat(0x1d1f22);
     if (!this.haloTex) {
       const c = document.createElement('canvas'); c.width = c.height = 64;
@@ -5704,7 +5892,7 @@ const View3D = {
     pole.position.y = 2.8; g.add(pole);
     // הזרוע מעל הכביש (לכיוון מרכז הכביש = x שלילי)
     const loc = s.edge ? edgeLocal(s.edge, s) : { s: 6 };
-    const arm = Math.max(2.5, Math.min(7, Math.abs(loc.s) - 1.5));
+    const arm = Math.max(2.5, Math.min(9, Math.abs(loc.s) - 1.5));
     const beam = new T.Mesh(new T.CylinderGeometry(0.07, 0.07, arm, 6), poleMat);
     beam.rotation.z = Math.PI / 2; beam.position.set(-arm / 2, 5.5, 0); g.add(beam);
     const head = (x, y, scale) => {
@@ -5728,6 +5916,19 @@ const View3D = {
     g.rotation.y = face;
     this.scene.add(g);
     this.lights.push({ node: s.node, edge: s.edge, lamps: lamps1 }, { node: s.node, edge: s.edge, lamps: lamps2 });
+    // רמזור נוסף בצד הרחוק של הצומת (מימין, אחרי הצומת), כמו בישראל: נראה גם כשעומדים צמוד לקו העצירה
+    const n = s.node;
+    if (n && n.type !== 'roundabout') {
+      const v = dirVec(s.edge, s.dir || 1), along = Math.abs(v.x) > 0.5 ? n.hx : n.hy, across = Math.abs(v.x) > 0.5 ? n.hy : n.hx;
+      const g2 = new T.Group();
+      const pole2 = new T.Mesh(new T.CylinderGeometry(0.09, 0.11, 3.2, 8), poleMat);
+      pole2.position.y = 1.6; g2.add(pole2);
+      const save = g; g = g2; const lamps3 = head(0, 3.0, 1); g = save;
+      g2.position.set(n.x + v.x * (along + 3) - v.y * (across + 1.5), 0, n.y + v.y * (along + 3) + v.x * (across + 1.5));
+      g2.rotation.y = face;
+      this.scene.add(g2);
+      this.lights.push({ node: s.node, edge: s.edge, lamps: lamps3 });
+    }
   },
 
   makeCar(color, isPlayer, type) {
@@ -5889,11 +6090,11 @@ const View3D = {
     if (driver) {
       // הנהג יושב משמאל (ישראל)
       const lx = hy, ly = -hx;
-      // זווית ראייה לרוחב של כ-80 מעלות כמו לעין הנהג; במסך רחב מצמצמים את הזווית האנכית כדי שהכביש לא ייראה רחוק וצר
-      cam.fov = Math.max(38, Math.min(58, 2 * Math.atan(Math.tan(40 * Math.PI / 180) / cam.aspect) * 180 / Math.PI));
+      // זווית ראייה לרוחב של כ-72 מעלות כמו לעין הנהג; במסך רחב מצמצמים את הזווית האנכית כדי שהכביש לא ייראה רחוק וצר
+      cam.fov = Math.max(38, Math.min(58, 2 * Math.atan(Math.tan(36 * Math.PI / 180) / cam.aspect) * 180 / Math.PI));
       // העיניים קרובות לשמשה, והמבט מעט כלפי מטה כדי שהכביש ייראה מעל לוח המכשירים
-      cam.position.set(p.x + lx * 0.38 + hx * 0.45, 1.3 + this.bounce * Math.sin(time * 40) * 0.05, p.y + ly * 0.38 + hy * 0.45);
-      cam.lookAt(p.x + hx * 30 + lx * 0.38, -0.3, p.y + hy * 30 + ly * 0.38);
+      cam.position.set(p.x + lx * 0.38 + hx * 0.85, 1.3 + this.bounce * Math.sin(time * 40) * 0.05, p.y + ly * 0.38 + hy * 0.85);
+      cam.lookAt(p.x + hx * 30 + lx * 0.38, -1.2, p.y + hy * 30 + ly * 0.38);
     } else {
       this.camH += angNorm(p.h - this.camH) * (1 - Math.exp(-dt * 3));
       const ch = Math.cos(this.camH), sh = Math.sin(this.camH);
@@ -5989,7 +6190,7 @@ const Cockpit = {
 
     // מבט מעיני הנהג (יושב משמאל): לוח מכשירים כהה בשליש התחתון, גומחת שעונים והגה גדול מולו,
     // מסך מולטימדיה "צף" באמצע הרכב, ומתחתיו מיזוג, פתחי אוויר וידית ההילוכים
-    const top = H * 0.7, cx = W * 0.3;
+    const top = H * 0.8, cx = W * 0.3;
     this.interior(c, W, H, top);
     // --- משטח הלוח העליון: קצה ישר מתחת לשמשה, מעט מתעגל בקצוות לכיוון הדלתות ---
     const edge = x => top + Math.pow(Math.abs(x / W - 0.45) * 2, 3) * H * 0.02;
@@ -6029,7 +6230,7 @@ const Cockpit = {
     // --- קונסולה מרכזית: מסך צף מעל הלוח, נורת מצוקה, מיזוג וידית הילוכים ---
     const sx = W * 0.58;
     {
-      const sw = Math.min(W * 0.125, 210), sh = sw * 0.62, sy = top - sh * 0.62;
+      const sw = Math.min(W * 0.1, 170), sh = sw * 0.62, sy = top - sh * 0.62;
       // מסגרת ומסך
       c.fillStyle = '#060708'; this.round(c, sx - sw / 2 - 6, sy - 6, sw + 12, sh + 12, 10); c.fill();
       c.strokeStyle = '#555c63'; c.lineWidth = 1.5; c.stroke();
@@ -6045,7 +6246,7 @@ const Cockpit = {
       c.fillText(new Date().toTimeString().slice(0, 5), sx + sw * 0.46, sy + sh * 0.1);
       c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(sx - sw / 2 + sw * 0.12, sy + sh * 0.84, sw * 0.88, 1);
       // לוח מיזוג מתחת למסך, עם כפתור מצוקה
-      const py = faceY + H * 0.03, pw = sw * 0.95;
+      const py = faceY + H * 0.02, pw = sw * 0.95;
       c.fillStyle = '#0b0c0e'; this.round(c, sx - pw / 2, py, pw, H * 0.075, 10); c.fill();
       c.strokeStyle = '#8d959d'; c.lineWidth = 2; c.stroke();
       vent(sx - pw * 0.25, py + H * 0.008, pw * 0.4, H * 0.025);
@@ -6055,7 +6256,7 @@ const Cockpit = {
       c.fillText('22°', sx - pw * 0.3, py + H * 0.055); c.fillText('22°', sx + pw * 0.3, py + H * 0.055);
       for (const kx of [-0.36, 0.36]) { c.fillStyle = '#2a2e33'; c.beginPath(); c.arc(sx + pw * kx * 1.25, py + H * 0.055, H * 0.012, 0, Math.PI * 2); c.fill(); }
       // קונסולה תחתונה וידית ההילוכים
-      const cy0 = py + H * 0.09;
+      const cy0 = py + H * 0.08;
       c.fillStyle = '#121316'; c.beginPath(); c.moveTo(sx - pw * 0.45, cy0); c.lineTo(sx + pw * 0.45, cy0); c.lineTo(sx + pw * 0.62, H); c.lineTo(sx - pw * 0.62, H); c.closePath(); c.fill();
       c.strokeStyle = '#80888f'; c.lineWidth = 2; c.stroke();
       const gx = sx, gy = cy0 + (H - cy0) * 0.45;
@@ -6070,7 +6271,7 @@ const Cockpit = {
     }
 
     // --- גומחת השעונים מול הנהג, מעל ההגה ---
-    const R = Math.min(H * 0.062, W * 0.045, 62), cy = top + R * 0.1;
+    const R = Math.min(H * 0.05, W * 0.04, 50), cy = top + R * 0.1;
     // מצחייה מעל השעונים
     c.fillStyle = '#1a1c1f';
     c.beginPath(); c.moveTo(cx - R * 3.4, cy + R * 0.9); c.quadraticCurveTo(cx - R * 3.3, cy - R * 1.45, cx, cy - R * 1.5);
@@ -6097,7 +6298,7 @@ const Cockpit = {
     this.round(c, -R * 1.3, -R * 0.13, R * 1.4, R * 0.26, R * 0.12); c.fill(); c.restore();
 
     // --- הגה: שפה עבה מעור, שני חישורים צדדיים וחישור תחתון, כרית אוויר עם סמל ---
-    const wr = Math.min(H * 0.22, W * 0.16), wx = cx, wy = H * 0.93;
+    const wr = Math.min(H * 0.17, W * 0.13), wx = cx, wy = H * 0.99;
     c.save(); c.translate(wx, wy); c.rotate((player.steer || 0) * 6);
     c.lineWidth = wr * 0.14; c.strokeStyle = '#121315';
     c.beginPath(); c.arc(0, 0, wr, 0, Math.PI * 2); c.stroke();
@@ -6238,6 +6439,7 @@ window.addEventListener('resize', resize);
 resize();
 
 let npcs = [];
+let trafficBase = 16;   // כמות הרכבים הבסיסית במפה (מנהל התנועה מוסיף עוד ליד הצמתים)
 let emergencyOn = (() => { try { return localStorage.getItem('driving-practice.emergency') !== 'off'; } catch (e) { return true; } })();
 let parkedList = [];
 // מיקום המראה האחורית על המסך (לפי האלמנט #mirror)
@@ -6272,6 +6474,7 @@ window.addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('textarea, input')) return;
   if (!$('maps').hidden) { if (e.code === 'Escape') closeMaps(); return; }
   if (!$('plugins').hidden) { if (e.code === 'Escape') closePlugins(); return; }
+  if ($('feedback') && !$('feedback').hidden) { if (e.code === 'Escape') closeFeedback(); return; }
   if (!$('book').hidden) { if (e.code === 'Escape') closeBook(); return; }
   if (!$('quiz').hidden) { if (e.code === 'Escape') closeQuiz(); return; }
   const k = keyMap[e.code];
@@ -6470,7 +6673,8 @@ function loadMap(map) {
   View3D.build();
   Rules.reset(); Rules.lastLim = START.lim;
   resetPlayer();
-  npcs = spawnNPCs(map.traffic == null ? 12 : map.traffic, player);
+  trafficBase = map.traffic == null ? 16 : map.traffic;
+  npcs = spawnNPCs(trafficBase, player);
   npcs.push(...spawnRiders(map.riders == null ? 3 : map.riders, player));
   parkedList = parkedCars();
   cam.x = player.x; cam.y = player.y; cam.rot = cam.mode === 'north' ? 0 : -Math.PI / 2 - player.h;
@@ -6806,6 +7010,7 @@ function frame(now) {
       const vehicles = [player, ...npcs, ...parkedList];
       for (const n of npcs) n.update(h, time, vehicles);
       emergencyTick(h);
+      trafficDirector(h, player, npcs, trafficBase);
       // רכב שהיה מעורב בתאונה מפנה את הכביש אחרי שתי שניות, כדי שלא ניתקע צמודים
       for (let j = npcs.length - 1; j >= 0; j--) if (npcs[j].crashedAt && time - npcs[j].crashedAt > 2) npcs.splice(j, 1);
       updatePeds(h, player);
@@ -7158,7 +7363,7 @@ function nextQuestion() {
 }
 
 function resumeIfIdle() {
-  const open = ['help', 'summary', 'maps', 'plugins', 'book', 'quiz', 'lessons', 'lessonResult', 'progress'].some(id => $(id) && !$(id).hidden);
+  const open = ['help', 'summary', 'maps', 'plugins', 'book', 'quiz', 'lessons', 'lessonResult', 'progress', 'feedback'].some(id => $(id) && !$(id).hidden);
   if (!open) paused = false;
 }
 
@@ -7590,6 +7795,73 @@ $('btnClearHistory').addEventListener('click', e => {
   b.dataset.armed = ''; b.textContent = 'מחק היסטוריה';
   renderProgress();
 });
+
+// ---- js/feedback.js ----
+'use strict';
+// ===== משוב והערות =====
+// הקובץ פתוח מהמחשב ואין לו שרת, ולכן ההערות נשמרות ברשימה מקומית (localStorage).
+// אפשר לשלוח כל הערה כ-Issue בגיטהוב (צריך חשבון גיטהוב), להעתיק אותה, או להוריד את כל הרשימה כקובץ ולהעלות אותו לסוכן.
+const FEEDBACK_REPO = 'https://github.com/shmuel-sinay/Driving-instructor';
+const FB_KEY = 'driving-practice.feedback';
+
+function fbLoad() { try { return JSON.parse(localStorage.getItem(FB_KEY) || '[]'); } catch (e) { return []; } }
+function fbStore(list) { try { localStorage.setItem(FB_KEY, JSON.stringify(list)); } catch (e) { /* לא חובה */ } }
+
+// פרטים על הנסיעה הנוכחית, כדי שיהיה אפשר לשחזר את הבעיה
+function fbContext() {
+  const map = currentMap && currentMap.name ? currentMap.name : '';
+  const last = Rules.log.slice(0, 5).map(l => '- ' + l.text).join('\n');
+  return `מפה: ${map}\nמצלמה: ${cam.mode}\nציון: ${Rules.score}\nהיגוי: ${assist.on ? 'נהיגה מסייעת' : 'ידני'}\nמסך: ${innerWidth}x${innerHeight}\n` + (last ? `עבירות אחרונות:\n${last}\n` : '');
+}
+function fbCurrent() {
+  const text = $('fbText').value.trim();
+  if (!text) return null;
+  return { kind: $('fbKind').value, text, info: $('fbInfo').checked ? fbContext() : '', at: new Date().toLocaleString('he-IL') };
+}
+function fbFormat(f) { return `[${f.kind}] ${f.at}\n${f.text}` + (f.info ? `\n\n${f.info}` : ''); }
+
+function fbRender() {
+  const list = fbLoad();
+  $('fbCount').textContent = list.length;
+  const ul = $('fbList'); ul.innerHTML = '';
+  for (const f of list.slice().reverse()) { const li = document.createElement('li'); li.textContent = `[${f.kind}] ${f.text}`; ul.appendChild(li); }
+}
+function fbSaveCurrent() {
+  const f = fbCurrent();
+  if (!f) { $('fbText').focus(); return null; }
+  const list = fbLoad(); list.push(f); fbStore(list);
+  $('fbText').value = ''; fbRender();
+  return f;
+}
+function openFeedback() { paused = true; fbRender(); $('feedback').hidden = false; setTimeout(() => $('fbText').focus(), 50); }
+function closeFeedback() { $('feedback').hidden = true; resumeIfIdle(); }
+
+$('btnFeedback').addEventListener('click', () => { const m = $('mainMenu'); if (m) m.open = false; openFeedback(); });
+$('fbClose').addEventListener('click', closeFeedback);
+$('fbSave').addEventListener('click', fbSaveCurrent);
+$('fbGithub').addEventListener('click', () => {
+  const f = fbSaveCurrent();
+  if (!f) return;
+  const title = `[${f.kind}] ${f.text.split('\n')[0].slice(0, 70)}`;
+  const body = fbFormat(f) + '\n\n---\nנשלח מתוך "מגרש תרגול נהיגה"';
+  window.open(`${FEEDBACK_REPO}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}&labels=${encodeURIComponent('משוב')}`, '_blank');
+});
+$('fbCopy').addEventListener('click', () => {
+  const f = fbCurrent() || fbLoad().slice(-1)[0];
+  if (!f) return;
+  const t = fbFormat(f);
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => { $('fbCopy').textContent = 'הועתק!'; setTimeout(() => { $('fbCopy').textContent = 'העתק'; }, 1500); }, () => prompt('העתק את הטקסט:', t));
+});
+$('fbDownload').addEventListener('click', () => {
+  const list = fbLoad();
+  if (!list.length) return;
+  const txt = '# משוב והערות על "מגרש תרגול נהיגה"\n\n' + list.map(fbFormat).join('\n\n---\n\n') + '\n';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' }));
+  a.download = 'משוב-נהיגה.txt'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$('fbClear').addEventListener('click', () => { if (confirm('למחוק את כל ההערות ברשימה?')) { fbStore([]); fbRender(); } });
 
 </script>
 </body>

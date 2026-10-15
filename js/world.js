@@ -10,6 +10,7 @@ const RB_RING = (RB_OUT + RB_IN) / 2;   // קו האמצע של הטבעת (וק
 const PW = 2.4;          // רוחב רצועת חניה לאורך המדרכה
 const NO_PARK_JUNCTION = 12;   // אסור לחנות פחות מ-12 מ' מצומת
 const NO_PARK_CROSSWALK = 12;  // ולא בטווח 12 מ' ממעבר חציה
+const CORNER_R = 6;      // רדיוס הפינה המעוגלת של המדרכה בצומת
 
 // רדיוס הנסיעה בטבעת: בכיכר דו-נתיבית יש נתיב פנימי וחיצוני
 function ringRadius(node, lane) {
@@ -85,6 +86,21 @@ function buildWorld(map) {
       else hx = Math.max(hx, e.half);
     }
     n.hx = hx || hy || LW; n.hy = hy || hx || LW;
+  }
+  // פינות מעוגלות בצמתים: בכל פינה שיש בה כביש משני הצדדים, שפת המדרכה מתעגלת ברדיוס CORNER_R,
+  // כך שאפשר לפנות ימינה בלי לעלות על המדרכה
+  for (const n of nodeList) {
+    n.fillets = [];
+    if (n.type === 'roundabout') continue;
+    const arm = {};
+    for (const e of n.edges) {
+      const out = e.a === n ? 1 : -1, ox = e.d.x * out, oy = e.d.y * out;
+      if (Math.abs(ox) > 0.99) arm['x' + Math.sign(ox)] = true;
+      else if (Math.abs(oy) > 0.99) arm['y' + Math.sign(oy)] = true;
+    }
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      if (arm['x' + sx] && arm['y' + sy]) n.fillets.push({ sx, sy, R: CORNER_R, cx: n.x + sx * (n.hx + CORNER_R), cy: n.y + sy * (n.hy + CORNER_R) });
+    }
   }
   for (const e of edges) {
     e.t0 = trimAt(e.a, e);
@@ -236,6 +252,22 @@ function nodeContains(n, p, m = 0) {
   if (n.type === 'roundabout') return Math.hypot(p.x - n.x, p.y - n.y) <= RB_OUT + m;
   return Math.abs(p.x - n.x) <= n.hx + m && Math.abs(p.y - n.y) <= n.hy + m;
 }
+// האם הנקודה על האספלט של פינה מעוגלת בצומת (מחוץ לריבוע הצומת, בין שני הכבישים)
+function inFillet(n, p, m = 0) {
+  if (!n.fillets || !n.fillets.length) return false;
+  for (const f of n.fillets) {
+    const u = (p.x - n.x) * f.sx - n.hx, w = (p.y - n.y) * f.sy - n.hy;
+    if (u >= -m && w >= -m && u <= f.R && w <= f.R && Math.hypot(u - f.R, w - f.R) >= f.R - m) return true;
+  }
+  return false;
+}
+// כמה לקצר את שפת המדרכה בקצה של קטע כביש בגלל פינה מעוגלת (0 אם אין)
+function filletTrim(e, end, s) {
+  const n = end === 'a' ? e.a : e.b, pt = edgePoint(e, end === 'a' ? e.t0 : e.t1, s);
+  if (!n.fillets) return 0;
+  const f = n.fillets.find(f => Math.sign(pt.x - n.x) === f.sx && Math.sign(pt.y - n.y) === f.sy);
+  return f ? f.R : 0;
+}
 function locate(p) {
   for (const n of nodeList) if (nodeContains(n, p)) return { kind: 'node', node: n };
   let best = null, bestEx = Infinity;
@@ -255,6 +287,7 @@ function surfaceAt(p) {
       if (r < RB_IN) return 'island';
       if (r <= RB_OUT) return 'road';
     } else if (nodeContains(n, p, 0.15)) return 'road';
+    else if (inFillet(n, p, 0.15)) return 'road';
   }
   for (const e of edges) {
     const { t, s } = edgeLocal(e, p);

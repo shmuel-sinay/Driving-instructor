@@ -41,3 +41,4 @@ fs.writeFileSync(path.join(root, 'docs/gemini-plugin-prompt.md'),
   '# הנחיות ל-Gemini לכתיבת תוספי חוקים\n\nהעתק את כל הטקסט שמתחת לקו לצ\'אט חדש ב-Gemini, וכתוב בסוף אילו חוקים להוסיף.\n' +
   'אפשר להעתיק את אותו טקסט גם מתוך התוכנה: כפתור "תוספים" ← "העתק הנחיות לתוספים".\n\n---\n\n' + pluginPrompt + '\n');
 console.log('built dist/driving-practice.html', out.length, 'bytes');
+require('./rules-doc.js');

@@ -339,13 +339,19 @@ body.view3d .toast { padding: 6px 12px; font-size: 15px; }
 /* ===== לוח המחוונים במבט נהג ===== */
 .cockpit { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 body.view3d.drivercam .dash .cluster { display: none; }
-body.view3d.drivercam .dash { bottom: calc(38% + 40px); }
+body.view3d.drivercam .dash { bottom: calc(26% + 40px); }
 
 /* ===== מראות צד במבט נהג ===== */
-.sidemirror { position: absolute; top: 52%; width: min(12vw, 190px); aspect-ratio: 1.55; border: 7px solid #15181b; box-shadow: 0 6px 18px rgba(0,0,0,.4); pointer-events: none; }
+.sidemirror { position: absolute; top: 60%; width: min(10vw, 160px); aspect-ratio: 1.55; border: 7px solid #15181b; box-shadow: 0 6px 18px rgba(0,0,0,.4); pointer-events: none; }
 .sidemirror.left { left: 0.6%; border-radius: 34px 14px 22px 46px; }
 .sidemirror.right { right: 0.6%; border-radius: 14px 34px 46px 22px; }
 
 /* המראה האחורית באמצע הרכב, כלומר מעט מימין לנהג */
 body.view3d.drivercam .mirror { left: 60%; }
 body.view3d.drivercam .dash { left: 42%; }
+
+/* משוב והערות */
+.fbtext { width: 100%; box-sizing: border-box; margin: 8px 0; padding: 10px; border-radius: 10px; border: 1px solid var(--line, #ccc); font: inherit; resize: vertical; direction: rtl; }
+.fbrow { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+.fbrow select { font: inherit; padding: 4px 8px; border-radius: 8px; }
+#fbList li { white-space: pre-wrap; }

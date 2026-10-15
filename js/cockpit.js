@@ -38,7 +38,7 @@ const Cockpit = {
 
     // מבט מעיני הנהג (יושב משמאל): לוח מכשירים כהה בשליש התחתון, גומחת שעונים והגה גדול מולו,
     // מסך מולטימדיה "צף" באמצע הרכב, ומתחתיו מיזוג, פתחי אוויר וידית ההילוכים
-    const top = H * 0.7, cx = W * 0.3;
+    const top = H * 0.8, cx = W * 0.3;
     this.interior(c, W, H, top);
     // --- משטח הלוח העליון: קצה ישר מתחת לשמשה, מעט מתעגל בקצוות לכיוון הדלתות ---
     const edge = x => top + Math.pow(Math.abs(x / W - 0.45) * 2, 3) * H * 0.02;
@@ -78,7 +78,7 @@ const Cockpit = {
     // --- קונסולה מרכזית: מסך צף מעל הלוח, נורת מצוקה, מיזוג וידית הילוכים ---
     const sx = W * 0.58;
     {
-      const sw = Math.min(W * 0.125, 210), sh = sw * 0.62, sy = top - sh * 0.62;
+      const sw = Math.min(W * 0.1, 170), sh = sw * 0.62, sy = top - sh * 0.62;
       // מסגרת ומסך
       c.fillStyle = '#060708'; this.round(c, sx - sw / 2 - 6, sy - 6, sw + 12, sh + 12, 10); c.fill();
       c.strokeStyle = '#555c63'; c.lineWidth = 1.5; c.stroke();
@@ -94,7 +94,7 @@ const Cockpit = {
       c.fillText(new Date().toTimeString().slice(0, 5), sx + sw * 0.46, sy + sh * 0.1);
       c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(sx - sw / 2 + sw * 0.12, sy + sh * 0.84, sw * 0.88, 1);
       // לוח מיזוג מתחת למסך, עם כפתור מצוקה
-      const py = faceY + H * 0.03, pw = sw * 0.95;
+      const py = faceY + H * 0.02, pw = sw * 0.95;
       c.fillStyle = '#0b0c0e'; this.round(c, sx - pw / 2, py, pw, H * 0.075, 10); c.fill();
       c.strokeStyle = '#8d959d'; c.lineWidth = 2; c.stroke();
       vent(sx - pw * 0.25, py + H * 0.008, pw * 0.4, H * 0.025);
@@ -104,7 +104,7 @@ const Cockpit = {
       c.fillText('22°', sx - pw * 0.3, py + H * 0.055); c.fillText('22°', sx + pw * 0.3, py + H * 0.055);
       for (const kx of [-0.36, 0.36]) { c.fillStyle = '#2a2e33'; c.beginPath(); c.arc(sx + pw * kx * 1.25, py + H * 0.055, H * 0.012, 0, Math.PI * 2); c.fill(); }
       // קונסולה תחתונה וידית ההילוכים
-      const cy0 = py + H * 0.09;
+      const cy0 = py + H * 0.08;
       c.fillStyle = '#121316'; c.beginPath(); c.moveTo(sx - pw * 0.45, cy0); c.lineTo(sx + pw * 0.45, cy0); c.lineTo(sx + pw * 0.62, H); c.lineTo(sx - pw * 0.62, H); c.closePath(); c.fill();
       c.strokeStyle = '#80888f'; c.lineWidth = 2; c.stroke();
       const gx = sx, gy = cy0 + (H - cy0) * 0.45;
@@ -119,7 +119,7 @@ const Cockpit = {
     }
 
     // --- גומחת השעונים מול הנהג, מעל ההגה ---
-    const R = Math.min(H * 0.062, W * 0.045, 62), cy = top + R * 0.1;
+    const R = Math.min(H * 0.05, W * 0.04, 50), cy = top + R * 0.1;
     // מצחייה מעל השעונים
     c.fillStyle = '#1a1c1f';
     c.beginPath(); c.moveTo(cx - R * 3.4, cy + R * 0.9); c.quadraticCurveTo(cx - R * 3.3, cy - R * 1.45, cx, cy - R * 1.5);
@@ -146,7 +146,7 @@ const Cockpit = {
     this.round(c, -R * 1.3, -R * 0.13, R * 1.4, R * 0.26, R * 0.12); c.fill(); c.restore();
 
     // --- הגה: שפה עבה מעור, שני חישורים צדדיים וחישור תחתון, כרית אוויר עם סמל ---
-    const wr = Math.min(H * 0.22, W * 0.16), wx = cx, wy = H * 0.93;
+    const wr = Math.min(H * 0.17, W * 0.13), wx = cx, wy = H * 0.99;
     c.save(); c.translate(wx, wy); c.rotate((player.steer || 0) * 6);
     c.lineWidth = wr * 0.14; c.strokeStyle = '#121315';
     c.beginPath(); c.arc(0, 0, wr, 0, Math.PI * 2); c.stroke();

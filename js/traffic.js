@@ -274,6 +274,49 @@ function spawnNPCs(count, player) {
   return list;
 }
 
+// ===== מנהל תנועה: רכבים שמגיעים לצומת או לכיכר שהנהג מתקרב אליהם =====
+// כדי שיהיה צריך לתת זכות קדימה כמעט בכל צומת, שולחים רכבים מהכיוונים האחרים כך שיגיעו בערך יחד עם הנהג
+const director = { timer: 2, node: null, sent: 0 };
+function trafficDirector(dt, player, list, base) {
+  director.timer -= dt;
+  if (director.timer > 0) return;
+  director.timer = 1.5;
+  // מחזור: רכב רחוק מאוד מפנה מקום (רק כשיש יותר מהכמות הבסיסית)
+  const plain = list.filter(o => o.constructor === NPC);
+  if (plain.length > base) {
+    const far = plain.find(o => Math.hypot(o.x - player.x, o.y - player.y) > 260);
+    if (far) list.splice(list.indexOf(far), 1);
+  }
+  const loc = locate(player);
+  if (!loc || loc.kind !== 'edge' || player.v < 1) return;
+  const e = loc.edge, hd = Math.cos(player.h) * e.d.x + Math.sin(player.h) * e.d.y, dir = hd > 0 ? 1 : -1;
+  const node = toNodeOf(e, dir);
+  const distP = dir > 0 ? e.t1 - loc.t : loc.t - e.t0;
+  if (distP < 25 || distP > 150) return;
+  if (director.node !== node) { director.node = node; director.sent = 0; }
+  const want = node.type === 'roundabout' ? 3 : 2;
+  if (director.sent >= want || plain.length >= base + 8) return;
+  // רכבים שכבר בדרך לצומת הזה מכיוונים אחרים
+  const coming = list.filter(o => o.leg && o.leg.kind === 'edge' && o.leg.edge !== e && toNodeOf(o.leg.edge, o.leg.dir) === node).length;
+  if (coming >= want) return;
+  const opts = node.edges.filter(x => x !== e && laneCount(x, exitDirFrom(node, x) * -1) > 0);
+  if (!opts.length) return;
+  const ex = opts[Math.floor(Math.random() * opts.length)], d2 = -exitDirFrom(node, ex);
+  const span = ex.t1 - ex.t0;
+  // זמן ההגעה של הנהג, והמרחק שהרכב האחר יעבור באותו זמן
+  const tArrive = distP / Math.max(player.v, 5);
+  const dist = Math.max(30, Math.min(span - 10, tArrive * ex.lim / 3.6 * 0.8 + (Math.random() - 0.3) * 15));
+  if (dist < 25) return;
+  const lane = Math.floor(Math.random() * laneCount(ex, d2));
+  const s0 = laneS(ex, d2, lane), pt = edgePoint(ex, d2 > 0 ? ex.t1 - dist : ex.t0 + dist, s0);
+  if (Math.hypot(pt.x - player.x, pt.y - player.y) < 35) return;
+  if (list.some(o => Math.hypot(o.x - pt.x, o.y - pt.y) < 14)) return;
+  const npc = new NPC(ex, d2, null, span - dist);
+  if (npc.type === 'bus') return;
+  list.push(npc);
+  director.sent++;
+}
+
 // ===== הולכי רגל =====
 const PED_COLORS = ['#e05a47', '#3a7bd5', '#f2c14e', '#7b5ea7', '#2a9d8f', '#f28482'];
 
