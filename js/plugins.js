@@ -66,7 +66,7 @@ function sense(time, dt, p, vehicles) {
     car: {
       x: p.x, y: p.y, heading: p.h, speed: p.v, speedKmh: Math.abs(p.v) * 3.6,
       gear: p.gear === 'R' ? 'reverse' : 'drive', blinker: blinkName(p.blinker),
-      steering: p.steer, braking: p.braking, gas: input.up, length: p.len, width: p.wid,
+      steering: p.steer, braking: p.braking, gas: player.gear === 'R' ? input.down : input.up, length: p.len, width: p.wid,
     },
     blinkerUsed: (side, secondsBack) => Rules.wasOn(side === 'left' ? -1 : 1, time - secondsBack, time),
     where: !loc ? 'off' : loc.kind === 'edge' ? 'road' : 'junction',

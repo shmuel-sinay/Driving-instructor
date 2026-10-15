@@ -120,17 +120,77 @@ const Models = {
     const car = { group: g, cabin, body, tails, tailOn, tailOff, blink: { '1': bl(1), '-1': bl(-1) } };
     g.traverse(o => { if (o.isMesh) { o.castShadow = true; } });
     if (!isPlayer) Models.merge(g, [...tails, ...car.blink['1'], ...car.blink['-1']]);
-    if (isPlayer) {
-      // במבט נהג: מכסה מנוע כהה ולוח מחוונים
-      const dash = new T.Group();
-      const hoodGeo = this.extrude([[0.8, 0.84], [2.15, 0.76], [2.25, 0.68], [0.8, 0.68]], P.W - 0.1, 0.05);
-      dash.add(new T.Mesh(hoodGeo, paint));
-      // לוח מחוונים כהה
-      const board = new T.Mesh(new T.BoxGeometry(0.5, 0.12, P.W - 0.2), this.mat(0x1d2126)); board.position.set(0.55, 0.98, 0); dash.add(board);
-      g.add(dash);
-      car.dash = dash;
-    }
+    if (isPlayer) car.dash = this.cockpit(g, P, paint);
     return car;
+  },
+
+  // ===== תא הנהג (רואים אותו רק במבט מכיסא הנהג) =====
+  // הנהג יושב משמאל: עין בגובה 1.3 מ', 0.2 מ' לפני מרכז הרכב ו-0.38 מ' שמאלה (z שלילי).
+  cockpit(g, P, paint) {
+    const T = THREE, dash = new T.Group(), W = P.W - 0.1;
+    const plastic = this.mat(0x24272b), soft = this.mat(0x2e3237), trim = this.mat(0x3a3f45), roofIn = this.mat(0xbdb9b0);
+    // מכסה מנוע שנראה מעבר ללוח
+    dash.add(new T.Mesh(this.extrude([[1.25, 0.88], [2.15, 0.8], [2.25, 0.7], [1.25, 0.7]], W, 0.05), paint));
+    // הלוח (טמבון) לכל רוחב הרכב
+    const board = new T.Mesh(this.extrude([[0.62, 0.9], [0.62, 0.99], [0.76, 1.03], [1.12, 1.01], [1.28, 0.93], [1.28, 0.86]], W, 0.03), soft);
+    dash.add(board);
+    // גומחת השעונים מול הנהג, ומסך השעונים
+    const hump = new T.Mesh(new T.BoxGeometry(0.2, 0.06, 0.46), plastic); hump.position.set(0.78, 1.06, -0.38); dash.add(hump);
+    const gc = document.createElement('canvas'); gc.width = 512; gc.height = 160;
+    const gtex = new T.CanvasTexture(gc); gtex.colorSpace = T.SRGBColorSpace;
+    const gauge = new T.Mesh(new T.PlaneGeometry(0.42, 0.13), new T.MeshBasicMaterial({ map: gtex }));
+    gauge.position.set(0.69, 1.02, -0.38); gauge.rotation.y = -Math.PI / 2; gauge.rotateX(-0.35); dash.add(gauge);
+    // מסך מולטימדיה במרכז ופתחי מיזוג
+    const scr = new T.Mesh(new T.PlaneGeometry(0.24, 0.14), new T.MeshBasicMaterial({ color: 0x1b3a5c }));
+    scr.position.set(0.8, 1.06, 0.02); scr.rotation.y = -Math.PI / 2; scr.rotateX(-0.25); dash.add(scr);
+    for (const z of [-0.72, -0.08, 0.12, 0.7]) { const v = new T.Mesh(new T.BoxGeometry(0.02, 0.05, 0.13), trim); v.position.set(0.63, 0.96, z); dash.add(v); }
+    // הגה: מסתובב לפי ההיגוי
+    const wheelG = new T.Group(); wheelG.position.set(0.5, 0.97, -0.38); wheelG.rotation.z = -0.45;
+    const spin = new T.Group(); wheelG.add(spin);
+    const rim = new T.Mesh(new T.TorusGeometry(0.19, 0.024, 8, 32), this.mat(0x15171a)); rim.rotation.y = Math.PI / 2; spin.add(rim);
+    const hub = new T.Mesh(new T.CylinderGeometry(0.06, 0.06, 0.05, 16), trim); hub.rotation.z = Math.PI / 2; spin.add(hub);
+    const sp1 = new T.Mesh(new T.BoxGeometry(0.02, 0.025, 0.36), plastic); spin.add(sp1);
+    const sp2 = new T.Mesh(new T.BoxGeometry(0.02, 0.17, 0.035), plastic); sp2.position.y = -0.09; spin.add(sp2);
+    const logo = new T.Mesh(new T.CircleGeometry(0.025, 16), this.mat(0xc0c4c8)); logo.position.x = -0.03; logo.rotation.y = -Math.PI / 2; spin.add(logo);
+    dash.add(wheelG);
+    // עמודי השמשה, תקרה ואדני החלונות
+    const beam = (a, b, t, mat) => {
+      const d = new T.Vector3().subVectors(b, a), m = new T.Mesh(new T.BoxGeometry(t, d.length(), t), mat);
+      m.position.copy(a).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()); dash.add(m);
+    };
+    for (const z of [W / 2 - 0.03, -(W / 2 - 0.03)]) {
+      beam(new T.Vector3(1.22, 0.97, z), new T.Vector3(0.6, 1.43, z * 0.93), 0.055, plastic);
+      beam(new T.Vector3(1.0, 0.98, z), new T.Vector3(-0.6, 0.98, z), 0.07, soft);   // אדן החלון
+    }
+    const header = new T.Mesh(new T.BoxGeometry(0.5, 0.04, W), roofIn); header.position.set(0.35, 1.45, 0); dash.add(header);
+    g.add(dash);
+    dash.userData = { wheel: spin, gauge: { ctx: gc.getContext('2d'), tex: gtex } };
+    return dash;
+  },
+  // ציור השעונים: מד מהירות, איתותים, הילוך
+  drawGauge(G, kmh, blinker, blinkOn, gear, lim) {
+    const c = G.ctx;
+    c.fillStyle = '#07090b'; c.fillRect(0, 0, 512, 160);
+    // מד מהירות עגול
+    const cx = 150, cy = 92, r = 64;
+    c.strokeStyle = '#3c4650'; c.lineWidth = 6; c.beginPath(); c.arc(cx, cy, r, Math.PI * 0.75, Math.PI * 2.25); c.stroke();
+    c.strokeStyle = '#9fb3c8'; c.lineWidth = 2;
+    for (let v = 0; v <= 160; v += 20) { const a = Math.PI * 0.75 + v / 160 * Math.PI * 1.5; c.beginPath(); c.moveTo(cx + Math.cos(a) * (r - 10), cy + Math.sin(a) * (r - 10)); c.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); c.stroke(); }
+    const a = Math.PI * 0.75 + Math.min(kmh, 160) / 160 * Math.PI * 1.5;
+    c.strokeStyle = kmh > lim + 3 ? '#ff453a' : '#ff8a3d'; c.lineWidth = 4; c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + Math.cos(a) * (r - 6), cy + Math.sin(a) * (r - 6)); c.stroke();
+    c.fillStyle = '#e8eef4'; c.font = 'bold 30px Arial'; c.textAlign = 'center'; c.fillText(Math.round(kmh), cx, cy + 46);
+    // מסך מרכזי: הילוך ומהירות מותרת
+    c.fillStyle = gear === 'R' ? '#ff453a' : '#50c8ff'; c.font = 'bold 54px Arial'; c.fillText(gear, 330, 104);
+    c.strokeStyle = '#d32f2f'; c.lineWidth = 6; c.beginPath(); c.arc(440, 82, 30, 0, Math.PI * 2); c.stroke();
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(440, 82, 27, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#111'; c.font = 'bold 26px Arial'; c.fillText(lim, 440, 92);
+    // חיצי איתות
+    const arrow = (x, dir, on) => {
+      c.fillStyle = on ? '#34c759' : '#1d2a22';
+      c.beginPath(); c.moveTo(x + dir * 22, 24); c.lineTo(x, 8); c.lineTo(x, 18); c.lineTo(x - dir * 18, 18); c.lineTo(x - dir * 18, 30); c.lineTo(x, 30); c.lineTo(x, 40); c.closePath(); c.fill();
+    };
+    arrow(40, -1, blinker === -1 && blinkOn); arrow(472, 1, blinker === 1 && blinkOn);
+    G.tex.needsUpdate = true;
   },
 
   // אוטובוס עירוני: גוף ארוך, פס חלונות כהה, שלט קו מואר מלפנים

@@ -286,7 +286,7 @@ function apUpdate(dt) {
   if (assist.hint && time > assist.hintUntil) assist.hint = null;
   if (st.kind === 'parked') {
     // נסיעה לאחור לאורך המדרכה (משימת בוחן)
-    if (p.gear === 'R' && input.up) {
+    if (p.gear === 'R' && input.down) {
       const behind = st.e.parked.some(c => c.key === st.key && (st.t - c.t) * st.dir > 0 && (st.t - c.t) * st.dir < 5.0);
       const tStart = st.dir > 0 ? st.e.t0 : st.e.t1;
       if (behind || (st.t - tStart) * st.dir < 3) { p.v = 0; apHint('יש רכב או צומת מאחור: עצור'); apPlace(); return; }

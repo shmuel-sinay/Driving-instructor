@@ -71,6 +71,7 @@ window.addEventListener('keydown', e => {
     case 'KeyQ': case 'Comma': act.blink(-1); break;
     case 'KeyE': case 'Period': act.blink(1); break;
     case 'KeyX': act.blinkOff(); break;
+    case 'KeyH': act.horn(true); break;
     case 'KeyR': act.gear(); break;
     case 'KeyP': act.park('right'); break;
     case 'KeyO': act.park('left'); break;
@@ -83,12 +84,12 @@ window.addEventListener('keydown', e => {
     case 'Escape': if (!$('help').hidden) startDriving(); else showHelp(); break;
     case 'Equal': case 'NumpadAdd': cam.userZoom = Math.min(2, cam.userZoom * 1.15); break;
     case 'Minus': case 'NumpadSubtract': cam.userZoom = Math.max(0.45, cam.userZoom / 1.15); break;
-    case 'Space': e.preventDefault(); act.horn(true); break;
+    case 'Space': e.preventDefault(); act.blinkOff(); break;
   }
 });
 window.addEventListener('keyup', e => {
   if (keyMap[e.code]) input[keyMap[e.code]] = false;
-  if (e.code === 'Space') act.horn(false);
+  if (e.code === 'KeyH') act.horn(false);
 });
 window.addEventListener('blur', () => { for (const k in input) input[k] = false; });
 canvas.addEventListener('wheel', e => { e.preventDefault(); cam.userZoom = Math.max(0.45, Math.min(2, cam.userZoom * (e.deltaY > 0 ? 0.9 : 1.1))); }, { passive: false });
@@ -117,6 +118,7 @@ clickAct('cParkL', () => act.park('left'));
 clickAct('cGear', () => act.gear());
 clickAct('blinkL', () => act.blink(-1));
 clickAct('blinkR', () => act.blink(1));
+clickAct('blinkCancel', () => act.blinkOff());
 $('cHorn').addEventListener('pointerdown', e => { e.preventDefault(); act.horn(true); });
 $('cHorn').addEventListener('pointerup', () => act.horn(false));
 $('cHorn').addEventListener('pointerleave', () => act.horn(false));
@@ -480,6 +482,8 @@ function updateHUD(dt) {
   const kmh = Math.round(Math.abs(player.v) * 3.6);
   $('speed').textContent = kmh;
   $('gear').textContent = player.gear;
+  $('gearWarn').hidden = player.gear !== 'R';
+  $('blinkCancel').hidden = !player.blinker;
   const lim = Rules.lastLim;
   drawLimit(lim);
   $('speedBox').classList.toggle('over', kmh > lim + 3);
@@ -504,7 +508,12 @@ function updateHUD(dt) {
   $('plan').hidden = !plan;
   if (plan) { $('plan').textContent = plan; $('plan').classList.toggle('warn', plan === assist.hint); }
   const ins = $('instr');
-  if (Rules.instr) { ins.hidden = false; $('instrText').textContent = Rules.instr.text; }
+  if (Rules.instr) {
+    ins.hidden = false;
+    // הוראת חניה: אומרים בדיוק מה ללחוץ
+    const how = Rules.instr.kind === 'park' ? (Rules.instr.side === 'right' ? ' (מקשים: E לאיתות, ואז P)' : ' (מקשים: Q לאיתות, ואז O)') : Rules.instr.kind === 'unpark' ? ' (איתות לכיוון הכביש ואז ↑)' : Rules.instr.kind === 'reverse' ? ' (R ואז ↓)' : '';
+    $('instrText').textContent = Rules.instr.text + how;
+  }
   else ins.hidden = true;
 }
 
@@ -549,6 +558,8 @@ function frame(now) {
       const vehicles = [player, ...npcs, ...parkedList];
       for (const n of npcs) n.update(h, time, vehicles);
       emergencyTick(h);
+      // רכב שהיה מעורב בתאונה מפנה את הכביש אחרי שתי שניות, כדי שלא ניתקע צמודים
+      for (let j = npcs.length - 1; j >= 0; j--) if (npcs[j].crashedAt && time - npcs[j].crashedAt > 2) npcs.splice(j, 1);
       updatePeds(h, player);
       Rules.update(h, time, player, vehicles);
     }

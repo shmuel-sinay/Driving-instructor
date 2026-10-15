@@ -63,16 +63,22 @@ const Rules = {
     if (this.offTimer > 0.25 && Math.abs(p.v) > 0.3) this.report('off', 'עלייה על המדרכה / יציאה משולי הכביש', false, time, 5);
     if (this.islandTimer > 0.2) this.report('island', 'עלייה על אי התנועה בכיכר', true, time, 6);
 
-    // התנגשויות
+    // התנגשויות: נרשמת רק פעם אחת לכל מגע (לא שוב ושוב כשהרכבים נשארים צמודים)
+    const touching = new Set();
     for (const o of vehicles) {
       if (o === p) continue;
       if (Math.hypot(o.x - p.x, o.y - p.y) < ((o.len || 4.4) + p.len) / 2 + 2 && boxesOverlap(p, o)) {
-        // כשאנחנו עומדים והרכב השני נכנס בנו, זו לא עבירה שלנו
-        if (Math.abs(p.v) > 0.3 || !o.v) this.report('crash', 'תאונה! התנגשות ברכב אחר', true, time, 3);
-        p.x -= Math.cos(p.h) * Math.sign(p.v || 1) * 0.6; p.y -= Math.sin(p.h) * Math.sign(p.v || 1) * 0.6;
-        p.v = 0; o.v = 0;
+        touching.add(o);
+        if (!this.contacts || !this.contacts.has(o)) {
+          // כשאנחנו עומדים ורכב אחר נכנס בנו, זו לא עבירה שלנו
+          if (Math.abs(p.v) > 0.3 || o.isParked) this.report('crash', 'תאונה! התנגשות ברכב אחר', true, time, 3);
+          else if (this.onEvent) this.onEvent('good', { text: 'רכב אחר פגע ברכב שלך בזמן שעמדת. זו לא עבירה שלך' });
+          o.crashedAt = time;   // הרכב השני יפונה מהכביש אחרי רגע
+        }
+        p.v = 0; if (o.v != null) o.v = 0;
       }
     }
+    this.contacts = touching;
     for (const cw of crosswalks) for (const pd of cw.peds) {
       if (pd.state !== 'leave' && pointInBox(p, pd, 0.35)) {
         this.report('pedhit', 'פגיעה בהולך רגל!', true, time, 4);
@@ -599,7 +605,7 @@ const Rules = {
     const fromStart = dir > 0 ? loc.t - e.t0 : e.t1 - loc.t;
     // הוראת חניה (בערך בשליש מהרחובות שיש בהם חניה)
     const rollKey = e.id + dir;
-    if (assist.on && this.parkRolled !== rollKey && fromStart > 10 && dist > 110) {
+    if (assist.on && time > 40 && this.parkRolled !== rollKey && fromStart > 10 && dist > 110) {
       this.parkRolled = rollKey;
       const sides = ['right', 'left'].filter(sd => parkStripOf(e, dir, sd));
       if (sides.length && Math.random() < 0.4) {

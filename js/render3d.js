@@ -789,8 +789,18 @@ const View3D = {
     this.syncNPCs(list, blinkOn);
     this.syncPeds();
     this.updateWalkers(dt);
-    this.syncCar(this.player, p, { braking: p.braking || (p.v === 0 && !input.up), blinker: p.blinker, blinkOn });
+    this.syncCar(this.player, p, { braking: p.braking || (p.v === 0 && !(p.gear === 'R' ? input.down : input.up)), blinker: p.blinker, blinkOn });
     const driver = mode === 'driver';
+    // תא הנהג: הגה שמסתובב ושעונים חיים
+    if (driver && this.player.dash.userData.wheel) {
+      const ud = this.player.dash.userData;
+      ud.wheel.rotation.x = -(p.steer || 0) * 7;
+      if (!this.gaugeT || time - this.gaugeT > 0.06 || time < this.gaugeT) {
+        this.gaugeT = time;
+        const loc = typeof Rules !== 'undefined' && Rules.lastLim ? Rules.lastLim : 50;
+        Models.drawGauge(ud.gauge, Math.abs(p.v) * 3.6, p.blinker, blinkOn, p.gear, loc);
+      }
+    }
     // במבט נהג מסתירים את גוף הרכב ומשאירים רק את מכסה המנוע
     if (this.player.driverView !== driver) {
       this.player.driverView = driver;

@@ -24,7 +24,7 @@ body { background: #6f9a4a; color: var(--paper); font-family: var(--f-body); ove
 #view3d { display: none; }
 body.view3d #view3d { display: block; }
 body.view3d #game { visibility: hidden; }
-:root { --top: 70px; --mirror-w: min(440px, 34vw); }
+:root { --top: 70px; --mirror-w: min(400px, 30vw, 48vh); }
 .mirror { position: absolute; left: 50%; transform: translateX(-50%); top: calc(var(--top) + 4px); width: var(--mirror-w); aspect-ratio: 3.2; border: 4px solid #15181b; border-radius: 16px; box-shadow: 0 6px 18px rgba(0,0,0,.35); pointer-events: none; }
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible, canvas:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
@@ -306,3 +306,19 @@ kbd { font-family: var(--f-num); font-size: 13px; background: #232a30; border: 1
 .tbar span.ok { background: var(--green); } .tbar span.low { background: var(--amber); }
 .tpct { font-family: var(--f-num); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .tcat button { padding: 3px 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; font-size: 13px; }
+
+/* ===== לוח שליטה מסודר: שמאל משמאל, ימין מימין ===== */
+.controls .drive { direction: ltr; }
+.controls .drive .cancel { color: #ffb4ab; }
+.controls button small { white-space: nowrap; }
+.blinkcancel { pointer-events: auto; border: 1px solid var(--amber); background: rgba(255,163,26,.15); color: var(--amber); border-radius: 10px; padding: 6px 10px; font-size: 13px; font-weight: 700; }
+.gearwarn { background: rgba(255,69,58,.18); border: 2px solid var(--red); color: #fff; border-radius: 999px; padding: 5px 14px; font-size: 15px; font-weight: 700; white-space: nowrap; }
+/* במבט נהג: ההודעות קצרות (ההסבר המלא ביומן העבירות) כדי לא להסתיר את הכביש */
+body.view3d .toast .why { display: none; }
+body.view3d .toast { padding: 6px 12px; font-size: 15px; }
+@media (max-height: 820px) {
+  .toasts { width: min(400px, calc(100% - 32px)); }
+  .controls .drive { grid-auto-rows: 46px; }
+  .controls .pedals .gas { height: 96px; }
+  .controls .pedals .brake { height: 66px; }
+}

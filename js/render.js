@@ -564,7 +564,7 @@ function renderWorld(ctx, W, H, time, npcs) {
   for (const e of edges) for (const c of e.parked) drawCar(ctx, c, c.color, {});
   const blinkOn = (time % 0.8) < 0.45;
   for (const n of npcs) drawCar(ctx, n, n.color, { braking: n.braking, blinker: n.blinker, blinkOn, time });
-  drawCar(ctx, player, '#f4f1e8', { braking: player.braking || (player.v === 0 && !input.up), blinker: player.blinker, blinkOn, reverse: player.gear === 'R' });
+  drawCar(ctx, player, '#f4f1e8', { braking: player.braking || (player.v === 0 && !(player.gear === 'R' ? input.down : input.up)), blinker: player.blinker, blinkOn, reverse: player.gear === 'R' });
   // פס זיהוי לרכב שלך
   ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.h);
   ctx.fillStyle = '#1f6feb'; ctx.fillRect(-1.4, -0.12, 2.4, 0.24); ctx.restore();

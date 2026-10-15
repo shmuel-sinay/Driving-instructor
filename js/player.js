@@ -35,9 +35,12 @@ function updatePedals(dt, allowReverse) {
   const p = player;
   let a = 0;
   const fwd = p.gear === 'D';
-  // דוושת הגז מסיעה בכיוון ההילוך (D קדימה, R אחורה), והבלם תמיד בולם
-  const gas = input.up;
-  const brake = input.down;
+  // ↑ תמיד קדימה. בהילוך אחורי: ↓ מסיע אחורה, ו-↑ בולם ואז מחזיר להילוך קדימה
+  let gas = input.up, brake = input.down;
+  if (!fwd) {
+    gas = input.down; brake = input.up;
+    if (input.up && Math.abs(p.v) < 0.05) { p.gear = 'D'; p.v = 0; return; }
+  }
   const sp = Math.abs(p.v);
   p.braking = false;
   if (brake) {
