@@ -15,6 +15,7 @@ function resize() {
   const mw = mini.clientWidth, mh = mini.clientHeight;
   mini.width = mw * DPR; mini.height = mh * DPR;
   if (typeof View3D !== 'undefined') View3D.resize(W, H);
+  if (typeof Cockpit !== 'undefined') Cockpit.resize(W, H, DPR);
   // מיקום הרכב במבט מלמעלה: מעל לוח המחוונים
   const dash = document.querySelector('.dash');
   carScreenY = dash ? Math.min(H * 0.7, dash.getBoundingClientRect().top - 70) : H * 0.7;
@@ -600,6 +601,9 @@ function frame(now) {
     updateCamera(dt, W, H);
     renderWorld(ctx, W, H, time, npcs);
   }
+  // לוח מחוונים אמיתי במבט נהג
+  if (cam.mode === 'driver' && View3D.ok) Cockpit.draw(dt, { gas: player.gear === 'R' ? input.down : input.up, blinkOn: (time % 0.8) < 0.45, lim: Rules.lastLim, lights: View3D.weather === 'night' });
+  else Cockpit.hide();
   mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   renderMinimap(mctx, mini.clientWidth, mini.clientHeight, npcs);
   updateHUD(dt);

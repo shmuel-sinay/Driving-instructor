@@ -237,10 +237,6 @@ const Models = {
     const gtex = new T.CanvasTexture(gc); gtex.colorSpace = T.SRGBColorSpace;
     const gauge = new T.Mesh(new T.PlaneGeometry(0.42, 0.13), new T.MeshBasicMaterial({ map: gtex }));
     gauge.position.set(0.69, 1.02, -0.38); gauge.rotation.y = -Math.PI / 2; gauge.rotateX(-0.35); dash.add(gauge);
-    // מסך מולטימדיה במרכז ופתחי מיזוג
-    const scr = new T.Mesh(new T.PlaneGeometry(0.2, 0.11), new T.MeshBasicMaterial({ color: 0x0f2236 }));
-    scr.position.set(0.8, 1.06, 0.02); scr.rotation.y = -Math.PI / 2; scr.rotateX(-0.25); dash.add(scr);
-    for (const z of [-0.72, -0.08, 0.12, 0.7]) { const v = new T.Mesh(new T.BoxGeometry(0.02, 0.05, 0.13), trim); v.position.set(0.63, 0.96, z); dash.add(v); }
     // הגה: מסתובב לפי ההיגוי
     const wheelG = new T.Group(); wheelG.position.set(0.6, 0.92, -0.38); wheelG.rotation.z = -0.5;
     const spin = new T.Group(); wheelG.add(spin);
@@ -256,20 +252,9 @@ const Models = {
       m.position.copy(a).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()); dash.add(m);
     };
     for (const z of [W / 2 - 0.03, -(W / 2 - 0.03)]) {
-      beam(new T.Vector3(1.3, 0.97, z), new T.Vector3(0.62, 1.47, z * 0.95), 0.035, plastic);
+      beam(new T.Vector3(1.3, 0.97, z), new T.Vector3(0.62, 1.47, z * 0.95), 0.028, this.mat(0x6b6e72));
       beam(new T.Vector3(1.0, 0.98, z), new T.Vector3(-0.6, 0.98, z), 0.07, soft);   // אדן החלון
     }
-    // מראות צד: גוף בצבע הרכב וזכוכית כהה משקפת, משני הצדדים
-    for (const z of [1, -1]) {
-      const housing = new T.Mesh(this.geo('sideMirror', () => new T.BoxGeometry(0.1, 0.13, 0.22)), plastic);
-      housing.position.set(1.05, 1.14, z * (P.W / 2 + 0.16)); housing.scale.setScalar(0.75); dash.add(housing);
-      const glassM = new T.Mesh(this.geo('sideMirrorGlass', () => new T.PlaneGeometry(0.19, 0.1)), this.pbr(0x8fa3b5, 1, 0.05));
-      glassM.position.set(1.01, 1.14, z * (P.W / 2 + 0.16)); glassM.scale.setScalar(0.75); glassM.rotation.y = -Math.PI / 2; dash.add(glassM);
-      const arm = new T.Mesh(this.geo('mirrorArm', () => new T.BoxGeometry(0.06, 0.03, 0.12)), plastic); arm.position.set(1.07, 1.1, z * (P.W / 2 + 0.06)); dash.add(arm);
-    }
-    // ידית הילוכים וקונסולה מרכזית
-    const console1 = new T.Mesh(new T.BoxGeometry(0.6, 0.18, 0.22), soft); console1.position.set(0.25, 0.82, 0.02); dash.add(console1);
-    const knob = new T.Mesh(new T.SphereGeometry(0.035, 12, 8), this.pbr(0x111111, 0.3, 0.4)); knob.position.set(0.15, 0.97, 0.02); dash.add(knob);
     const header = new T.Mesh(new T.BoxGeometry(0.4, 0.03, W), roofIn); header.position.set(0.4, 1.5, 0); dash.add(header);
     // קווי עזר על הכביש: איפה הרכב נגמר מימין, משמאל ומלפנים (כמו מצלמת חניה)
     const guideMat = new T.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.7, depthWrite: false });
@@ -286,7 +271,9 @@ const Models = {
     guides.visible = Models.guidesOn;
     dash.add(guides);
     g.add(dash);
-    dash.userData = { guides, wheel: spin, gauge: { ctx: gc.getContext('2d'), tex: gtex } };
+    // הלוח, השעונים וההגה מצוירים עכשיו בלוח המחוונים שעל המסך (cockpit.js)
+    board.visible = hump.visible = gauge.visible = wheelG.visible = false;
+    dash.userData = { guides, wheel: null, gauge: { ctx: gc.getContext('2d'), tex: gtex } };
     return dash;
   },
   // ציור השעונים: מד מהירות, איתותים, הילוך
