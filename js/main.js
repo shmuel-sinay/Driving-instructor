@@ -46,7 +46,7 @@ const act = {
   lane(side) { if (assist.on) apLane(side); },
   park(side) { if (assist.on) apPark(side); else Rules.onEvent('good', { text: 'חניה אוטומטית עובדת בהיגוי אוטומטי' }); },
   gear() { if (!toggleGear()) Rules.onEvent('good', { text: 'עצור לגמרי לפני החלפת הילוך' }); else tick(false); },
-  horn(on) { player.horn = on; if (on) beep(392, 0.35, 0.07, 'sawtooth'); },
+  horn(on) { player.horn = on; truckHorn(on); },
   reset() { resetPlayer(); Rules.loc = null; Rules.entry = null; Rules.rb = null; },
 };
 
@@ -185,6 +185,13 @@ $('btnEmergency').addEventListener('click', () => {
   showEmergency();
 });
 showEmergency();
+// התפריט נסגר אחרי בחירה (חוץ מהגדרות, שאפשר לשנות כמה ברצף)
+$('mainMenu').addEventListener('click', e => { if (e.target.closest('button') && !e.target.closest('#settings')) $('mainMenu').open = false; });
+// רמזים "לפניך": אפשר לכבות כדי לזהות לבד רמזורים ותמרורים
+let hintsOn = (() => { try { return localStorage.getItem('driving-practice.hints') !== 'off'; } catch (e) { return true; } })();
+function showHints() { $('btnHints').textContent = hintsOn ? 'רמזים "לפניך": מוצגים' : 'רמזים "לפניך": מוסתרים (מזהים לבד)'; $('nextBox').hidden = !hintsOn; }
+$('btnHints').addEventListener('click', () => { hintsOn = !hintsOn; try { localStorage.setItem('driving-practice.hints', hintsOn ? 'on' : 'off'); } catch (e) { /* לא חובה */ } showHints(); });
+showHints();
 $('btnReset').addEventListener('click', () => { act.reset(); $('settings').open = false; });
 $('btnLog').addEventListener('click', toggleLog);
 $('btnHelp').addEventListener('click', showHelp);
@@ -356,6 +363,24 @@ function beep(freq, dur, vol = 0.05, type = 'square') {
   o.type = type; o.frequency.value = freq; g.gain.value = vol;
   g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
   o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + dur);
+}
+// צופר של משאית: שלושה צלילים נמוכים יחד, מסונן, נשמע כל עוד לוחצים
+let hornNode = null;
+function truckHorn(on) {
+  ensureAudio();
+  if (!soundOn || !actx) return;
+  if (on && !hornNode) {
+    const g = actx.createGain(), f = actx.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.value = 1400; f.Q.value = 0.8;
+    g.gain.setValueAtTime(0, actx.currentTime); g.gain.linearRampToValueAtTime(0.16, actx.currentTime + 0.05);
+    const os = [138, 174, 208].map(fr => { const o = actx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.connect(f); o.start(); return o; });
+    f.connect(g).connect(actx.destination);
+    hornNode = { g, os };
+  } else if (!on && hornNode) {
+    const h = hornNode; hornNode = null;
+    h.g.gain.setTargetAtTime(0, actx.currentTime, 0.04);
+    h.os.forEach(o => o.stop(actx.currentTime + 0.3));
+  }
 }
 function tick(hi) { beep(hi ? 1400 : 1000, 0.03, 0.04); }
 

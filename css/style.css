@@ -322,3 +322,12 @@ body.view3d .toast { padding: 6px 12px; font-size: 15px; }
   .controls .pedals .gas { height: 96px; }
   .controls .pedals .brake { height: 66px; }
 }
+
+/* ===== תפריט מקופל: רק כפתור אחד בסרגל העליון ===== */
+.mainmenu { position: relative; margin-inline-start: auto; }
+.mainmenu > summary { list-style: none; cursor: pointer; white-space: nowrap; background: var(--glass); border: 1px solid var(--line); border-radius: 10px; padding: 9px 16px; font-size: 16px; font-weight: 700; }
+.mainmenu > summary::-webkit-details-marker { display: none; }
+.mainmenu[open] > summary { border-color: var(--sky); }
+.mainmenu > .tools { position: absolute; top: calc(100% + 6px); inset-inline-end: 0; z-index: 20; display: grid; gap: 4px; min-width: 230px; max-height: 80vh; overflow-y: auto; margin: 0; width: auto; padding: 8px; background: #14191d; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+.mainmenu > .tools > button, .mainmenu .settings summary { text-align: start; width: 100%; }
+.mainmenu .settings .menu { position: static; box-shadow: none; margin-top: 4px; }

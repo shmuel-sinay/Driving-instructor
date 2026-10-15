@@ -677,25 +677,46 @@ const View3D = {
     Models.merge(all);
   },
 
+  // רמזור: עמוד בצד הדרך ועוד ראש רמזור על זרוע מעל הנתיבים, עם הילה זוהרת לאור הדולק
   buildLight(s, face) {
     const T = THREE;
     const g = new T.Group();
-    const pole = new T.Mesh(new T.CylinderGeometry(0.08, 0.08, 3.4, 6), this.mat(0x3a3f44));
-    pole.position.y = 1.7; g.add(pole);
-    const box = new T.Mesh(new T.BoxGeometry(0.42, 1.15, 0.3), this.mat(0x1d1f22));
-    box.position.y = 3.6; g.add(box);
-    const lamps = ['#ff3b30', '#ffcc00', '#34c759'].map((c, i) => {
-      const on = new T.MeshBasicMaterial({ color: c });
-      const off = this.mat(0x2b2b2b);
-      const l = new T.Mesh(new T.CircleGeometry(0.13, 14), off);
-      l.position.set(0, 3.95 - i * 0.35, 0.16);
-      g.add(l);
-      return { mesh: l, on, off };
-    });
+    const poleMat = this.mat(0x3a3f44), boxMat = this.mat(0x1d1f22);
+    if (!this.haloTex) {
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+      this.haloTex = new T.CanvasTexture(c); this.haloTex.userData.cached = true;
+    }
+    const pole = new T.Mesh(new T.CylinderGeometry(0.1, 0.12, 5.6, 8), poleMat);
+    pole.position.y = 2.8; g.add(pole);
+    // הזרוע מעל הכביש (לכיוון מרכז הכביש = x שלילי)
+    const loc = s.edge ? edgeLocal(s.edge, s) : { s: 6 };
+    const arm = Math.max(2.5, Math.min(7, Math.abs(loc.s) - 1.5));
+    const beam = new T.Mesh(new T.CylinderGeometry(0.07, 0.07, arm, 6), poleMat);
+    beam.rotation.z = Math.PI / 2; beam.position.set(-arm / 2, 5.5, 0); g.add(beam);
+    const head = (x, y, scale) => {
+      const box = new T.Mesh(new T.BoxGeometry(0.55 * scale, 1.5 * scale, 0.35), boxMat);
+      box.position.set(x, y, 0); g.add(box);
+      const visor = new T.Mesh(new T.BoxGeometry(0.75 * scale, 1.7 * scale, 0.04), boxMat);
+      visor.position.set(x, y, -0.18); g.add(visor);
+      return ['#ff3b30', '#ffcc00', '#34c759'].map((c, i) => {
+        const on = new T.MeshBasicMaterial({ color: c });
+        const off = this.mat(0x2b2b2b);
+        const l = new T.Mesh(new T.CircleGeometry(0.18 * scale, 18), off);
+        l.position.set(x, y + (0.46 - i * 0.46) * scale, 0.18);
+        g.add(l);
+        const halo = new T.Sprite(new T.SpriteMaterial({ map: this.haloTex, color: c, transparent: true, depthWrite: false, blending: T.AdditiveBlending }));
+        halo.scale.setScalar(1.3 * scale); halo.position.set(x, l.position.y, 0.25); halo.visible = false; g.add(halo);
+        return { mesh: l, on, off, halo };
+      });
+    };
+    const lamps1 = head(0, 3.4, 1), lamps2 = head(-arm + 0.2, 4.8, 1.15);
     g.position.set(s.x, 0, s.y);
     g.rotation.y = face;
     this.scene.add(g);
-    this.lights.push({ node: s.node, edge: s.edge, lamps });
+    this.lights.push({ node: s.node, edge: s.edge, lamps: lamps1 }, { node: s.node, edge: s.edge, lamps: lamps2 });
   },
 
   makeCar(color, isPlayer, type) {
@@ -832,7 +853,7 @@ const View3D = {
     for (const L of this.lights) {
       const st = lightState(L.node, axisOf(L.edge), time);
       const on = [st === 'red' || st === 'redyellow', st === 'yellow' || st === 'redyellow', st === 'green'];
-      L.lamps.forEach((l, i) => { l.mesh.material = on[i] ? l.on : l.off; });
+      L.lamps.forEach((l, i) => { l.mesh.material = on[i] ? l.on : l.off; if (l.halo) l.halo.visible = on[i]; });
     }
     // קפיצה קטנה על פס האטה
     this.bounce *= Math.exp(-dt * 6);
